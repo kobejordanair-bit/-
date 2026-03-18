@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>法學文獻打字訓練系統</title>
+  
+  <!-- 載入 React 與 Babel (用於解析 JSX) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- 載入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* 隱藏原生捲軸讓介面更乾淨 */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    const LEGAL_TEXTS = [
+      {
+        id: 1,
+        category: '憲法法庭',
+        title: '比例原則與基本權保障',
+        content: '按憲法第十五條規定人民之生存權、工作權及財產權應予保障，乃國家對人民而言，不僅有消極之不侵害義務，更負有積極之保護義務。然國家為追求公共利益，於符合憲法第二十三條比例原則之限度內，自得由立法機關制定法律，對人民之基本權利為合理之限制。'
+      },
+      {
+        id: 2,
+        category: '民法',
+        title: '侵權行為與相當因果關係',
+        content: '民法第一百八十四條第一項前段規定，因故意或過失，不法侵害他人之權利者，負損害賠償責任。此項侵權行為損害賠償請求權之發生，不僅須有損害之結果，且須該損害與加害人之不法行為間有相當因果關係。所謂相當因果關係，係指依經驗法則，綜合行為當時所存在之一切事實，為客觀之事後審查，認為在一般情形下，有此環境、有此行為之同一條件，均可發生同一之結果者，則該條件即為發生結果之相當條件。'
+      },
+      {
+        id: 3,
+        category: '刑法',
+        title: '直接故意與間接故意',
+        content: '刑法上之故意，分為直接故意與間接故意。行為人對於構成犯罪之事實，明知並有意使其發生者，為直接故意；行為人對於構成犯罪之事實，預見其發生而其發生並不違背其本意者，為間接故意。兩者之區別，在於前者對犯罪事實之發生，有明確之認識及強烈之意欲；後者則僅具容任其發生之微弱意欲。'
+      },
+      {
+        id: 4,
+        category: '行政法',
+        title: '有利不利一律注意原則',
+        content: '行政程序法第九條規定，行政機關就該管行政程序，應於當事人有利及不利之情形，一律注意。此為行政程序法上之客觀性義務，旨在確保行政機關行使公權力時，能本於公正、客觀之立場，全面調查證據並斟酌相關事證，避免偏頗，以保障人民正當行政程序之權利。'
+      }
+    ];
+
+    const ProgressChart = ({ data }) => {
+      if (!data || data.length < 2) return null;
+      const pts = [...data].reverse();
+      const maxVal = Math.max(...pts.map(d => Math.max(d.cpm || 0, d.netCpm || 0)), 50);
+      const minVal = 0;
+      const width = 600;
+      const height = 120;
+      const dx = width / (pts.length - 1);
+
+      const getPoints = (key) => pts.map((d, i) => {
+        const val = d[key] || 0;
+        const x = i * dx;
+        const y = height - ((val - minVal) / (maxVal - minVal)) * height;
+        return `${x},${y}`;
+      }).join(' ');
+
+      return (
+        <div className="w-full mt-4 mb-8">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <span>📈</span> 速度成長趨勢 (近100筆)
+            </h4>
+            <div className="flex gap-4 text-xs text-slate-500">
+              <span className="flex items-center gap-1"><div className="w-3 h-0.5 bg-blue-600"></div> Net CPM</span>
+              <span className="flex items-center gap-1"><div className="w-3 h-0.5 bg-slate-300 border-dashed border-t border-slate-400"></div> Gross CPM</span>
+            </div>
+          </div>
+          <div className="w-full h-[120px] relative border-b border-l border-slate-200">
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+              <line x1="0" y1="0" x2={width} y2="0" stroke="#f1f5f9" strokeWidth="1" />
+              <line x1="0" y1={height/2} x2={width} y2={height/2} stroke="#f1f5f9" strokeWidth="1" />
+              <polyline points={getPoints('cpm')} fill="none" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="4 4" />
+              <polyline points={getPoints('netCpm')} fill="none" stroke="#2563eb" strokeWidth="2" />
+            </svg>
+            <div className="absolute top-0 -left-6 text-[10px] text-slate-400">{maxVal}</div>
+            <div className="absolute bottom-0 -left-6 text-[10px] text-slate-400">0</div>
+          </div>
+          <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+            <span>舊紀錄</span>
+            <span>最新紀錄</span>
+          </div>
+        </div>
+      );
+    };
+
+    function App() {
+      const [customTexts, setCustomTexts] = useState(() => {
+        const saved = localStorage.getItem('legalTypingCustomTexts');
+        return saved ? JSON.parse(saved) : [];
+      });
+      const [history, setHistory] = useState(() => {
+        const saved = localStorage.getItem('legalTypingHistory');
+        return saved ? JSON.parse(saved) : [];
+      });
+      
+      const allDocs = useMemo(() => [...LEGAL_TEXTS, ...customTexts], [customTexts]);
+      const [selectedDoc, setSelectedDoc] = useState(allDocs[0]);
+      
+      const [practiceMode, setPracticeMode] = useState('full');
+      const [timeLimit, setTimeLimit] = useState(5);
+      const [wordLimit, setWordLimit] = useState(300);
+      const [timeLeft, setTimeLeft] = useState(null);
+      const [targetContent, setTargetContent] = useState('');
+      
+      const currentInputRef = useRef(''); 
+      const [input, setInput] = useState('');
+      const [startTime, setStartTime] = useState(null);
+      const [isFinished, setIsFinished] = useState(false);
+      
+      const [cpm, setCpm] = useState(0); 
+      const [accuracy, setAccuracy] = useState(100);
+      const netCpm = useMemo(() => Math.round(cpm * (accuracy / 100)), [cpm, accuracy]);
+      
+      const [showAddModal, setShowAddModal] = useState(false);
+      const [showHistoryModal, setShowHistoryModal] = useState(false);
+      const [newDocForm, setNewDocForm] = useState({ category: '自訂', title: '', content: '' });
+
+      const [isExtracting, setIsExtracting] = useState(false);
+      const [toastMsg, setToastMsg] = useState('');
+      
+      const fileInputRef = useRef(null);
+      const pdfInputRef = useRef(null);
+      const inputRef = useRef(null);
+      const handleFinishRef = useRef(null);
+
+      useEffect(() => {
+        let text = selectedDoc.content;
+        if (practiceMode === 'words') {
+          while (text.length < wordLimit) text += selectedDoc.content;
+          text = text.slice(0, wordLimit);
+        } else if (practiceMode === 'time') {
+          while (text.length < 3000) text += selectedDoc.content;
+          text = text.slice(0, 3000); 
+        }
+        setTargetContent(text);
+        handleReset();
+      }, [selectedDoc, practiceMode, wordLimit, timeLimit]);
+
+      const handleFinish = useCallback((overrideInput) => {
+        if (isFinished) return;
+        const finalVal = typeof overrideInput === 'string' ? overrideInput : currentInputRef.current;
+        setIsFinished(true);
+        const end = Date.now();
+        
+        const timeInMinutes = startTime ? (end - startTime) / 60000 : 0;
+        const finalCpm = timeInMinutes > 0 ? Math.round(finalVal.length / timeInMinutes) : 0;
+
+        let correctChars = 0;
+        for (let i = 0; i < finalVal.length; i++) {
+          if (finalVal[i] === targetContent[i]) correctChars++;
+        }
+        const finalAccuracy = finalVal.length === 0 ? 100 : Math.round((correctChars / finalVal.length) * 100);
+        const finalNetCpm = Math.round(finalCpm * (finalAccuracy / 100));
+        
+        setCpm(finalCpm);
+        setAccuracy(finalAccuracy);
+        
+        const modeLabel = practiceMode === 'full' ? '全文' : practiceMode === 'time' ? `${timeLimit}分鐘` : `${wordLimit}字`;
+        const newRecord = {
+          id: Date.now(),
+          date: new Date().toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+          title: `${selectedDoc.title} (${modeLabel})`,
+          cpm: finalCpm,
+          netCpm: finalNetCpm,
+          accuracy: finalAccuracy
+        };
+        
+        setHistory(prev => {
+          const updatedHistory = [newRecord, ...prev].slice(0, 100);
+          localStorage.setItem('legalTypingHistory', JSON.stringify(updatedHistory));
+          return updatedHistory;
+        });
+      }, [isFinished, startTime, targetContent, practiceMode, timeLimit, wordLimit, selectedDoc.title]);
+
+      useEffect(() => {
+        handleFinishRef.current = handleFinish;
+      }, [handleFinish]);
+
+      useEffect(() => {
+        let timer;
+        if (startTime && !isFinished && practiceMode === 'time') {
+          timer = setInterval(() => {
+            const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+            const remaining = (timeLimit * 60) - elapsedSeconds;
+            
+            if (remaining <= 0) {
+              setTimeLeft(0);
+              clearInterval(timer);
+              if (handleFinishRef.current) handleFinishRef.current();
+            } else {
+              setTimeLeft(remaining);
+            }
+          }, 1000);
+        }
+        return () => clearInterval(timer);
+      }, [startTime, isFinished, practiceMode, timeLimit]);
+
+      useEffect(() => {
+        if (inputRef.current) inputRef.current.focus();
+      }, [selectedDoc, practiceMode]);
+
+      const handleInputChange = (e) => {
+        if (isFinished) return;
+        
+        const val = e.target.value;
+
+        if (practiceMode !== 'time' && val.length > targetContent.length) return;
+        
+        if (practiceMode === 'time' && val.length >= targetContent.length - 50) {
+          setTargetContent(prev => prev + selectedDoc.content);
+        }
+        
+        if (!startTime && val.length > 0) {
+          setStartTime(Date.now());
+          if (practiceMode === 'time') setTimeLeft(timeLimit * 60);
+        }
+
+        setInput(val);
+        currentInputRef.current = val;
+
+        let correctChars = 0;
+        for (let i = 0; i < val.length; i++) {
+          if (val[i] === targetContent[i]) correctChars++;
+        }
+        const currentAccuracy = val.length === 0 ? 100 : Math.round((correctChars / val.length) * 100);
+        setAccuracy(currentAccuracy);
+
+        if (practiceMode !== 'time' && val.length >= targetContent.length) {
+          handleFinish(val);
+        } else if (startTime) {
+          const timeInMinutes = (Date.now() - startTime) / 60000;
+          setCpm(timeInMinutes > 0 ? Math.round(val.length / timeInMinutes) : 0);
+        }
+      };
+
+      const handleReset = () => {
+        setInput('');
+        currentInputRef.current = '';
+        setStartTime(null);
+        setCpm(0);
+        setAccuracy(100);
+        setIsFinished(false);
+        setTimeLeft(practiceMode === 'time' ? timeLimit * 60 : null);
+        if (inputRef.current) inputRef.current.focus();
+      };
+
+      const handleDocChange = (e) => {
+        const docId = parseInt(e.target.value);
+        const doc = allDocs.find(d => d.id === docId);
+        if (doc) setSelectedDoc(doc);
+      };
+
+      const handleAddCustomDoc = () => {
+        if (!newDocForm.title.trim() || !newDocForm.content.trim()) return;
+        const newEntry = {
+          id: Date.now(),
+          category: newDocForm.category || '自訂',
+          title: newDocForm.title.trim(),
+          content: newDocForm.content.trim().replace(/\s+/g, '') 
+        };
+        
+        setCustomTexts(prev => {
+          const updated = [...prev, newEntry];
+          localStorage.setItem('legalTypingCustomTexts', JSON.stringify(updated));
+          return updated;
+        });
+        
+        setShowAddModal(false);
+        setNewDocForm({ category: '自訂', title: '', content: '' });
+        setSelectedDoc(newEntry);
+      };
+
+      const handleDeleteCustomDoc = (id, e) => {
+        e.stopPropagation();
+        setCustomTexts(prev => {
+          const updated = prev.filter(d => d.id !== id);
+          localStorage.setItem('legalTypingCustomTexts', JSON.stringify(updated));
+          return updated;
+        });
+        if (selectedDoc.id === id) {
+          setSelectedDoc(LEGAL_TEXTS[0]);
+        }
+      };
+
+      const showToast = (msg) => {
+        setToastMsg(msg);
+        setTimeout(() => setToastMsg(''), 3000);
+      };
+
+      const loadPdfJs = async () => {
+        if (window.pdfjsLib) return window.pdfjsLib;
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          script.onload = () => {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            resolve(window.pdfjsLib);
+          };
+          script.onerror = reject;
+          document.body.appendChild(script);
+        });
+      };
+
+      const handlePdfUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+          setIsExtracting(true);
+          const pdfjs = await loadPdfJs();
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjs.getDocument(arrayBuffer).promise;
+          let fullText = '';
+
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => item.str).join('');
+            fullText += pageText;
+          }
+
+          const cleanText = fullText.replace(/\s+/g, '');
+          setNewDocForm(prev => ({ 
+            ...prev, 
+            content: cleanText, 
+            title: file.name.replace('.pdf', '') 
+          }));
+          showToast('PDF 匯入成功！請確認並手動刪減不需要的段落。');
+        } catch (error) {
+          console.error("PDF 解析失敗", error);
+          showToast('PDF 解析失敗，請確認檔案未加密或損壞。');
+        } finally {
+          setIsExtracting(false);
+          if (pdfInputRef.current) pdfInputRef.current.value = '';
+        }
+      };
+
+      const exportData = () => {
+        const data = { customTexts, history };
+        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `法學打字備份_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('備份檔已匯出下載');
+      };
+
+      const importData = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            if (data.customTexts) {
+              setCustomTexts(data.customTexts);
+              localStorage.setItem('legalTypingCustomTexts', JSON.stringify(data.customTexts));
+            }
+            if (data.history) {
+              setHistory(data.history);
+              localStorage.setItem('legalTypingHistory', JSON.stringify(data.history));
+            }
+            showToast('備份資料匯入成功！');
+          } catch (err) {
+            console.error("檔案格式錯誤", err);
+            showToast('匯入失敗：檔案格式不正確');
+          } finally {
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      const formatTime = (seconds) => {
+        if (seconds === null) return '--:--';
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      };
+
+      const renderedText = useMemo(() => {
+        const targetChars = targetContent.split('');
+        const inputChars = input.split('');
+        const isLongText = targetChars.length > 800;
+
+        let windowStart = 0;
+        let windowEnd = targetChars.length;
+
+        if (isLongText) {
+          windowStart = Math.max(0, inputChars.length - 50);
+          windowEnd = Math.min(targetChars.length, inputChars.length + 150);
+        }
+
+        const visibleTarget = targetChars.slice(windowStart, windowEnd);
+
+        const charElements = visibleTarget.map((char, idx) => {
+          const actualIndex = windowStart + idx;
+          let statusClass = 'text-slate-400'; 
+          
+          if (actualIndex < inputChars.length) {
+            if (char === inputChars[actualIndex]) {
+              statusClass = 'text-slate-900 bg-green-200/60 font-medium'; 
+            } else {
+              statusClass = 'text-red-600 bg-red-200/80 underline decoration-red-500 font-medium'; 
+            }
+          } else if (actualIndex === inputChars.length && !isFinished) {
+            statusClass = 'text-slate-900 bg-blue-200 border-b-2 border-blue-500 shadow-sm'; 
+          }
+
+          return (
+            <span key={actualIndex} className={`transition-colors duration-75 ${statusClass} text-[22px] leading-relaxed tracking-wider`}>
+              {char}
+            </span>
+          );
+        });
+
+        return (
+          <React.Fragment>
+            {isLongText && windowStart > 0 && <span className="text-slate-300 font-bold tracking-[1em]">...</span>}
+            {charElements}
+            {isLongText && windowEnd < targetChars.length && <span className="text-slate-300 font-bold tracking-[1em]">...</span>}
+          </React.Fragment>
+        );
+      }, [targetContent, input, isFinished]);
+
+      return (
+        <div className="min-h-screen p-6 md:p-12">
+          <div className="max-w-4xl mx-auto space-y-6">
+            
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                  <span>📖</span> 法學文獻打字訓練系統
+                </h1>
+                <p className="text-slate-500 mt-2">針對國家考試數位化之實務見解輸入練習</p>
+              </div>
+              
+              <div className="w-full md:w-auto flex flex-col md:flex-row gap-3">
+                <input type="file" accept=".json" ref={fileInputRef} onChange={importData} className="hidden" />
+                <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm" title="匯入備份">
+                  <span>📥</span> 匯入
+                </button>
+                <button onClick={exportData} className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm" title="匯出備份">
+                  <span>📤</span> 匯出
+                </button>
+                <button onClick={() => setShowAddModal(true)} className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors shadow-sm">
+                  <span>➕</span> 新增文獻
+                </button>
+                <button onClick={() => setShowHistoryModal(true)} className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
+                  <span>🕒</span> 練習紀錄
+                </button>
+                <select className="w-full md:w-64 bg-white border border-slate-300 text-slate-700 py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" onChange={handleDocChange} value={selectedDoc.id}>
+                  <optgroup label="內建題庫">
+                    {LEGAL_TEXTS.map(doc => <option key={doc.id} value={doc.id}>{doc.category} - {doc.title}</option>)}
+                  </optgroup>
+                  {customTexts.length > 0 && (
+                    <optgroup label="自訂文獻">
+                      {customTexts.map(doc => <option key={doc.id} value={doc.id}>{doc.category} - {doc.title}</option>)}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
+            </header>
+
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center gap-4">
+              <span className="text-sm font-semibold text-slate-600">練習模式：</span>
+              <div className="flex bg-slate-100 p-1 rounded-lg">
+                <button onClick={() => setPracticeMode('full')} className={`px-4 py-1.5 text-sm rounded-md transition-colors ${practiceMode === 'full' ? 'bg-white shadow-sm font-medium text-blue-700' : 'text-slate-600 hover:text-slate-900'}`}>打完整篇</button>
+                <button onClick={() => setPracticeMode('time')} className={`px-4 py-1.5 text-sm rounded-md transition-colors ${practiceMode === 'time' ? 'bg-white shadow-sm font-medium text-blue-700' : 'text-slate-600 hover:text-slate-900'}`}>限時挑戰</button>
+                <button onClick={() => setPracticeMode('words')} className={`px-4 py-1.5 text-sm rounded-md transition-colors ${practiceMode === 'words' ? 'bg-white shadow-sm font-medium text-blue-700' : 'text-slate-600 hover:text-slate-900'}`}>自訂字數</button>
+              </div>
+              {practiceMode === 'time' && (
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="text-sm text-slate-500">時間：</span>
+                  <select value={timeLimit} onChange={(e) => setTimeLimit(Number(e.target.value))} className="bg-slate-50 border border-slate-200 py-1.5 px-3 rounded-md focus:ring-1 focus:ring-blue-500 text-sm">
+                    <option value={1}>1 分鐘</option>
+                    <option value={3}>3 分鐘</option>
+                    <option value={5}>5 分鐘</option>
+                    <option value={10}>10 分鐘</option>
+                  </select>
+                </div>
+              )}
+              {practiceMode === 'words' && (
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="text-sm text-slate-500">字數：</span>
+                  <select value={wordLimit} onChange={(e) => setWordLimit(Number(e.target.value))} className="bg-slate-50 border border-slate-200 py-1.5 px-3 rounded-md focus:ring-1 focus:ring-blue-500 text-sm">
+                    <option value={100}>100 字</option>
+                    <option value={300}>300 字</option>
+                    <option value={500}>500 字</option>
+                    <option value={1000}>1000 字</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
+                <div className="p-3 bg-blue-50 text-blue-600 rounded-lg text-xl">⚡</div>
+                <div>
+                  <div className="text-sm text-slate-500">Net CPM</div>
+                  <div className="text-2xl font-bold text-slate-900">{netCpm} <span className="text-xs text-slate-400 font-normal line-through ml-1">{cpm}</span></div>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
+                <div className="p-3 bg-green-50 text-green-600 rounded-lg text-xl">🎯</div>
+                <div>
+                  <div className="text-sm text-slate-500">正確率</div>
+                  <div className="text-2xl font-bold text-slate-900">{accuracy}%</div>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
+                <div className="p-3 bg-purple-50 text-purple-600 rounded-lg text-xl">⏱️</div>
+                <div>
+                  <div className="text-sm text-slate-500">{practiceMode === 'time' ? '剩餘時間' : '進度'}</div>
+                  <div className="text-2xl font-bold text-slate-900">
+                    {practiceMode === 'time' ? formatTime(timeLeft) : <>{input.length} <span className="text-sm text-slate-400 font-normal">/ {targetContent.length}</span></>}
+                  </div>
+                </div>
+              </div>
+              <button onClick={handleReset} className="bg-white hover:bg-slate-50 p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-center gap-2 text-slate-600 transition-colors">
+                <span className="text-lg">🔄</span>
+                <span className="font-medium">重新開始</span>
+              </button>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative group">
+              {isFinished && (
+                <div className="absolute inset-0 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+                  <div className="text-5xl mb-6">⚖️</div>
+                  <h2 className="text-3xl font-bold text-slate-900 mb-2">練習完成</h2>
+                  <div className="flex gap-6 text-slate-600 mb-8 mt-4 text-center">
+                    <div><div className="text-3xl font-bold text-blue-600">{netCpm}</div><div className="text-sm mt-1">Net CPM</div></div>
+                    <div><div className="text-3xl font-bold text-slate-400">{cpm}</div><div className="text-sm mt-1">Gross CPM</div></div>
+                    <div><div className="text-3xl font-bold text-green-600">{accuracy}%</div><div className="text-sm mt-1">正確率</div></div>
+                  </div>
+                  <button onClick={handleReset} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-sm">
+                    再練一次
+                  </button>
+                </div>
+              )}
+              
+              <div className="flex flex-col">
+                <div 
+                  className="p-8 md:p-10 min-h-[150px] max-h-[250px] overflow-y-auto bg-slate-50/50 border-b border-slate-200 cursor-text"
+                  onClick={() => inputRef.current?.focus()}
+                >
+                  <div className="font-serif select-none break-all whitespace-pre-wrap text-left">
+                    {renderedText}
+                  </div>
+                </div>
+
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={handleInputChange}
+                  disabled={isFinished}
+                  className="w-full h-48 p-8 md:p-10 text-lg md:text-xl font-serif text-slate-800 bg-white focus:outline-none focus:bg-slate-50/30 resize-none placeholder:text-slate-300 transition-colors leading-relaxed tracking-wide"
+                  placeholder="請在此處開始輸入..."
+                  spellCheck="false"
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            {/* 新增文獻 Modal */}
+            {showAddModal && (
+              <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                  <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 className="text-xl font-bold text-slate-800">新增練習文獻</h3>
+                    <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600">✖️</button>
+                  </div>
+                  <div className="p-6 overflow-y-auto space-y-4">
+                    <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg border border-blue-100">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">📄</span>
+                        <div>
+                          <div className="font-semibold text-blue-900">從 PDF 擷取文字</div>
+                          <div className="text-xs text-blue-700">自動匯入判決書或文獻內容（處理過程均在瀏覽器內完成）</div>
+                        </div>
+                      </div>
+                      <input type="file" accept=".pdf" ref={pdfInputRef} onChange={handlePdfUpload} className="hidden" />
+                      <button onClick={() => pdfInputRef.current?.click()} disabled={isExtracting} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
+                        {isExtracting ? '解析中...' : '選擇 PDF'}
+                      </button>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="w-1/3">
+                        <label className="block text-sm font-medium text-slate-700 mb-1">分類</label>
+                        <input type="text" value={newDocForm.category} onChange={e => setNewDocForm({...newDocForm, category: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:border-blue-500"/>
+                      </div>
+                      <div className="w-2/3">
+                        <label className="block text-sm font-medium text-slate-700 mb-1">標題</label>
+                        <input type="text" value={newDocForm.title} onChange={e => setNewDocForm({...newDocForm, title: e.target.value})} placeholder="例如：憲判字第X號" className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:border-blue-500"/>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">內文</label>
+                      <textarea value={newDocForm.content} onChange={e => setNewDocForm({...newDocForm, content: e.target.value})} placeholder="請貼上文字內容..." className="w-full h-48 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:border-blue-500 resize-none"/>
+                    </div>
+                  </div>
+                  <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                    <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg">取消</button>
+                    <button onClick={handleAddCustomDoc} disabled={!newDocForm.title || !newDocForm.content} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">儲存並開始練習</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 紀錄 Modal */}
+            {showHistoryModal && (
+              <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+                  <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                      <span>🕒</span> 練習紀錄
+                    </h3>
+                    <div className="flex items-center gap-4">
+                      {history.length > 0 && (
+                        <button onClick={() => { setHistory([]); localStorage.removeItem('legalTypingHistory'); }} className="text-sm text-red-500 hover:text-red-700 flex items-center gap-1">
+                          <span>🗑️</span> 清除紀錄
+                        </button>
+                      )}
+                      <button onClick={() => setShowHistoryModal(false)} className="text-slate-400 hover:text-slate-600">✖️</button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-6 overflow-y-auto flex-1">
+                    {history.length === 0 ? (
+                      <div className="py-12 text-center text-slate-500">尚無練習紀錄，趕快開始你的第一篇練習吧！</div>
+                    ) : (
+                      <React.Fragment>
+                        <ProgressChart data={history} />
+                        <table className="w-full text-left border-collapse mt-4">
+                          <thead className="bg-slate-50 sticky top-0 border-b border-slate-200">
+                            <tr>
+                              <th className="px-4 py-3 text-sm font-semibold text-slate-600">時間</th>
+                              <th className="px-4 py-3 text-sm font-semibold text-slate-600">文獻</th>
+                              <th className="px-4 py-3 text-sm font-semibold text-slate-600">Net CPM</th>
+                              <th className="px-4 py-3 text-sm font-semibold text-slate-600">正確率</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {history.map(record => (
+                              <tr key={record.id} className="hover:bg-slate-50">
+                                <td className="px-4 py-3 text-sm text-slate-500">{record.date}</td>
+                                <td className="px-4 py-3 text-sm font-medium text-slate-800 truncate max-w-[200px]">{record.title}</td>
+                                <td className="px-4 py-3 text-sm font-bold text-blue-600">
+                                  {record.netCpm || record.cpm} 
+                                  <span className="text-xs text-slate-400 font-normal ml-1">({record.cpm})</span>
+                                </td>
+                                <td className="px-4 py-3 text-sm">
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${record.accuracy >= 98 ? 'bg-green-100 text-green-700' : record.accuracy >= 90 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                                    {record.accuracy}%
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </React.Fragment>
+                    )}
+                  </div>
+                  
+                  <div className="px-6 py-4 border-t border-slate-100 bg-slate-50">
+                    <h4 className="text-sm font-semibold text-slate-700 mb-3">自訂文獻管理</h4>
+                    {customTexts.length === 0 ? (
+                      <p className="text-xs text-slate-500">尚無自訂文獻</p>
+                    ) : (
+                      <ul className="space-y-2 max-h-32 overflow-y-auto pr-2">
+                        {customTexts.map(doc => (
+                          <li key={doc.id} className="flex justify-between items-center text-sm border border-slate-200 bg-white p-2 rounded-lg">
+                            <span className="truncate pr-4 text-slate-700">[{doc.category}] {doc.title}</span>
+                            <button onClick={(e) => handleDeleteCustomDoc(doc.id, e)} className="text-red-400 hover:text-red-600 flex-shrink-0"><span>🗑️</span></button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {toastMsg && (
+              <div className="fixed bottom-6 right-6 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 z-50">
+                <span>⚠️</span>
+                <span className="font-medium">{toastMsg}</span>
+              </div>
+            )}
+
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
