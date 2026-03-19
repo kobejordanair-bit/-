@@ -149,7 +149,6 @@
         }
       };
 
-      // 核心修正：強制正規化所有換行符號為單一 \n，防止隱形字元造成錯位
       useEffect(() => {
         let text = selectedDoc.content.replace(/\r\n/g, '\n'); 
         if (practiceMode === 'words') {
@@ -231,7 +230,6 @@
       const handleInputChange = (e) => {
         if (isFinished) return;
         
-        // 輸入時同步清洗 \r\n 避免作業系統干擾
         const val = e.target.value.replace(/\r\n/g, '\n');
 
         if (practiceMode !== 'time' && val.length > targetContent.length) return;
@@ -369,7 +367,6 @@
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
             const pageText = textContent.items.map(item => item.str).join('');
-            // PDF 匯入改為單次換行，避免隱形連點陷阱
             fullText += pageText + '\n';
           }
 
@@ -438,14 +435,66 @@
 
       const isTyping = startTime !== null && !isFinished;
 
-      const getSpeedRating = (cpm) => {
-        if (cpm < 30) return { label: '慢速', color: 'text-slate-500' };
-        if (cpm < 60) return { label: '中速 (平均)', color: 'text-blue-500' };
-        if (cpm <= 100) return { label: '快速', color: 'text-green-500' };
-        return { label: '極快', color: 'text-purple-600' };
+      // TQC 中文輸入認證標準與鼓勵語
+      const getTQCRating = (netCpm, accuracy) => {
+        if (accuracy < 90) {
+          return { 
+            label: '未達標 (正確率不足)', 
+            color: 'text-red-600',
+            bg: 'bg-red-50 border-red-200',
+            message: '欲速則不達啊！錯字太多在考場上反而要花更多時間回頭改，先放慢速度把正確率拉到 90% 以上。'
+          };
+        }
+        if (netCpm > 100) {
+          return { 
+            label: 'TQC 專業級 (C3) ｜ 極快', 
+            color: 'text-purple-600',
+            bg: 'bg-purple-50 border-purple-200',
+            message: '這手速上考場絕對是輾壓級別，法學推論的思緒已經能完全跟上鍵盤敲擊了，繼續保持手感就行。'
+          };
+        }
+        if (netCpm >= 80) {
+          return { 
+            label: 'TQC 專業級 (C3) ｜ 快速', 
+            color: 'text-indigo-600',
+            bg: 'bg-indigo-50 border-indigo-200',
+            message: '專業級過關！打字速度已經具備強大競爭力，穩穩發揮絕對沒問題。'
+          };
+        }
+        if (netCpm >= 60) {
+          return { 
+            label: 'TQC 進階級 (C2) ｜ 快速', 
+            color: 'text-emerald-600',
+            bg: 'bg-emerald-50 border-emerald-200',
+            message: '速度很快！已經跨過國考實戰的安全線，再把容易卡手的法律專有名詞練熟，向專業級邁進。'
+          };
+        }
+        if (netCpm >= 30) {
+          return { 
+            label: 'TQC 進階級 (C2) ｜ 中速 (平均)', 
+            color: 'text-blue-600',
+            bg: 'bg-blue-50 border-blue-200',
+            message: '平均水準發揮，具備基礎的實戰能力。試著讓輸入節奏更連貫，把速度往上推。'
+          };
+        }
+        if (netCpm >= 15) {
+          return { 
+            label: 'TQC 實用級 (C1) ｜ 慢速', 
+            color: 'text-orange-600',
+            bg: 'bg-orange-50 border-orange-200',
+            message: '剛起步穩扎穩打是對的。現階段先求正確率再催速度，建立肌肉記憶後自然會變快。'
+          };
+        }
+        return { 
+          label: '未達標 ｜ 慢速', 
+          color: 'text-slate-500',
+          bg: 'bg-slate-50 border-slate-200',
+          message: '還沒完全抓到鍵盤的節奏喔！每天練個十分鐘，不用太久就能看到明顯進步。'
+        };
       };
 
-      // 修正：在回顧區塊清楚顯示換行與錯誤字元的差異
+      const tqcRating = useMemo(() => getTQCRating(netCpm, accuracy), [netCpm, accuracy]);
+
       const reviewTextElement = useMemo(() => {
         if (!isFinished) return null;
         const targetChars = targetContent.split('');
@@ -597,13 +646,15 @@
                   <div className="flex flex-col items-center">
                     <div className="text-5xl mb-4">⚖️</div>
                     <h2 className="text-3xl font-bold text-slate-900 mb-2">練習完成</h2>
-                    <div className="flex gap-6 text-slate-600 mb-6 mt-2 text-center">
+                    
+                    <div className={`mt-2 px-4 py-1.5 rounded-full font-bold text-sm border ${tqcRating.bg} ${tqcRating.color}`}>
+                      {tqcRating.label}
+                    </div>
+
+                    <div className="flex gap-6 text-slate-600 mb-6 mt-6 text-center">
                       <div>
                         <div className="text-3xl font-bold text-blue-600">{netCpm}</div>
                         <div className="text-sm mt-1">Net CPM</div>
-                        <div className={`text-sm font-bold mt-1 ${getSpeedRating(netCpm).color}`}>
-                          {getSpeedRating(netCpm).label}
-                        </div>
                       </div>
                       <div>
                         <div className="text-3xl font-bold text-slate-400">{cpm}</div>
@@ -614,6 +665,13 @@
                         <div className="text-sm mt-1">正確率</div>
                       </div>
                     </div>
+
+                    <div className={`max-w-lg w-full mb-6 p-5 rounded-xl border ${tqcRating.bg}`}>
+                      <p className={`text-center font-medium leading-relaxed ${tqcRating.color}`}>
+                        "{tqcRating.message}"
+                      </p>
+                    </div>
+
                     <button onClick={handleReset} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-sm shrink-0">
                       再練一次
                     </button>
@@ -635,7 +693,6 @@
                   ref={upperTextRef}
                   className="w-full h-48 p-6 md:p-8 text-lg md:text-xl font-serif text-slate-700 bg-slate-50/50 border-b border-slate-200 overflow-y-hidden whitespace-pre-wrap break-all leading-relaxed tracking-wide"
                 >
-                  {/* 核心修正：明確渲染出換行符號 ↵ ，讓使用者清楚知道哪裡才需要按 Enter */}
                   {targetContent.split('\n').map((line, index, array) => (
                     <React.Fragment key={index}>
                       {line}
