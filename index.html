@@ -174,7 +174,15 @@
 
       const handleScroll = (e) => {
         if (upperTextRef.current && e.target === inputRef.current) {
-          upperTextRef.current.scrollTop = e.target.scrollTop;
+          const ta = e.target;
+          const ud = upperTextRef.current;
+          const maxTaScroll = ta.scrollHeight - ta.clientHeight;
+          const maxUdScroll = ud.scrollHeight - ud.clientHeight;
+          if (maxTaScroll > 0) {
+            ud.scrollTop = (ta.scrollTop / maxTaScroll) * maxUdScroll;
+          } else {
+            ud.scrollTop = 0;
+          }
         }
       };
 
@@ -203,7 +211,7 @@
       }, [startTime, isFinished]);
 
       useEffect(() => {
-        let text = selectedDoc.content.replace(/\r\n/g, '\n'); 
+        let text = selectedDoc.content.normalize('NFC').replace(/\r\n/g, '\n'); 
         if (practiceMode === 'words') {
           const baseText = text;
           while (text.replace(/\n/g, '').length < wordLimit) {
@@ -228,6 +236,8 @@
 
       const handleFinish = useCallback((overrideInput) => {
         if (isFinished) return;
+        if (isComposingRef.current) return;
+        
         const finalVal = typeof overrideInput === 'string' ? overrideInput : currentInputRef.current;
         setIsFinished(true);
         const end = Date.now();
@@ -321,7 +331,7 @@
         if (practiceMode !== 'time' && val.length > targetStr.length) return;
         
         if (practiceMode === 'time' && val.length >= targetStr.length - 50) {
-          const appendedText = '\n' + selectedDoc.content.replace(/\r\n/g, '\n');
+          const appendedText = '\n' + selectedDoc.content.normalize('NFC').replace(/\r\n/g, '\n');
           setTargetContent(prev => prev + appendedText);
           targetContentRef.current += appendedText; 
         }
@@ -342,6 +352,9 @@
         setAccuracy(currentAccuracy);
 
         if (practiceMode !== 'time' && val.length >= targetContentRef.current.length) {
+          handleFinish(val);
+        } else if (practiceMode === 'time' && timeLeft <= 0) {
+          // 安全網：如果在組字期間計時結束，解除組字狀態後會在這裡被正確結算
           handleFinish(val);
         } else if (startTime) {
           const timeInMinutes = (Date.now() - startTime) / 60000;
@@ -369,12 +382,22 @@
         
         if (editDocId) {
           setCustomTexts(prev => {
-            const updated = prev.map(d => d.id === editDocId ? { ...d, ...newDocForm } : d);
+            const updated = prev.map(d => d.id === editDocId ? { 
+              ...d, 
+              category: newDocForm.category || '自訂',
+              title: newDocForm.title.trim(),
+              content: newDocForm.content.normalize('NFC').replace(/\r\n/g, '\n')
+            } : d);
             localStorage.setItem('legalTypingCustomTexts', JSON.stringify(updated));
             return updated;
           });
           if (selectedDoc.id === editDocId) {
-            setSelectedDoc({ id: editDocId, ...newDocForm });
+            setSelectedDoc({ 
+              id: editDocId, 
+              category: newDocForm.category || '自訂',
+              title: newDocForm.title.trim(),
+              content: newDocForm.content.normalize('NFC').replace(/\r\n/g, '\n')
+            });
           }
           showToast('文獻更新成功！');
         } else {
@@ -382,7 +405,7 @@
             id: Date.now(),
             category: newDocForm.category || '自訂',
             title: newDocForm.title.trim(),
-            content: newDocForm.content 
+            content: newDocForm.content.normalize('NFC').replace(/\r\n/g, '\n')
           };
           
           setCustomTexts(prev => {
@@ -450,7 +473,7 @@
 
           setNewDocForm(prev => ({ 
             ...prev, 
-            content: fullText, 
+            content: fullText.normalize('NFC'), 
             title: file.name.replace('.pdf', '') 
           }));
           showToast('PDF 匯入成功！請確認並手動刪減不需要的段落。');
