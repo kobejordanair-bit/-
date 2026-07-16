@@ -54,6 +54,29 @@
       }
     ];
 
+    // 包裝 localStorage 寫入，容量爆滿或被封鎖時不會讓整個 App 掛掉
+    function safeSetItem(key, value) {
+      try {
+        localStorage.setItem(key, value);
+        return true;
+      } catch (err) {
+        console.error(`localStorage 寫入失敗 (${key})`, err);
+        return false;
+      }
+    }
+
+    // 讀取並解析 localStorage 中的 JSON，格式毀損時退回預設值而不是讓初始化整個炸掉
+    function safeGetJSON(key, fallback) {
+      const saved = localStorage.getItem(key);
+      if (!saved) return fallback;
+      try {
+        return JSON.parse(saved);
+      } catch (err) {
+        console.error(`localStorage 資料解析失敗 (${key})`, err);
+        return fallback;
+      }
+    }
+
     const ProgressChart = ({ data }) => {
       if (!data || data.length === 0) return null;
       
@@ -116,14 +139,8 @@
     };
 
     function App() {
-      const [customTexts, setCustomTexts] = useState(() => {
-        const saved = localStorage.getItem('legalTypingCustomTexts');
-        return saved ? JSON.parse(saved) : [];
-      });
-      const [history, setHistory] = useState(() => {
-        const saved = localStorage.getItem('legalTypingHistory');
-        return saved ? JSON.parse(saved) : [];
-      });
+      const [customTexts, setCustomTexts] = useState(() => safeGetJSON('legalTypingCustomTexts', []));
+      const [history, setHistory] = useState(() => safeGetJSON('legalTypingHistory', []));
       
       const allDocs = useMemo(() => [...LEGAL_TEXTS, ...customTexts], [customTexts]);
       const [selectedDoc, setSelectedDoc] = useState(allDocs[0]);
@@ -283,7 +300,9 @@
         
         setHistory(prev => {
           const updatedHistory = [newRecord, ...prev].slice(0, 100);
-          localStorage.setItem('legalTypingHistory', JSON.stringify(updatedHistory));
+          if (!safeSetItem('legalTypingHistory', JSON.stringify(updatedHistory))) {
+            showToast('練習紀錄儲存失敗，瀏覽器儲存空間可能已滿');
+          }
           return updatedHistory;
         });
       }, [isFinished, startTime, practiceMode, timeLimit, wordLimit, selectedDoc.title]); 
@@ -317,8 +336,8 @@
 
       const handleInputChange = (e) => {
         if (isFinished) return;
-        
-        const val = e.target.value.replace(/\r\n/g, '\n');
+
+        let val = e.target.value.replace(/\r\n/g, '\n');
 
         if (isComposingRef.current) {
           setInput(val);
@@ -328,14 +347,21 @@
 
         const targetStr = targetContentRef.current;
 
-        if (practiceMode !== 'time' && val.length > targetStr.length) return;
-        
+        // 詞組式輸入法（如新注音、拼音的整詞候選）可能一次組出多個字，
+        // 使組字結束當下的長度一口氣超過剩餘目標長度。
+        // 直接 return 會讓瀏覽器已經寫入 textarea 的內容和 React 的 input 狀態失去同步
+        // （畫面看起來已打完，但完成事件不會觸發）。改成裁切多餘字元並照常往下處理，
+        // 讓受控元件把畫面同步拉回與狀態一致的長度。
+        if (practiceMode !== 'time' && val.length > targetStr.length) {
+          val = val.slice(0, targetStr.length);
+        }
+
         if (practiceMode === 'time' && val.length >= targetStr.length - 50) {
           const appendedText = '\n' + selectedDoc.content.normalize('NFC').replace(/\r\n/g, '\n');
           setTargetContent(prev => prev + appendedText);
-          targetContentRef.current += appendedText; 
+          targetContentRef.current += appendedText;
         }
-        
+
         if (!startTime && val.length > 0) {
           setStartTime(Date.now());
           if (practiceMode === 'time') setTimeLeft(timeLimit * 60);
@@ -344,12 +370,10 @@
         setInput(val);
         currentInputRef.current = val;
 
-        let correctChars = 0;
-        for (let i = 0; i < val.length; i++) {
-          if (val[i] === targetContentRef.current[i]) correctChars++;
-        }
-        const currentAccuracy = val.length === 0 ? 100 : Math.round((correctChars / val.length) * 100);
-        setAccuracy(currentAccuracy);
+        // 正確率/淨速度在打字過程中本來就是隱藏的（isTyping 時顯示 "--"，
+        // 完成時 handleFinish 會重新精確計算一次），所以這裡不需要每次按鍵
+        // 都對整段已輸入文字重新掃描一遍——文件越長、練越久，這個 O(n) 全文
+        // 重算的成本就越高，卻對畫面毫無影響，直接省略。
 
         if (practiceMode !== 'time' && val.length >= targetContentRef.current.length) {
           handleFinish(val);
@@ -379,27 +403,30 @@
 
       const handleAddCustomDoc = () => {
         if (!newDocForm.title.trim() || !newDocForm.content.trim()) return;
-        
+
+        // 注意：setState(updaterFn) 的 updaterFn 不會馬上同步執行，而是留到 React
+        // 之後的 reconciliation 階段才呼叫。若把 safeSetItem 的結果寫在 updaterFn
+        // 裡、卻在 setState 呼叫「之後」的同步程式碼中讀取該結果，讀到的會是尚未更新的
+        // 舊值。因此這裡改成用目前的 customTexts 直接算出新陣列、同步呼叫
+        // safeSetItem 拿到明確結果後，才把算好的值交給 setCustomTexts。
         if (editDocId) {
-          setCustomTexts(prev => {
-            const updated = prev.map(d => d.id === editDocId ? { 
-              ...d, 
-              category: newDocForm.category || '自訂',
-              title: newDocForm.title.trim(),
-              content: newDocForm.content.normalize('NFC').replace(/\r\n/g, '\n')
-            } : d);
-            localStorage.setItem('legalTypingCustomTexts', JSON.stringify(updated));
-            return updated;
-          });
+          const updated = customTexts.map(d => d.id === editDocId ? {
+            ...d,
+            category: newDocForm.category || '自訂',
+            title: newDocForm.title.trim(),
+            content: newDocForm.content.normalize('NFC').replace(/\r\n/g, '\n')
+          } : d);
+          const saveOk = safeSetItem('legalTypingCustomTexts', JSON.stringify(updated));
+          setCustomTexts(updated);
           if (selectedDoc.id === editDocId) {
-            setSelectedDoc({ 
-              id: editDocId, 
+            setSelectedDoc({
+              id: editDocId,
               category: newDocForm.category || '自訂',
               title: newDocForm.title.trim(),
               content: newDocForm.content.normalize('NFC').replace(/\r\n/g, '\n')
             });
           }
-          showToast('文獻更新成功！');
+          showToast(saveOk ? '文獻更新成功！' : '文獻已更新，但儲存到瀏覽器失敗（空間可能已滿），重新整理後可能會遺失');
         } else {
           const newEntry = {
             id: Date.now(),
@@ -407,31 +434,27 @@
             title: newDocForm.title.trim(),
             content: newDocForm.content.normalize('NFC').replace(/\r\n/g, '\n')
           };
-          
-          setCustomTexts(prev => {
-            const updated = [...prev, newEntry];
-            localStorage.setItem('legalTypingCustomTexts', JSON.stringify(updated));
-            return updated;
-          });
+
+          const updated = [...customTexts, newEntry];
+          const saveOk = safeSetItem('legalTypingCustomTexts', JSON.stringify(updated));
+          setCustomTexts(updated);
           setSelectedDoc(newEntry);
-          showToast('文獻新增成功！');
+          showToast(saveOk ? '文獻新增成功！' : '文獻已新增，但儲存到瀏覽器失敗（空間可能已滿），重新整理後可能會遺失');
         }
-        
+
         setShowAddModal(false);
         setNewDocForm({ category: '自訂', title: '', content: '' });
         setEditDocId(null);
       };
 
       const handleDeleteCustomDoc = (id) => {
-        setCustomTexts(prev => {
-          const updated = prev.filter(d => d.id !== id);
-          localStorage.setItem('legalTypingCustomTexts', JSON.stringify(updated));
-          return updated;
-        });
+        const updated = customTexts.filter(d => d.id !== id);
+        const saveOk = safeSetItem('legalTypingCustomTexts', JSON.stringify(updated));
+        setCustomTexts(updated);
         if (selectedDoc.id === id) {
           setSelectedDoc(LEGAL_TEXTS[0]);
         }
-        showToast('文獻已刪除');
+        showToast(saveOk ? '文獻已刪除' : '文獻已刪除，但儲存到瀏覽器失敗（空間可能已滿）');
       };
 
       const showToast = (msg) => {
@@ -522,15 +545,16 @@
               showToast('匯入失敗：備份檔案格式不正確');
               return;
             }
+            let saveOk = true;
             if (data.customTexts) {
               setCustomTexts(data.customTexts);
-              localStorage.setItem('legalTypingCustomTexts', JSON.stringify(data.customTexts));
+              saveOk = safeSetItem('legalTypingCustomTexts', JSON.stringify(data.customTexts)) && saveOk;
             }
             if (data.history) {
               setHistory(data.history);
-              localStorage.setItem('legalTypingHistory', JSON.stringify(data.history));
+              saveOk = safeSetItem('legalTypingHistory', JSON.stringify(data.history)) && saveOk;
             }
-            showToast('備份資料匯入成功！');
+            showToast(saveOk ? '備份資料匯入成功！' : '資料已匯入畫面，但儲存到瀏覽器失敗（空間可能已滿），重新整理後可能會遺失');
           } catch (err) {
             console.error("檔案格式錯誤", err);
             showToast('匯入失敗：檔案格式不正確');
