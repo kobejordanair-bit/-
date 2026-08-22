@@ -154,8 +154,11 @@
       const [timeLeft, setTimeLeft] = useState(null);
       const [targetContent, setTargetContent] = useState('');
       
-      const currentInputRef = useRef(''); 
-      const targetContentRef = useRef(''); 
+      const currentInputRef = useRef('');
+      const committedInputRef = useRef('');
+      const targetContentRef = useRef('');
+      const startTimeRef = useRef(null);
+      const deadlineRef = useRef(null);
       const [input, setInput] = useState('');
       const [startTime, setStartTime] = useState(null);
       const [isFinished, setIsFinished] = useState(false);
@@ -227,9 +230,22 @@
         }
       };
 
+      const startPractice = useCallback((timestamp = Date.now()) => {
+        if (startTimeRef.current || isFinished) return;
+        startTimeRef.current = timestamp;
+        setStartTime(timestamp);
+        if (practiceMode === 'time') {
+          deadlineRef.current = timestamp + timeLimit * 60_000;
+          setTimeLeft(timeLimit * 60);
+        }
+      }, [practiceMode, timeLimit, isFinished]);
+
       const handleReset = useCallback(() => {
         setInput('');
         currentInputRef.current = '';
+        committedInputRef.current = '';
+        startTimeRef.current = null;
+        deadlineRef.current = null;
         setStartTime(null);
         setCpm(0);
         setWrongCharStats([]);
@@ -276,16 +292,15 @@
         handleReset();
       }, [selectedDoc, practiceMode, wordLimit, timeLimit, handleReset]);
 
-      const handleFinish = useCallback((overrideInput) => {
+      const handleFinish = useCallback((overrideInput, endTimestamp = Date.now(), force = false) => {
         if (isFinished) return;
-        if (isComposingRef.current) return;
+        if (isComposingRef.current && !force) return;
         
-        const finalVal = typeof overrideInput === 'string' ? overrideInput : currentInputRef.current;
+        const finalVal = typeof overrideInput === 'string' ? overrideInput : committedInputRef.current;
         setIsFinished(true);
-        const end = Date.now();
-        
-        const timeInMinutes = startTime ? (end - startTime) / 60000 : 0;
-        const finalCpm = window.TypingMetrics.calculateCpm(finalVal, end - (startTime || end));
+        const end = endTimestamp;
+        const effectiveStart = startTimeRef.current;
+        const finalCpm = effectiveStart ? window.TypingMetrics.calculateCpm(finalVal, end - effectiveStart) : 0;
         const targetStr = targetContentRef.current;
         const analysis = window.TypingMetrics.analyzeTyping(targetStr, finalVal);
         const finalAccuracy = analysis.accuracy;
@@ -321,17 +336,16 @@
         let timer;
         if (startTime && !isFinished && practiceMode === 'time') {
           timer = setInterval(() => {
-            const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-            const remaining = (timeLimit * 60) - elapsedSeconds;
-            
-            if (remaining <= 0) {
+            const deadline = deadlineRef.current || startTime + timeLimit * 60_000;
+            const remainingMilliseconds = deadline - Date.now();
+            if (remainingMilliseconds <= 0) {
               setTimeLeft(0);
               clearInterval(timer);
-              if (handleFinishRef.current) handleFinishRef.current();
+              if (handleFinishRef.current) handleFinishRef.current(committedInputRef.current, deadline, true);
             } else {
-              setTimeLeft(remaining);
+              setTimeLeft(Math.ceil(remainingMilliseconds / 1000));
             }
-          }, 1000);
+          }, 250);
         }
         return () => clearInterval(timer);
       }, [startTime, isFinished, practiceMode, timeLimit]);
@@ -344,6 +358,7 @@
         if (isFinished) return;
         
         const val = e.target.value.replace(/\r\n/g, '\n');
+        if (!startTimeRef.current && window.TypingMetrics.countWritingCharacters(val) > 0) startPractice();
 
         if (isComposingRef.current) {
           setInput(val);
@@ -352,8 +367,6 @@
         }
 
         const targetStr = targetContentRef.current;
-
-        if (practiceMode !== 'time' && val.length > targetStr.length) return;
         
         if (practiceMode === 'time' && val.length >= targetStr.length - 50) {
           const appendedText = '\n' + selectedDoc.content.normalize('NFC').replace(/\r\n/g, '\n');
@@ -361,22 +374,14 @@
           targetContentRef.current += appendedText; 
         }
         
-        if (!startTime && val.length > 0) {
-          setStartTime(Date.now());
-          if (practiceMode === 'time') setTimeLeft(timeLimit * 60);
-        }
-
         setInput(val);
         currentInputRef.current = val;
+        committedInputRef.current = val;
 
         if (practiceMode !== 'time' && val.length >= targetContentRef.current.length) {
           handleFinish(val);
-        } else if (practiceMode === 'time' && timeLeft <= 0) {
-          // 安全網：如果在組字期間計時結束，解除組字狀態後會在這裡被正確結算
-          handleFinish(val);
-        } else if (startTime) {
-          const timeInMinutes = (Date.now() - startTime) / 60000;
-          setCpm(window.TypingMetrics.calculateCpm(val, Date.now() - startTime));
+        } else if (startTimeRef.current) {
+          setCpm(window.TypingMetrics.calculateCpm(val, Date.now() - startTimeRef.current));
         }
       };
 
@@ -1048,10 +1053,10 @@
                   value={input}
                   onChange={handleInputChange}
                   onScroll={handleScroll}
-                  onCompositionStart={() => { isComposingRef.current = true; }}
+                  onCompositionStart={() => { startPractice(); isComposingRef.current = true; }}
                   onCompositionEnd={(e) => {
                     isComposingRef.current = false;
-                    handleInputChange(e); 
+                    handleInputChange(e);
                   }}
                   disabled={isFinished || !!confirmDialog}
                   className="w-full h-48 p-6 md:p-8 text-lg md:text-xl font-serif text-slate-900 bg-white focus:outline-none resize-none placeholder:text-slate-300 leading-relaxed tracking-wide whitespace-pre-wrap break-all disabled:opacity-50"
