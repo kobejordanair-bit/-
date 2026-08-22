@@ -129,6 +129,15 @@ def create_app(search_client: Any | None = None, document_client: Any | None = N
         allow_headers=["Content-Type"],
     )
 
+    @app.get("/")
+    async def root() -> dict[str, str]:
+        return {
+            "service": "Taiwan Legal Import API",
+            "status": "ok",
+            "health": "/health",
+            "docs": "/docs",
+        }
+
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok", "waf_bypass": "disabled"}

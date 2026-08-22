@@ -44,6 +44,16 @@ class FakeDocumentClient:
         }
 
 
+def test_root_explains_that_this_is_an_api_service():
+    app = create_app(search_client=FakeSearchClient(), document_client=FakeDocumentClient())
+    client = TestClient(app)
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.json()["service"] == "Taiwan Legal Import API"
+
+
 def test_search_returns_a_small_metadata_list():
     app = create_app(search_client=FakeSearchClient(), document_client=FakeDocumentClient())
     client = TestClient(app)
