@@ -1,3 +1,5 @@
+export const DEFAULT_LEGAL_API_BASE = 'https://legal-typing-judgment-api.onrender.com';
+
 export function normalizeApiBase(value) {
   return String(value || '').trim().replace(/\/+$/, '');
 }

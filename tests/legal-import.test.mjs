@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { buildImportedDocument, normalizeApiBase } from '../legal-import.mjs';
+import { buildImportedDocument, normalizeApiBase, DEFAULT_LEGAL_API_BASE } from '../legal-import.mjs';
 
 assert.equal(normalizeApiBase('https://example.test/'), 'https://example.test');
 assert.equal(normalizeApiBase(''), '');
+assert.equal(DEFAULT_LEGAL_API_BASE, 'https://legal-typing-judgment-api.onrender.com');
 
 const document = buildImportedDocument({
   case_id: '112年度台上字第1號',
