@@ -17,7 +17,7 @@
 
 裁判書查詢由 `backend/` 的 FastAPI 服務處理；GitHub Pages 無法安全直接執行 Python MCP server。
 
-本 repo 已附 `render.yaml`。在 Render：
+本 repo 已附 `render.yaml`，並已指定 Render 的 **Free** web service 方案：
 
 1. 新增 **Blueprint**，選擇本 GitHub repo；
 2. 確認服務名稱與區域後建立；
