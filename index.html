@@ -12,6 +12,10 @@
   
   <!-- 載入 Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module">
+    import { buildImportedDocument, normalizeApiBase, DEFAULT_LEGAL_API_BASE } from './legal-import.mjs';
+    window.LegalImport = { buildImportedDocument, normalizeApiBase, DEFAULT_LEGAL_API_BASE };
+  </script>
 
   <style>
     /* 隱藏原生捲軸讓介面更乾淨 */
@@ -157,7 +161,15 @@
 
       const [isExtracting, setIsExtracting] = useState(false);
       const [toastMsg, setToastMsg] = useState('');
-      
+      const [showLegalModal, setShowLegalModal] = useState(false);
+      const [legalApiBase, setLegalApiBase] = useState(() => localStorage.getItem('legalTypingApiBase') || window.LegalImport?.DEFAULT_LEGAL_API_BASE || 'https://legal-typing-judgment-api.onrender.com');
+      const [legalQuery, setLegalQuery] = useState({ keyword: '', court: '', case_type: '民事', year_from: '', year_to: '' });
+      const [legalResults, setLegalResults] = useState([]);
+      const [legalDocument, setLegalDocument] = useState(null);
+      const [legalSection, setLegalSection] = useState('reasoning');
+      const [legalLoading, setLegalLoading] = useState(false);
+      const [legalError, setLegalError] = useState('');
+
       const fileInputRef = useRef(null);
       const pdfInputRef = useRef(null);
       const inputRef = useRef(null);
@@ -541,6 +553,83 @@
         reader.readAsText(file);
       };
 
+      const legalApiUrl = () => window.LegalImport?.normalizeApiBase(legalApiBase) || legalApiBase.replace(/\/+$/, '');
+
+      const saveLegalApiBase = (value) => {
+        setLegalApiBase(value);
+        localStorage.setItem('legalTypingApiBase', value.trim().replace(/\/+$/, ''));
+      };
+
+      const searchLegalJudgments = async () => {
+        const base = legalApiUrl();
+        if (!base) {
+          setLegalError('請先填入法律查詢服務網址。部署完成前可先使用 PDF 匯入。');
+          return;
+        }
+        if (!legalQuery.keyword.trim()) {
+          setLegalError('請輸入裁判書關鍵字。');
+          return;
+        }
+        setLegalLoading(true);
+        setLegalError('');
+        setLegalDocument(null);
+        try {
+          const payload = {
+            ...legalQuery,
+            year_from: legalQuery.year_from ? Number(legalQuery.year_from) : 0,
+            year_to: legalQuery.year_to ? Number(legalQuery.year_to) : 0,
+          };
+          const response = await fetch(`${base}/api/judgments/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.detail || '裁判書搜尋失敗');
+          setLegalResults(data.results || []);
+          if ((data.results || []).length === 0) setLegalError('查無結果，請縮小或調整關鍵字。');
+        } catch (error) {
+          setLegalError(error.message || '目前無法連線到法律查詢服務。');
+        } finally {
+          setLegalLoading(false);
+        }
+      };
+
+      const previewLegalJudgment = async (jid) => {
+        const base = legalApiUrl();
+        if (!base) return;
+        setLegalLoading(true);
+        setLegalError('');
+        try {
+          const response = await fetch(`${base}/api/judgments/document?jid=${encodeURIComponent(jid)}`);
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.detail || '無法取得裁判書全文');
+          setLegalDocument(data);
+          setLegalSection(data.reasoning ? 'reasoning' : data.main_text ? 'main_text' : 'full_text');
+        } catch (error) {
+          setLegalError(error.message || '目前無法取得裁判書。');
+        } finally {
+          setLegalLoading(false);
+        }
+      };
+
+      const importLegalJudgment = () => {
+        try {
+          if (!window.LegalImport) throw new Error('法律匯入模組尚未載入，請重新整理頁面。');
+          const newEntry = window.LegalImport.buildImportedDocument(legalDocument, legalSection);
+          setCustomTexts(prev => {
+            const updated = [...prev, newEntry];
+            localStorage.setItem('legalTypingCustomTexts', JSON.stringify(updated));
+            return updated;
+          });
+          setSelectedDoc(newEntry);
+          setShowLegalModal(false);
+          showToast('裁判書已匯入為自訂練習文獻。');
+        } catch (error) {
+          setLegalError(error.message || '裁判書匯入失敗。');
+        }
+      };
+
       const formatTime = (seconds) => {
         if (seconds === null) return '--:--';
         const m = Math.floor(seconds / 60);
@@ -657,6 +746,9 @@
                   setShowAddModal(true);
                 }} className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors shadow-sm">
                   <span>➕</span> 新增文獻
+                </button>
+                <button onClick={() => setShowLegalModal(true)} className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-700 text-white rounded-lg hover:bg-indigo-800 transition-colors shadow-sm" title="查詢並匯入裁判書">
+                  <span>⚖️</span> 匯入裁判書
                 </button>
                 <button onClick={() => setShowHistoryModal(true)} className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
                   <span>🕒</span> 練習紀錄
@@ -863,6 +955,52 @@
                 />
               </div>
             </div>
+
+            {/* 裁判書匯入 Modal */}
+            {showLegalModal && (
+              <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh]">
+                  <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-indigo-50">
+                    <div>
+                      <h3 className="text-xl font-bold text-indigo-950">⚖️ 從裁判書資料庫匯入</h3>
+                      <p className="text-xs text-indigo-700 mt-1">僅作個人學習；匯入前請向司法院官方原始資料核對。</p>
+                    </div>
+                    <button onClick={() => setShowLegalModal(false)} className="text-slate-400 hover:text-slate-600">✖️</button>
+                  </div>
+                  <div className="p-6 overflow-y-auto space-y-4">
+                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">法律查詢服務網址</label>
+                      <input value={legalApiBase} onChange={e => saveLegalApiBase(e.target.value)} placeholder="例如：https://你的法律查詢服務.onrender.com" className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                      <p className="mt-2 text-xs text-slate-500">這個網址由你部署的安全後端提供；不會在瀏覽器保存司法院帳密，也不會繞過網站防護。</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                      <input value={legalQuery.keyword} onChange={e => setLegalQuery({...legalQuery, keyword:e.target.value})} onKeyDown={e => { if (e.key === 'Enter') searchLegalJudgments(); }} placeholder="關鍵字，例如：相當因果關係" className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+                      <select value={legalQuery.case_type} onChange={e => setLegalQuery({...legalQuery, case_type:e.target.value})} className="border border-slate-300 rounded-lg px-3 py-2 bg-white"><option value="">全部類型</option><option value="民事">民事</option><option value="刑事">刑事</option><option value="行政">行政</option></select>
+                      <input value={legalQuery.year_from} onChange={e => setLegalQuery({...legalQuery, year_from:e.target.value.replace(/\D/g, '')})} inputMode="numeric" placeholder="起始民國年" className="border border-slate-300 rounded-lg px-3 py-2" />
+                      <button onClick={searchLegalJudgments} disabled={legalLoading} className="bg-indigo-700 text-white rounded-lg px-4 py-2 font-medium hover:bg-indigo-800 disabled:opacity-50">{legalLoading ? '查詢中…' : '搜尋'}</button>
+                    </div>
+                    {legalError && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{legalError}</div>}
+                    {legalResults.length > 0 && !legalDocument && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-semibold text-slate-700">搜尋結果（最多 10 筆；按預覽後才取得全文）</p>
+                        {legalResults.map(item => <div key={item.jid} className="border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row gap-3 md:items-center justify-between">
+                          <div><p className="font-semibold text-slate-800">{item.case_id || '未載明案號'}</p><p className="text-sm text-slate-500">{item.court}｜{item.case_type}｜{item.date}｜{item.cause}</p>{item.summary && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{item.summary}</p>}</div>
+                          <button onClick={() => previewLegalJudgment(item.jid)} disabled={legalLoading || !item.jid} className="shrink-0 px-4 py-2 text-sm border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-50 disabled:opacity-50">預覽與匯入</button>
+                        </div>)}
+                      </div>
+                    )}
+                    {legalDocument && (
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-slate-200 p-4"><p className="font-bold text-slate-800">{legalDocument.case_id}</p><p className="text-sm text-slate-500">{legalDocument.court}｜{legalDocument.date}｜{legalDocument.cause}</p><a href={legalDocument.source_url} target="_blank" rel="noreferrer" className="inline-block mt-2 text-xs text-indigo-600 underline">開啟司法院官方原始資料 ↗</a></div>
+                        <div className="flex flex-wrap gap-2">{[['main_text','主文'],['facts','事實'],['reasoning','理由'],['full_text','全文']].map(([value,label]) => <button key={value} disabled={!legalDocument[value]} onClick={() => setLegalSection(value)} className={`px-3 py-1.5 rounded-lg text-sm border ${legalSection === value ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-slate-600 border-slate-300'} disabled:opacity-40`}>{label}</button>)}</div>
+                        <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-xl bg-slate-50 border border-slate-200 p-4 text-sm leading-7 text-slate-700">{legalDocument[legalSection] || '這個段落沒有內容。'}</pre>
+                        <div className="flex justify-between gap-3"><button onClick={() => setLegalDocument(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">回到結果</button><button onClick={importLegalJudgment} className="px-5 py-2 bg-indigo-700 text-white rounded-lg hover:bg-indigo-800 font-medium">匯入這個段落為練習文獻</button></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 新增/編輯文獻 Modal */}
             {showAddModal && (
