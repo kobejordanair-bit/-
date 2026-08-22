@@ -1,0 +1,9 @@
+# Local Python environments and runtime cache
+.venv/
+__pycache__/
+*.py[cod]
+backend/data/
+backend/*.db
+
+# Editor and OS files
+.DS_Store
