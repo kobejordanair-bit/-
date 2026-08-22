@@ -14,7 +14,11 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script type="module">
     import { buildImportedDocument, normalizeApiBase, DEFAULT_LEGAL_API_BASE } from './legal-import.mjs';
+    import { analyzeTyping, calculateCpm, countWritingCharacters } from './typing-metrics.mjs';
+    import { buildEssayQuestion, buildEssayRecord } from './essay-tools.mjs';
     window.LegalImport = { buildImportedDocument, normalizeApiBase, DEFAULT_LEGAL_API_BASE };
+    window.TypingMetrics = { analyzeTyping, calculateCpm, countWritingCharacters };
+    window.EssayTools = { buildEssayQuestion, buildEssayRecord };
   </script>
 
   <style>
@@ -121,12 +125,22 @@
 
     function App() {
       const [customTexts, setCustomTexts] = useState(() => {
-        const saved = localStorage.getItem('legalTypingCustomTexts');
-        return saved ? JSON.parse(saved) : [];
+        try {
+          const saved = localStorage.getItem('legalTypingCustomTexts');
+          return saved ? JSON.parse(saved) : [];
+        } catch {
+          localStorage.removeItem('legalTypingCustomTexts');
+          return [];
+        }
       });
       const [history, setHistory] = useState(() => {
-        const saved = localStorage.getItem('legalTypingHistory');
-        return saved ? JSON.parse(saved) : [];
+        try {
+          const saved = localStorage.getItem('legalTypingHistory');
+          return saved ? JSON.parse(saved) : [];
+        } catch {
+          localStorage.removeItem('legalTypingHistory');
+          return [];
+        }
       });
       
       const allDocs = useMemo(() => [...LEGAL_TEXTS, ...customTexts], [customTexts]);
@@ -169,6 +183,21 @@
       const [legalSection, setLegalSection] = useState('reasoning');
       const [legalLoading, setLegalLoading] = useState(false);
       const [legalError, setLegalError] = useState('');
+      const [typingAnalysis, setTypingAnalysis] = useState(null);
+      const [workspace, setWorkspace] = useState('copy');
+      const [essayQuestions, setEssayQuestions] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('legalEssayQuestions')) || []; } catch { return []; }
+      });
+      const [essayHistory, setEssayHistory] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('legalEssayHistory')) || []; } catch { return []; }
+      });
+      const [selectedEssay, setSelectedEssay] = useState(null);
+      const [showEssayModal, setShowEssayModal] = useState(false);
+      const [essayForm, setEssayForm] = useState({ title: '', content: '' });
+      const [essayAnswer, setEssayAnswer] = useState('');
+      const [essayStartedAt, setEssayStartedAt] = useState(null);
+      const [essayFinished, setEssayFinished] = useState(false);
+      const [essayElapsed, setEssayElapsed] = useState(0);
 
       const fileInputRef = useRef(null);
       const pdfInputRef = useRef(null);
@@ -205,6 +234,7 @@
         setCpm(0);
         setWrongCharStats([]);
         setAccuracy(100);
+        setTypingAnalysis(null);
         setIsFinished(false);
         setTimeLeft(practiceMode === 'time' ? timeLimit * 60 : null);
         if (inputRef.current) inputRef.current.focus();
@@ -255,30 +285,13 @@
         const end = Date.now();
         
         const timeInMinutes = startTime ? (end - startTime) / 60000 : 0;
-        const finalCpm = timeInMinutes > 0 ? Math.round(finalVal.length / timeInMinutes) : 0;
-
-        let correctChars = 0;
+        const finalCpm = window.TypingMetrics.calculateCpm(finalVal, end - (startTime || end));
         const targetStr = targetContentRef.current;
-        for (let i = 0; i < finalVal.length; i++) {
-          if (finalVal[i] === targetStr[i]) correctChars++;
-        }
-        const finalAccuracy = finalVal.length === 0 ? 100 : Math.round((correctChars / finalVal.length) * 100);
+        const analysis = window.TypingMetrics.analyzeTyping(targetStr, finalVal);
+        const finalAccuracy = analysis.accuracy;
         const finalNetCpm = Math.round(finalCpm * (finalAccuracy / 100));
-        
-        // 計算錯字統計
-        const wrongMap = {};
-        for (let i = 0; i < finalVal.length; i++) {
-          if (finalVal[i] !== targetStr[i]) {
-            const target = targetStr[i];
-            if (target && target !== '\n') {
-              wrongMap[target] = (wrongMap[target] || 0) + 1;
-            }
-          }
-        }
-        const wrongList = Object.entries(wrongMap)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 8);
-        setWrongCharStats(wrongList);
+        setTypingAnalysis(analysis);
+        setWrongCharStats(analysis.wrongTargetChars.slice(0, 8));
 
         setCpm(finalCpm);
         setAccuracy(finalAccuracy);
@@ -356,13 +369,6 @@
         setInput(val);
         currentInputRef.current = val;
 
-        let correctChars = 0;
-        for (let i = 0; i < val.length; i++) {
-          if (val[i] === targetContentRef.current[i]) correctChars++;
-        }
-        const currentAccuracy = val.length === 0 ? 100 : Math.round((correctChars / val.length) * 100);
-        setAccuracy(currentAccuracy);
-
         if (practiceMode !== 'time' && val.length >= targetContentRef.current.length) {
           handleFinish(val);
         } else if (practiceMode === 'time' && timeLeft <= 0) {
@@ -370,14 +376,14 @@
           handleFinish(val);
         } else if (startTime) {
           const timeInMinutes = (Date.now() - startTime) / 60000;
-          setCpm(timeInMinutes > 0 ? Math.round(val.length / timeInMinutes) : 0);
+          setCpm(window.TypingMetrics.calculateCpm(val, Date.now() - startTime));
         }
       };
 
       const handleDocChange = (e) => {
-        const val = parseInt(e.target.value);
+        const val = e.target.value;
         safeConfirmReset(() => {
-          const doc = allDocs.find(d => d.id === val);
+          const doc = allDocs.find(d => String(d.id) === val);
           if (doc) setSelectedDoc(doc);
         });
       };
@@ -499,7 +505,7 @@
       };
 
       const exportData = () => {
-        const data = { customTexts, history };
+        const data = { customTexts, history, essayQuestions, essayHistory };
         const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -516,6 +522,8 @@
         if (typeof data !== 'object' || data === null) return false;
         if (data.customTexts !== undefined && !Array.isArray(data.customTexts)) return false;
         if (data.history !== undefined && !Array.isArray(data.history)) return false;
+        if (data.essayQuestions !== undefined && !Array.isArray(data.essayQuestions)) return false;
+        if (data.essayHistory !== undefined && !Array.isArray(data.essayHistory)) return false;
         if (Array.isArray(data.customTexts)) {
           if (data.customTexts.some(d => !d.id || !d.title || !d.content)) return false;
         }
@@ -541,6 +549,14 @@
             if (data.history) {
               setHistory(data.history);
               localStorage.setItem('legalTypingHistory', JSON.stringify(data.history));
+            }
+            if (data.essayQuestions) {
+              setEssayQuestions(data.essayQuestions);
+              localStorage.setItem('legalEssayQuestions', JSON.stringify(data.essayQuestions));
+            }
+            if (data.essayHistory) {
+              setEssayHistory(data.essayHistory);
+              localStorage.setItem('legalEssayHistory', JSON.stringify(data.essayHistory));
             }
             showToast('備份資料匯入成功！');
           } catch (err) {
@@ -630,6 +646,74 @@
         }
       };
 
+      const saveEssayQuestion = () => {
+        try {
+          const question = window.EssayTools.buildEssayQuestion(essayForm);
+          setEssayQuestions(prev => {
+            const updated = [...prev, question];
+            localStorage.setItem('legalEssayQuestions', JSON.stringify(updated));
+            return updated;
+          });
+          setSelectedEssay(question);
+          setEssayAnswer('');
+          setEssayStartedAt(null);
+          setEssayElapsed(0);
+          setEssayFinished(false);
+          setShowEssayModal(false);
+          setEssayForm({ title: '', content: '' });
+          showToast('申論題已匯入，現在可以直接作答。');
+        } catch (error) {
+          showToast(error.message || '申論題匯入失敗。');
+        }
+      };
+
+      const openEssayQuestion = (question) => {
+        setSelectedEssay(question);
+        setEssayAnswer('');
+        setEssayStartedAt(null);
+        setEssayElapsed(0);
+        setEssayFinished(false);
+        setWorkspace('essay');
+      };
+
+      const resetEssayAnswer = () => {
+        setEssayAnswer('');
+        setEssayStartedAt(null);
+        setEssayElapsed(0);
+        setEssayFinished(false);
+      };
+
+      const handleEssayAnswerChange = (e) => {
+        if (essayFinished) return;
+        const value = e.target.value.replace(/\r\n/g, '\n');
+        if (!essayStartedAt && window.TypingMetrics.countWritingCharacters(value) > 0) {
+          setEssayStartedAt(Date.now());
+        }
+        setEssayAnswer(value);
+      };
+
+      const finishEssayAnswer = () => {
+        if (!selectedEssay || essayFinished || !essayStartedAt) return;
+        const endedAt = Date.now();
+        const record = window.EssayTools.buildEssayRecord(selectedEssay, essayAnswer, essayStartedAt, endedAt);
+        setEssayElapsed(endedAt - essayStartedAt);
+        setEssayFinished(true);
+        setEssayHistory(prev => {
+          const updated = [record, ...prev].slice(0, 100);
+          localStorage.setItem('legalEssayHistory', JSON.stringify(updated));
+          return updated;
+        });
+      };
+
+      useEffect(() => {
+        if (!essayStartedAt || essayFinished) return undefined;
+        const timer = setInterval(() => setEssayElapsed(Date.now() - essayStartedAt), 1000);
+        return () => clearInterval(timer);
+      }, [essayStartedAt, essayFinished]);
+
+      const essayCpm = essayStartedAt ? window.TypingMetrics.calculateCpm(essayAnswer, essayElapsed) : 0;
+      const essayAnswerChars = window.TypingMetrics.countWritingCharacters(essayAnswer);
+
       const formatTime = (seconds) => {
         if (seconds === null) return '--:--';
         const m = Math.floor(seconds / 60);
@@ -699,26 +783,21 @@
       const tqcRating = useMemo(() => getTQCRating(netCpm, accuracy), [netCpm, accuracy]);
 
       const reviewTextElement = useMemo(() => {
-        if (!isFinished) return null;
-        const targetChars = targetContent.split('');
-        const inputChars = input.split('');
-        return targetChars.map((char, idx) => {
-          const isNewline = char === '\n';
-          const displayChar = isNewline ? '↵\n' : char;
-          
-          if (idx < inputChars.length) {
-            if (char === inputChars[idx]) {
-              return <span key={idx} className={isNewline ? "text-slate-400/60" : "text-slate-900"}>{displayChar}</span>;
-            } else {
-              let userTyped = inputChars[idx];
-              if (userTyped === '\n') userTyped = '換行(Enter)';
-              else if (userTyped === ' ') userTyped = '空白';
-              return <span key={idx} className="text-red-700 bg-red-100 underline decoration-red-500" title={`你輸入: ${userTyped}`}>{displayChar}</span>;
-            }
+        if (!isFinished || !typingAnalysis) return null;
+        return typingAnalysis.operations.map((op, idx) => {
+          const displayChar = op.expected === '\n' ? '↵\n' : op.expected;
+          if (op.kind === 'match') {
+            return <span key={idx} className={op.expected === '\n' ? "text-slate-400/60" : "text-slate-900"}>{displayChar}</span>;
           }
-          return <span key={idx} className={isNewline ? "text-slate-300/50" : "text-slate-300"}>{displayChar}</span>;
+          if (op.kind === 'insertion') {
+            return <span key={idx} className="text-purple-700 bg-purple-100 underline decoration-purple-500" title={`多打: ${op.actual}`}>〔{op.actual}〕</span>;
+          }
+          if (op.kind === 'deletion') {
+            return <span key={idx} className="text-orange-700 bg-orange-100 underline decoration-orange-500" title="漏打">{displayChar}</span>;
+          }
+          return <span key={idx} className="text-red-700 bg-red-100 underline decoration-red-500" title={`你輸入: ${op.actual}`}>{displayChar}</span>;
         });
-      }, [isFinished, targetContent, input]);
+      }, [isFinished, typingAnalysis]);
 
       return (
         <div className="min-h-screen p-6 md:p-12">
@@ -740,6 +819,12 @@
                 <button onClick={exportData} className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm" title="匯出備份">
                   <span>📤</span> 匯出
                 </button>
+                <button onClick={() => setWorkspace('copy')} className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors shadow-sm ${workspace === 'copy' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
+                  <span>📖</span> 逐字練習
+                </button>
+                <button onClick={() => setWorkspace('essay')} className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors shadow-sm ${workspace === 'essay' ? 'bg-amber-700 text-white border-amber-700' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
+                  <span>✍️</span> 申論作答
+                </button>
                 <button onClick={() => {
                   setEditDocId(null);
                   setNewDocForm({ category: '自訂', title: '', content: '' });
@@ -756,7 +841,24 @@
               </div>
             </header>
 
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center gap-4">
+            {workspace === 'essay' && (
+              <div className="space-y-5">
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+                  <div><h2 className="text-xl font-bold text-amber-950">✍️ 申論題純速度作答</h2><p className="text-sm text-amber-800 mt-1">答案開始輸入才計時；只計字數與 CPM，不評正確率。</p></div>
+                  <div className="flex gap-2"><button onClick={() => { setEssayForm({ title: '', content: '' }); setShowEssayModal(true); }} className="px-4 py-2 bg-amber-700 text-white rounded-lg hover:bg-amber-800">匯入申論題</button>{essayQuestions.length > 0 && <select value={selectedEssay?.id || ''} onChange={e => { const q = essayQuestions.find(x => x.id === e.target.value); if (q) openEssayQuestion(q); }} className="border border-amber-300 rounded-lg px-3 py-2 bg-white"><option value="">選擇已匯入題目</option>{essayQuestions.map(q => <option key={q.id} value={q.id}>{q.title}</option>)}</select>}</div>
+                </div>
+                {selectedEssay ? (
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-6 border-b border-slate-200 bg-slate-50"><h3 className="text-lg font-bold text-slate-900">{selectedEssay.title}</h3><p className="whitespace-pre-wrap text-slate-700 leading-relaxed mt-3">{selectedEssay.content}</p></div>
+                    <div className="grid grid-cols-3 gap-3 p-5 bg-white border-b border-slate-100"><div><p className="text-xs text-slate-500">純速度 CPM</p><p className="text-2xl font-bold text-amber-700">{essayCpm}</p></div><div><p className="text-xs text-slate-500">作答字數</p><p className="text-2xl font-bold text-slate-800">{essayAnswerChars}</p></div><div><p className="text-xs text-slate-500">作答時間</p><p className="text-2xl font-bold text-slate-800">{formatTime(Math.floor(essayElapsed / 1000))}</p></div></div>
+                    <textarea value={essayAnswer} onChange={handleEssayAnswerChange} disabled={essayFinished} placeholder="在這裡直接開始作答。第一個字輸入後才會開始計時。" className="w-full min-h-80 p-6 text-lg font-serif leading-relaxed focus:outline-none resize-y disabled:bg-slate-50" spellCheck="false" />
+                    <div className="p-4 border-t border-slate-100 flex justify-between"><button onClick={resetEssayAnswer} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">重新作答</button><button onClick={finishEssayAnswer} disabled={!essayStartedAt || essayFinished} className="px-5 py-2 bg-amber-700 text-white rounded-lg hover:bg-amber-800 disabled:opacity-50">{essayFinished ? '已完成並儲存' : '完成作答並計算速度'}</button></div>
+                  </div>
+                ) : <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-12 text-center text-slate-500">先按「匯入申論題」，貼上題目後即可開始純速度作答。</div>}
+              </div>
+            )}
+
+            <div className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center gap-4 ${workspace === 'essay' ? 'hidden' : ''}`}>
               <div className="flex items-center gap-2 w-full md:w-auto flex-1">
                 <select className="w-full md:w-64 bg-slate-50 border border-slate-300 text-slate-700 py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" onChange={handleDocChange} value={selectedDoc.id}>
                   <optgroup label="內建題庫">
@@ -819,7 +921,7 @@
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className={`grid grid-cols-2 md:grid-cols-5 gap-4 ${workspace === 'essay' ? 'hidden' : ''}`}>
               <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
                 <div className="p-3 bg-blue-50 text-blue-600 rounded-lg text-xl">⚡</div>
                 <div>
@@ -854,13 +956,17 @@
                   </div>
                 </div>
               </div>
+              <button onClick={() => handleFinish()} disabled={!startTime || isFinished} className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 p-4 rounded-xl shadow-sm border border-emerald-700 flex items-center justify-center gap-2 text-white transition-colors">
+                <span className="text-lg">✓</span>
+                <span className="font-medium">完成並計算</span>
+              </button>
               <button onClick={handleReset} className="bg-white hover:bg-slate-50 p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-center gap-2 text-slate-600 transition-colors">
                 <span className="text-lg">🔄</span>
                 <span className="font-medium">重新開始</span>
               </button>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative group">
+            <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative group ${workspace === 'essay' ? 'hidden' : ''}`}>
               {isFinished && (
                 <div className="absolute inset-0 bg-white/95 backdrop-blur-sm flex flex-col z-20 p-6 md:p-8 overflow-y-auto">
                   <div className="flex flex-col items-center">
@@ -955,6 +1061,17 @@
                 />
               </div>
             </div>
+
+            {/* 匯入申論題 Modal */}
+            {showEssayModal && (
+              <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden">
+                  <div className="px-6 py-4 border-b border-amber-100 flex justify-between items-center bg-amber-50"><div><h3 className="text-xl font-bold text-amber-950">✍️ 匯入申論題</h3><p className="text-xs text-amber-800 mt-1">貼上題目即可；答案不會以正確率評分。</p></div><button onClick={() => setShowEssayModal(false)} className="text-slate-400 hover:text-slate-600">✖️</button></div>
+                  <div className="p-6 space-y-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">題名</label><input value={essayForm.title} onChange={e => setEssayForm({...essayForm, title:e.target.value})} placeholder="例如：112年律師民法第一題" className="w-full border border-slate-300 rounded-lg px-3 py-2" /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">申論題題目</label><textarea value={essayForm.content} onChange={e => setEssayForm({...essayForm, content:e.target.value})} placeholder="貼上申論題內容…" className="w-full h-48 border border-slate-300 rounded-lg px-3 py-2 resize-none" /></div></div>
+                  <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3"><button onClick={() => setShowEssayModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg">取消</button><button onClick={saveEssayQuestion} disabled={!essayForm.title.trim() || !essayForm.content.trim()} className="px-4 py-2 bg-amber-700 text-white rounded-lg hover:bg-amber-800 disabled:opacity-50">匯入並開始作答</button></div>
+                </div>
+              </div>
+            )}
 
             {/* 裁判書匯入 Modal */}
             {showLegalModal && (
