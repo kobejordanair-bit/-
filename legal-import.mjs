@@ -27,5 +27,6 @@ export function buildImportedDocument(judgment, section, idSeed = Date.now()) {
     category: `裁判書｜${court}`,
     title: `${caseId}｜${cause}｜${label}`,
     content: `【來源】${court}｜${caseId}｜${date}${sourceLine}\n\n${text}`,
+    updatedAt: new Date().toISOString(),
   };
 }

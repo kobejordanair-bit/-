@@ -10,6 +10,7 @@ export function buildEssayQuestion(form, idSeed = Date.now()) {
     title,
     content,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -26,5 +27,6 @@ export function buildEssayRecord(question, answer, startedAt, endedAt = Date.now
     cpm: calculateCpm(normalizedAnswer, elapsedMilliseconds),
     netCpm: null,
     accuracy: null,
+    updatedAt: new Date().toISOString(),
   };
 }
