@@ -1072,7 +1072,7 @@
                 <div className="flex flex-col gap-2 w-full md:w-auto"><div className="flex flex-col sm:flex-row gap-2"><input value={workspaceName} onChange={e => setWorkspaceName(e.target.value)} placeholder="共用題庫名稱" className="px-3 py-2 text-sm border border-slate-300 rounded-lg" /><button onClick={createSharedWorkspace} className="px-3 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">建立共用題庫</button></div><div className="flex flex-col sm:flex-row gap-2"><input value={workspaceInviteCode} onChange={e => setWorkspaceInviteCode(e.target.value)} placeholder="輸入對方分享的邀請碼" className="px-3 py-2 text-sm border border-slate-300 rounded-lg" /><button onClick={joinSharedWorkspace} className="px-3 py-2 text-sm border border-emerald-300 text-emerald-700 rounded-lg hover:bg-emerald-50">加入共用題庫</button></div></div>
               )) : (
                 <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto"><input type="email" value={syncEmail} onChange={e => setSyncEmail(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') beginEmailSignIn(); }} placeholder="輸入 Email 收取登入連結" className="px-3 py-2 text-sm border border-slate-300 rounded-lg" /><button onClick={beginEmailSignIn} className="px-3 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">寄送登入連結</button><button disabled title="Google OAuth 尚未設定，請先使用 Email 登入連結" className="px-3 py-2 text-sm border border-slate-200 text-slate-400 rounded-lg cursor-not-allowed">Google 登入（設定中）</button></div>
-              ))) : <span className="text-xs text-slate-500">等待建立雲端資料庫設定</span>}
+              )) : <span className="text-xs text-slate-500">等待建立雲端資料庫設定</span>}
             </div>
 
             {workspace === 'essay' && (
