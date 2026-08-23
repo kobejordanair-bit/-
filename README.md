@@ -2,7 +2,25 @@
 
 以繁體中文法律資料做輸入練習的靜態網頁，部署於 GitHub Pages。
 
-## 打字評分與申論作答
+## 跨裝置雲端同步（Supabase）
+
+網站已具備登入、離線本機快取、同步合併與衝突副本邏輯。首次啟用需要建立一個你自己擁有的 Supabase 專案：
+
+1. 在 Supabase 建立專案，於 SQL Editor 執行 `supabase-schema.sql`。
+2. 在 Authentication 啟用 Google provider，並設定網站 redirect URL：
+   `https://kobejordanair-bit.github.io/-/`
+3. 在專案 Connect / API 取得 **Project URL** 與 **publishable / anon key**。
+4. 將兩個公開前端設定值填入 `supabase-config.mjs`：
+
+```js
+export const SUPABASE_URL = 'https://你的專案.supabase.co';
+export const SUPABASE_PUBLISHABLE_KEY = '你的 publishable 或 anon key';
+```
+
+> 絕對不要填入或提交 `service_role` key。它是伺服器管理密鑰，不能出現在瀏覽器或 GitHub。
+
+同步採每筆資料的 `updatedAt` 與 tombstone 軟刪除；同一筆資料在不同裝置同時間修改時，會保留一份「同步衝突副本」，避免靜默遺失資料。
+
 
 ### 逐字練習的正確率
 
