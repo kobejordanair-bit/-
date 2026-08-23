@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './supabase-config.mjs';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './supabase-config.mjs?v=20260823-3';
 import { mergeCloudEntities, toCloudRows } from './cloud-sync.mjs';
 
 export const isCloudConfigured = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);

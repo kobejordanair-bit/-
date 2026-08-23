@@ -20,7 +20,7 @@
     window.TypingMetrics = { analyzeTyping, calculateCpm, countWritingCharacters };
     window.EssayTools = { buildEssayQuestion, buildEssayRecord };
     window.CloudSync = { isCloudConfigured: false };
-    import('./supabase-sync.mjs?v=20260823-2').then(sync => {
+    import('./supabase-sync.mjs?v=20260823-3').then(sync => {
       window.CloudSync = sync;
       window.dispatchEvent(new Event('cloud-sync-ready'));
     }).catch(error => console.warn('Cloud sync module unavailable:', error));
