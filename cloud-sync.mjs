@@ -69,6 +69,17 @@ export function mergeCloudEntities(localEntities = [], remoteRows = [], entityTy
   return { entities, tombstones };
 }
 
+export function toSharedRows(workspaceId, entityType, entities = []) {
+  return entities.map(entity => ({
+    workspace_id: workspaceId,
+    entity_type: entityType,
+    entity_id: String(entity.id),
+    payload: { ...entity, updatedAt: stamp(entity) },
+    client_updated_at: stamp(entity),
+    deleted_at: null,
+  }));
+}
+
 export function toCloudRows(userId, entityType, entities = []) {
   return entities.map(entity => ({
     user_id: userId,

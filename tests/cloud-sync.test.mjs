@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mergeCloudEntities, toCloudRows } from '../cloud-sync.mjs';
+import { mergeCloudEntities, toCloudRows, toSharedRows } from '../cloud-sync.mjs';
 
 const local = [
   { id: 'a', title: '本機舊版', content: 'old', updatedAt: '2026-08-01T00:00:00.000Z' },
@@ -28,5 +28,11 @@ assert.equal(rows.length, 2);
 assert.equal(rows[0].user_id, 'user-1');
 assert.equal(rows[0].entity_type, 'custom_text');
 assert.ok(rows[0].client_updated_at);
+
+const sharedRows = toSharedRows('workspace-1', 'custom_text', merged.entities);
+assert.equal(sharedRows.length, 2);
+assert.equal(sharedRows[0].workspace_id, 'workspace-1');
+assert.equal(sharedRows[0].entity_type, 'custom_text');
+assert.equal(sharedRows[0].user_id, undefined);
 
 console.log('cloud sync merge tests: PASS');
