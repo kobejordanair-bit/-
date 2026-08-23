@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './supabase-config.mjs?v=20260823-3';
-import { mergeCloudEntities, toCloudRows } from './cloud-sync.mjs';
+import { mergeCloudEntities, toCloudRows, toSharedRows } from './cloud-sync.mjs';
 
 export const isCloudConfigured = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
 export const supabase = isCloudConfigured
@@ -20,20 +20,17 @@ export async function getCloudUser() {
   const client = requireClient();
   const { data: sessionData, error: sessionError } = await client.auth.getSession();
   throwIfError(sessionError);
-  if (!sessionData.session?.user) return null;
-  return sessionData.session.user;
+  return sessionData.session?.user || null;
 }
 
 export function onCloudAuthChange(callback) {
-  const client = requireClient();
-  return client.auth.onAuthStateChange((_event, session) => callback(session?.user || null));
+  return requireClient().auth.onAuthStateChange((_event, session) => callback(session?.user || null));
 }
 
 export async function signInWithEmail(email) {
   const normalizedEmail = String(email || '').trim();
   if (!normalizedEmail) throw new Error('請輸入電子郵件。');
-  const client = requireClient();
-  const { error } = await client.auth.signInWithOtp({
+  const { error } = await requireClient().auth.signInWithOtp({
     email: normalizedEmail,
     options: { emailRedirectTo: window.location.origin + window.location.pathname },
   });
@@ -41,8 +38,7 @@ export async function signInWithEmail(email) {
 }
 
 export async function signInWithGoogle() {
-  const client = requireClient();
-  const { error } = await client.auth.signInWithOAuth({
+  const { error } = await requireClient().auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.origin + window.location.pathname },
   });
@@ -54,31 +50,70 @@ export async function signOut() {
   throwIfError(error);
 }
 
-export async function syncCollection(userId, entityType, localEntities, tombstones = []) {
-  const client = requireClient();
-  const { data: remoteRows, error: readError } = await client
-    .from('study_entities')
-    .select('entity_id,payload,client_updated_at,updated_at,deleted_at')
-    .eq('user_id', userId)
-    .eq('entity_type', entityType);
-  throwIfError(readError);
+async function readRows(tableName, filters) {
+  let query = requireClient().from(tableName).select('entity_id,payload,client_updated_at,updated_at,deleted_at');
+  for (const [column, value] of Object.entries(filters)) query = query.eq(column, value);
+  const { data, error } = await query;
+  throwIfError(error);
+  return data || [];
+}
 
-  const merged = mergeCloudEntities(localEntities, remoteRows || [], entityType);
-  const activeRows = toCloudRows(userId, entityType, merged.entities);
-  const deletionRows = tombstones.map(tombstone => ({
-    user_id: userId,
+async function writeRows(tableName, rows, conflictTarget) {
+  if (!rows.length) return;
+  const { error } = await requireClient().from(tableName).upsert(rows, { onConflict: conflictTarget });
+  throwIfError(error);
+}
+
+function deletionRows(ownerColumn, ownerId, entityType, tombstones) {
+  return tombstones.map(tombstone => ({
+    [ownerColumn]: ownerId,
     entity_type: entityType,
     entity_id: String(tombstone.id),
     payload: {},
     client_updated_at: tombstone.deletedAt,
     deleted_at: tombstone.deletedAt,
   }));
-  const rows = [...activeRows, ...deletionRows];
-  if (rows.length) {
-    const { error: writeError } = await client
-      .from('study_entities')
-      .upsert(rows, { onConflict: 'user_id,entity_type,entity_id' });
-    throwIfError(writeError);
-  }
+}
+
+export async function syncCollection(userId, entityType, localEntities, tombstones = []) {
+  const remoteRows = await readRows('study_entities', { user_id: userId, entity_type: entityType });
+  const merged = mergeCloudEntities(localEntities, remoteRows, entityType);
+  await writeRows(
+    'study_entities',
+    [...toCloudRows(userId, entityType, merged.entities), ...deletionRows('user_id', userId, entityType, tombstones)],
+    'user_id,entity_type,entity_id',
+  );
+  return merged;
+}
+
+export async function listLearningWorkspaces() {
+  const { data, error } = await requireClient()
+    .from('learning_workspaces')
+    .select('id,name,owner_id,invite_code,created_at')
+    .order('created_at', { ascending: true });
+  throwIfError(error);
+  return data || [];
+}
+
+export async function createLearningWorkspace(name) {
+  const { data, error } = await requireClient().rpc('create_learning_workspace', { p_name: name });
+  throwIfError(error);
+  return Array.isArray(data) ? data[0] : data;
+}
+
+export async function joinLearningWorkspace(inviteCode) {
+  const { data, error } = await requireClient().rpc('join_learning_workspace', { p_invite_code: inviteCode });
+  throwIfError(error);
+  return Array.isArray(data) ? data[0] : data;
+}
+
+export async function syncSharedCollection(workspaceId, entityType, localEntities, tombstones = []) {
+  const remoteRows = await readRows('shared_learning_entities', { workspace_id: workspaceId, entity_type: entityType });
+  const merged = mergeCloudEntities(localEntities, remoteRows, entityType);
+  await writeRows(
+    'shared_learning_entities',
+    [...toSharedRows(workspaceId, entityType, merged.entities), ...deletionRows('workspace_id', workspaceId, entityType, tombstones)],
+    'workspace_id,entity_type,entity_id',
+  );
   return merged;
 }

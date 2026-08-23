@@ -218,6 +218,10 @@
       const [syncMessage, setSyncMessage] = useState('僅儲存在這台裝置');
       const [syncReady, setSyncReady] = useState(false);
       const [syncEmail, setSyncEmail] = useState('');
+      const [learningWorkspaces, setLearningWorkspaces] = useState([]);
+      const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => localStorage.getItem('legalActiveWorkspaceId') || '');
+      const [workspaceName, setWorkspaceName] = useState('法學共學題庫');
+      const [workspaceInviteCode, setWorkspaceInviteCode] = useState('');
 
       const fileInputRef = useRef(null);
       const pdfInputRef = useRef(null);
@@ -226,6 +230,7 @@
       const upperTextRef = useRef(null);
       const isComposingRef = useRef(false);
 
+      const activeLearningWorkspace = learningWorkspaces.find(workspaceItem => workspaceItem.id === activeWorkspaceId);
       const historyTitles = useMemo(() => 
         [...new Set(history.map(r => r.title))], [history]);
 
@@ -595,6 +600,47 @@
         reader.readAsText(file);
       };
 
+      const loadLearningWorkspaces = async () => {
+        const workspaces = await window.CloudSync.listLearningWorkspaces();
+        setLearningWorkspaces(workspaces);
+        const current = workspaces.find(workspace => workspace.id === activeWorkspaceId) || workspaces[0];
+        if (current) {
+          setActiveWorkspaceId(current.id);
+          localStorage.setItem('legalActiveWorkspaceId', current.id);
+        }
+        return workspaces;
+      };
+
+      const createSharedWorkspace = async () => {
+        try {
+          const created = await window.CloudSync.createLearningWorkspace(workspaceName);
+          await loadLearningWorkspaces();
+          setActiveWorkspaceId(created.workspace_id);
+          localStorage.setItem('legalActiveWorkspaceId', created.workspace_id);
+          setSyncReady(true);
+          setSyncMessage(`已建立「${created.workspace_name}」，邀請碼：${created.invite_code}`);
+        } catch (error) {
+          console.error('Workspace create failed:', error);
+          setSyncStatus('error');
+          setSyncMessage(error.message || '建立共用題庫失敗。');
+        }
+      };
+
+      const joinSharedWorkspace = async () => {
+        try {
+          const joined = await window.CloudSync.joinLearningWorkspace(workspaceInviteCode);
+          await loadLearningWorkspaces();
+          setActiveWorkspaceId(joined.workspace_id);
+          localStorage.setItem('legalActiveWorkspaceId', joined.workspace_id);
+          setSyncReady(true);
+          setSyncMessage(`已加入「${joined.workspace_name}」，正在合併題庫。`);
+        } catch (error) {
+          console.error('Workspace join failed:', error);
+          setSyncStatus('error');
+          setSyncMessage(error.message || '邀請碼無效或加入題庫失敗。');
+        }
+      };
+
       const persistSyncTombstones = () => localStorage.setItem('legalSyncTombstones', JSON.stringify(syncTombstonesRef.current));
       const queueTombstone = (entityType, id) => {
         const list = syncTombstonesRef.current[entityType] || [];
@@ -609,13 +655,11 @@
         setSyncStatus('syncing');
         setSyncMessage('正在合併這台裝置與雲端資料…');
         try {
-          const collections = [
-            ['custom_text', customTexts, setCustomTexts, 'legalTypingCustomTexts'],
+          const privateCollections = [
             ['practice_record', history, setHistory, 'legalTypingHistory'],
-            ['essay_question', essayQuestions, setEssayQuestions, 'legalEssayQuestions'],
             ['essay_record', essayHistory, setEssayHistory, 'legalEssayHistory'],
           ];
-          for (const [entityType, entities, setEntities, storageKey] of collections) {
+          for (const [entityType, entities, setEntities, storageKey] of privateCollections) {
             const result = await window.CloudSync.syncCollection(
               cloudUser.id,
               entityType,
@@ -624,6 +668,22 @@
             );
             setEntities(result.entities);
             localStorage.setItem(storageKey, JSON.stringify(result.entities));
+          }
+          if (activeWorkspaceId) {
+            const sharedCollections = [
+              ['custom_text', customTexts, setCustomTexts, 'legalTypingCustomTexts'],
+              ['essay_question', essayQuestions, setEssayQuestions, 'legalEssayQuestions'],
+            ];
+            for (const [entityType, entities, setEntities, storageKey] of sharedCollections) {
+              const result = await window.CloudSync.syncSharedCollection(
+                activeWorkspaceId,
+                entityType,
+                stampEntities(entities),
+                syncTombstonesRef.current[entityType] || [],
+              );
+              setEntities(result.entities);
+              localStorage.setItem(storageKey, JSON.stringify(result.entities));
+            }
           }
           syncIgnoreNextEffectRef.current = true;
           syncTombstonesRef.current = {};
@@ -688,6 +748,7 @@
             const user = await window.CloudSync.getCloudUser();
             setCloudUser(user);
             if (user) {
+              await loadLearningWorkspaces();
               setSyncReady(true);
               setSyncStatus('local');
               setSyncMessage('已登入，準備同步資料。');
@@ -695,9 +756,10 @@
               setSyncStatus('local');
               setSyncMessage('登入後可在所有裝置自動同步資料。');
             }
-            const result = window.CloudSync.onCloudAuthChange(userChanged => {
+            const result = window.CloudSync.onCloudAuthChange(async userChanged => {
               setCloudUser(userChanged);
               setSyncReady(Boolean(userChanged));
+              if (userChanged) await loadLearningWorkspaces();
               setSyncStatus('local');
               setSyncMessage(userChanged ? '登入成功，正在準備同步。' : '已登出；本機資料仍保留。');
             });
@@ -728,7 +790,7 @@
         clearTimeout(syncTimerRef.current);
         syncTimerRef.current = setTimeout(runCloudSync, 1500);
         return () => clearTimeout(syncTimerRef.current);
-      }, [customTexts, history, essayQuestions, essayHistory, cloudUser, syncReady]);
+      }, [customTexts, history, essayQuestions, essayHistory, cloudUser, syncReady, activeWorkspaceId]);
 
       const legalApiUrl = () => window.LegalImport?.normalizeApiBase(legalApiBase) || legalApiBase.replace(/\/+$/, '');
 
@@ -1004,11 +1066,13 @@
 
             <div className={`rounded-xl border px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 ${syncStatus === 'error' ? 'border-red-200 bg-red-50' : syncStatus === 'synced' ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
               <div><p className="text-sm font-semibold text-slate-800">☁️ 跨裝置雲端同步</p><p className="text-xs text-slate-600 mt-0.5">{syncMessage}</p></div>
-              {window.CloudSync?.isCloudConfigured ? (cloudUser ? (
-                <div className="flex gap-2"><button onClick={runCloudSync} disabled={syncStatus === 'syncing'} className="px-3 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 disabled:opacity-50">{syncStatus === 'syncing' ? '同步中…' : '立即同步'}</button><button onClick={leaveCloud} className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white">登出</button></div>
+              {window.CloudSync?.isCloudConfigured ? (cloudUser ? (activeLearningWorkspace ? (
+                <div className="flex flex-col gap-2 w-full md:w-auto"><div className="flex flex-wrap gap-2 items-center"><select value={activeWorkspaceId} onChange={e => { setActiveWorkspaceId(e.target.value); localStorage.setItem('legalActiveWorkspaceId', e.target.value); }} className="px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white">{learningWorkspaces.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><button onClick={runCloudSync} disabled={syncStatus === 'syncing'} className="px-3 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 disabled:opacity-50">{syncStatus === 'syncing' ? '同步中…' : '立即同步'}</button><button onClick={leaveCloud} className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white">登出</button></div><p className="text-xs text-slate-600">分享邀請碼：<code className="select-all font-mono bg-white border px-1 rounded">{activeLearningWorkspace.invite_code}</code>（讓對方登入後輸入即可加入）</p></div>
               ) : (
+                <div className="flex flex-col gap-2 w-full md:w-auto"><div className="flex flex-col sm:flex-row gap-2"><input value={workspaceName} onChange={e => setWorkspaceName(e.target.value)} placeholder="共用題庫名稱" className="px-3 py-2 text-sm border border-slate-300 rounded-lg" /><button onClick={createSharedWorkspace} className="px-3 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">建立共用題庫</button></div><div className="flex flex-col sm:flex-row gap-2"><input value={workspaceInviteCode} onChange={e => setWorkspaceInviteCode(e.target.value)} placeholder="輸入對方分享的邀請碼" className="px-3 py-2 text-sm border border-slate-300 rounded-lg" /><button onClick={joinSharedWorkspace} className="px-3 py-2 text-sm border border-emerald-300 text-emerald-700 rounded-lg hover:bg-emerald-50">加入共用題庫</button></div></div>
+              )) : (
                 <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto"><input type="email" value={syncEmail} onChange={e => setSyncEmail(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') beginEmailSignIn(); }} placeholder="輸入 Email 收取登入連結" className="px-3 py-2 text-sm border border-slate-300 rounded-lg" /><button onClick={beginEmailSignIn} className="px-3 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">寄送登入連結</button><button disabled title="Google OAuth 尚未設定，請先使用 Email 登入連結" className="px-3 py-2 text-sm border border-slate-200 text-slate-400 rounded-lg cursor-not-allowed">Google 登入（設定中）</button></div>
-              )) : <span className="text-xs text-slate-500">等待建立雲端資料庫設定</span>}
+              ))) : <span className="text-xs text-slate-500">等待建立雲端資料庫設定</span>}
             </div>
 
             {workspace === 'essay' && (

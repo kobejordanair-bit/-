@@ -21,6 +21,15 @@ export const SUPABASE_PUBLISHABLE_KEY = '你的 publishable 或 anon key';
 
 同步採每筆資料的 `updatedAt` 與 tombstone 軟刪除；同一筆資料在不同裝置同時間修改時，會保留一份「同步衝突副本」，避免靜默遺失資料。
 
+### 共享題庫與個人紀錄
+
+若要讓多位使用者共用題庫，請在完成上述基本 schema 後，再執行 `supabase-shared-workspace.sql`。它會建立：
+
+- 共用工作區與安全邀請碼
+- 工作區成員關係
+- 共用的自訂文獻與申論題
+- 僅個人可見的練習／速度紀錄
+
 
 ### 逐字練習的正確率
 
