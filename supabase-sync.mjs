@@ -18,14 +18,26 @@ function throwIfError(error) {
 
 export async function getCloudUser() {
   const client = requireClient();
-  const { data, error } = await client.auth.getUser();
-  throwIfError(error);
-  return data.user;
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+  throwIfError(sessionError);
+  if (!sessionData.session?.user) return null;
+  return sessionData.session.user;
 }
 
 export function onCloudAuthChange(callback) {
   const client = requireClient();
   return client.auth.onAuthStateChange((_event, session) => callback(session?.user || null));
+}
+
+export async function signInWithEmail(email) {
+  const normalizedEmail = String(email || '').trim();
+  if (!normalizedEmail) throw new Error('請輸入電子郵件。');
+  const client = requireClient();
+  const { error } = await client.auth.signInWithOtp({
+    email: normalizedEmail,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname },
+  });
+  throwIfError(error);
 }
 
 export async function signInWithGoogle() {

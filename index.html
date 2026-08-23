@@ -20,7 +20,7 @@
     window.TypingMetrics = { analyzeTyping, calculateCpm, countWritingCharacters };
     window.EssayTools = { buildEssayQuestion, buildEssayRecord };
     window.CloudSync = { isCloudConfigured: false };
-    import('./supabase-sync.mjs').then(sync => {
+    import('./supabase-sync.mjs?v=20260823-2').then(sync => {
       window.CloudSync = sync;
       window.dispatchEvent(new Event('cloud-sync-ready'));
     }).catch(error => console.warn('Cloud sync module unavailable:', error));
@@ -165,6 +165,7 @@
       const startTimeRef = useRef(null);
       const deadlineRef = useRef(null);
       const syncLockRef = useRef(false);
+      const cloudAuthInitializedRef = useRef(false);
       const syncIgnoreNextEffectRef = useRef(false);
       const syncTimerRef = useRef(null);
       const syncTombstonesRef = useRef((() => {
@@ -216,6 +217,7 @@
       const [syncStatus, setSyncStatus] = useState('local');
       const [syncMessage, setSyncMessage] = useState('僅儲存在這台裝置');
       const [syncReady, setSyncReady] = useState(false);
+      const [syncEmail, setSyncEmail] = useState('');
 
       const fileInputRef = useRef(null);
       const pdfInputRef = useRef(null);
@@ -638,6 +640,18 @@
         }
       };
 
+      const beginEmailSignIn = async () => {
+        try {
+          await window.CloudSync.signInWithEmail(syncEmail);
+          setSyncStatus('local');
+          setSyncMessage('登入連結已寄出，請到信箱開啟連結後回到本網站。');
+        } catch (error) {
+          console.error('Email sign-in failed:', error);
+          setSyncStatus('error');
+          setSyncMessage(error.message || '寄送登入連結失敗。');
+        }
+      };
+
       const beginGoogleSignIn = async () => {
         try {
           await window.CloudSync.signInWithGoogle();
@@ -668,13 +682,24 @@
             setSyncMessage('雲端同步尚未設定；目前只儲存在這台裝置。');
             return;
           }
+          if (cloudAuthInitializedRef.current) return;
+          cloudAuthInitializedRef.current = true;
           try {
             const user = await window.CloudSync.getCloudUser();
             setCloudUser(user);
-            if (user) setSyncReady(true);
+            if (user) {
+              setSyncReady(true);
+              setSyncStatus('local');
+              setSyncMessage('已登入，準備同步資料。');
+            } else {
+              setSyncStatus('local');
+              setSyncMessage('登入後可在所有裝置自動同步資料。');
+            }
             const result = window.CloudSync.onCloudAuthChange(userChanged => {
               setCloudUser(userChanged);
               setSyncReady(Boolean(userChanged));
+              setSyncStatus('local');
+              setSyncMessage(userChanged ? '登入成功，正在準備同步。' : '已登出；本機資料仍保留。');
             });
             subscription = result.data?.subscription;
           } catch (error) {
@@ -683,10 +708,13 @@
             setSyncMessage('無法連線到雲端同步服務。');
           }
         };
+        const moduleWasLoading = !window.CloudSync?.isCloudConfigured;
         connectCloud();
         window.addEventListener('cloud-sync-ready', connectCloud, { once: true });
+        const retryTimer = moduleWasLoading ? setTimeout(connectCloud, 1500) : null;
         return () => {
           window.removeEventListener('cloud-sync-ready', connectCloud);
+          if (retryTimer) clearTimeout(retryTimer);
           subscription?.unsubscribe();
         };
       }, []);
@@ -976,7 +1004,11 @@
 
             <div className={`rounded-xl border px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 ${syncStatus === 'error' ? 'border-red-200 bg-red-50' : syncStatus === 'synced' ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
               <div><p className="text-sm font-semibold text-slate-800">☁️ 跨裝置雲端同步</p><p className="text-xs text-slate-600 mt-0.5">{syncMessage}</p></div>
-              {window.CloudSync?.isCloudConfigured ? (cloudUser ? <div className="flex gap-2"><button onClick={runCloudSync} disabled={syncStatus === 'syncing'} className="px-3 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 disabled:opacity-50">{syncStatus === 'syncing' ? '同步中…' : '立即同步'}</button><button onClick={leaveCloud} className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white">登出</button></div> : <button onClick={beginGoogleSignIn} className="px-3 py-2 text-sm bg-blue-700 text-white rounded-lg hover:bg-blue-800">使用 Google 登入同步</button>) : <span className="text-xs text-slate-500">等待建立雲端資料庫設定</span>}
+              {window.CloudSync?.isCloudConfigured ? (cloudUser ? (
+                <div className="flex gap-2"><button onClick={runCloudSync} disabled={syncStatus === 'syncing'} className="px-3 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 disabled:opacity-50">{syncStatus === 'syncing' ? '同步中…' : '立即同步'}</button><button onClick={leaveCloud} className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-white">登出</button></div>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto"><input type="email" value={syncEmail} onChange={e => setSyncEmail(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') beginEmailSignIn(); }} placeholder="輸入 Email 收取登入連結" className="px-3 py-2 text-sm border border-slate-300 rounded-lg" /><button onClick={beginEmailSignIn} className="px-3 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">寄送登入連結</button><button onClick={beginGoogleSignIn} className="px-3 py-2 text-sm border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50">Google 登入</button></div>
+              )) : <span className="text-xs text-slate-500">等待建立雲端資料庫設定</span>}
             </div>
 
             {workspace === 'essay' && (
