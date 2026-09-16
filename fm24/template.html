@@ -1,0 +1,873 @@
+<title>藍紅檔案館</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+:root{
+  --ground:#EDEEF3; --panel:#F7F8FB; --panel-2:#E3E5EE; --sunk:#DCDEE9;
+  --line:#C9CCDB; --line-soft:#DCDEE9;
+  --text:#171A26; --text-2:#4B5068; --text-3:#767C96;
+  --garnet:#9E1B3E; --garnet-soft:#C4577310; --azul:#2C4A94; --gold:#B08428;
+  --ok:#256F51; --warn:#9A6410; --bad:#A43229;
+  --ok-bg:#256F5118; --warn-bg:#9A641018; --bad-bg:#A4322918;
+  --display:"Bricolage Grotesque","Noto Sans TC",system-ui,sans-serif;
+  --body:"Noto Sans TC",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --rail:248px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0D0F18; --panel:#141726; --panel-2:#1C2033; --sunk:#0A0C14;
+    --line:#2A2F45; --line-soft:#1F2437;
+    --text:#E8E9F0; --text-2:#A2A7BE; --text-3:#6E7490;
+    --garnet:#E2536F; --garnet-soft:#E2536F1A; --azul:#7B9AE8; --gold:#D8AC4A;
+    --ok:#4FBF90; --warn:#D9A03F; --bad:#E2706A;
+    --ok-bg:#4FBF9018; --warn-bg:#D9A03F18; --bad-bg:#E2706A18;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0D0F18; --panel:#141726; --panel-2:#1C2033; --sunk:#0A0C14;
+  --line:#2A2F45; --line-soft:#1F2437;
+  --text:#E8E9F0; --text-2:#A2A7BE; --text-3:#6E7490;
+  --garnet:#E2536F; --garnet-soft:#E2536F1A; --azul:#7B9AE8; --gold:#D8AC4A;
+  --ok:#4FBF90; --warn:#D9A03F; --bad:#E2706A;
+  --ok-bg:#4FBF9018; --warn-bg:#D9A03F18; --bad-bg:#E2706A18;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--text);font-family:var(--body);
+  font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--display);font-weight:800;margin:0;text-wrap:balance;letter-spacing:-.015em}
+a{color:var(--azul)}
+button{font:inherit;color:inherit}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:var(--rail) minmax(0,1fr);min-height:100%}
+.rail{background:var(--panel);border-right:1px solid var(--line);
+  position:sticky;top:env(safe-area-inset-top,0px);align-self:start;height:100vh;
+  display:flex;flex-direction:column;padding:22px 16px;gap:22px;overflow-y:auto}
+.stamp{display:flex;flex-direction:column;gap:4px}
+.stamp .crest{display:flex;gap:3px;margin-bottom:8px}
+.stamp .crest i{width:7px;height:22px;border-radius:1px;display:block}
+.stamp h1{font-size:19px;line-height:1.15}
+.stamp .sub{font-family:var(--mono);font-size:10px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--text-3)}
+nav{display:flex;flex-direction:column;gap:2px}
+nav button{display:flex;align-items:baseline;gap:9px;background:none;border:0;cursor:pointer;
+  text-align:left;padding:8px 10px;border-radius:5px;color:var(--text-2);width:100%}
+nav button:hover{background:var(--panel-2);color:var(--text)}
+nav button[aria-current="true"]{background:var(--garnet);color:#fff}
+nav button[aria-current="true"] .k{color:#ffffffaa}
+nav .k{font-family:var(--mono);font-size:10px;color:var(--text-3);min-width:16px}
+nav .t{font-weight:500;font-size:13.5px}
+.rail-foot{margin-top:auto;border-top:1px solid var(--line-soft);padding-top:14px;
+  font-family:var(--mono);font-size:10.5px;color:var(--text-3);line-height:1.8}
+.rail-foot b{color:var(--text-2);font-weight:500}
+.themer{margin-top:10px;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:5px;padding:5px 9px;cursor:pointer;font-family:var(--mono);font-size:10.5px;
+  color:var(--text-2);width:100%;text-align:left}
+.themer:hover{border-color:var(--garnet);color:var(--text)}
+
+main{padding:34px 40px 80px;max-width:1180px}
+.view{display:flex;flex-direction:column;gap:30px}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--garnet);font-weight:600}
+.view-head{display:flex;flex-direction:column;gap:6px;max-width:66ch}
+.view-head h2{font-size:29px}
+.view-head p{margin:0;color:var(--text-2);font-size:13.5px}
+
+/* ---------- panels ---------- */
+.panel{background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:20px 22px}
+.panel>h3{font-size:15px;margin-bottom:3px}
+.panel>.cap{font-size:12px;color:var(--text-3);margin:0 0 16px}
+
+/* ---------- stat strip ---------- */
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));
+  border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.strip div{padding:15px 17px;border-right:1px solid var(--line-soft)}
+.strip div:last-child{border-right:0}
+.strip .n{font-family:var(--display);font-size:29px;font-weight:800;line-height:1;
+  font-variant-numeric:tabular-nums}
+.strip .l{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-3);margin-top:7px}
+.strip .garnet .n{color:var(--garnet)}
+
+/* ---------- season ribbon ---------- */
+.ribbon{display:flex;gap:5px;align-items:flex-end;overflow-x:auto;padding-bottom:4px}
+.rib{flex:1 0 62px;background:none;border:0;padding:0;cursor:pointer;display:flex;
+  flex-direction:column;align-items:center;gap:6px;border-radius:5px}
+.rib:hover .bar{filter:brightness(1.12)}
+.rib .pips{display:flex;gap:2px;height:9px;align-items:center}
+.rib .pips i{width:5px;height:5px;border-radius:50%;background:var(--gold);display:block}
+.bar{width:100%;border-radius:3px 3px 0 0;position:relative;display:flex;
+  align-items:flex-start;justify-content:center;padding-top:6px;transition:filter .15s}
+.bar span{font-family:var(--mono);font-size:10.5px;font-weight:600;color:#fff}
+.rib .pos{font-family:var(--display);font-size:15px;font-weight:800;line-height:1}
+.rib .yr{font-family:var(--mono);font-size:9.5px;color:var(--text-3);letter-spacing:.02em}
+.rib[aria-current="true"] .yr{color:var(--garnet);font-weight:600}
+
+/* ---------- honours ledger ---------- */
+.ledger{overflow-x:auto}
+.ledger table{border-collapse:collapse;font-size:12px;min-width:640px}
+.ledger th{font-family:var(--mono);font-size:9.5px;font-weight:500;color:var(--text-3);
+  padding:0 0 9px;text-align:center;letter-spacing:.02em}
+.ledger th.rowh{text-align:left;padding-right:14px;font-family:var(--body);font-size:12px;
+  color:var(--text-2);font-weight:500;white-space:nowrap}
+.ledger td{text-align:center;padding:3px 2px}
+.cell{width:26px;height:26px;border-radius:4px;display:inline-flex;align-items:center;
+  justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600}
+.cell.win{background:var(--garnet);color:#fff}
+.cell.near{background:var(--sunk);border:1px solid var(--line);color:var(--text-2)}
+.cell.none{color:var(--text-3);opacity:.45}
+
+/* ---------- generic table ---------- */
+.tblwrap{overflow-x:auto}
+table.data{border-collapse:collapse;width:100%;min-width:620px;font-size:13px}
+table.data th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--text-3);font-weight:500;padding:0 12px 9px 0;
+  border-bottom:1px solid var(--line);white-space:nowrap}
+table.data th.num,table.data td.num{text-align:right;font-variant-numeric:tabular-nums}
+table.data th.sortable{cursor:pointer;user-select:none}
+table.data th.sortable:hover{color:var(--garnet)}
+table.data th[data-active="true"]{color:var(--garnet)}
+table.data td{padding:8px 12px 8px 0;border-bottom:1px solid var(--line-soft);vertical-align:top}
+table.data tbody tr:hover td{background:var(--panel-2)}
+table.data tbody tr.click{cursor:pointer}
+.name-cell{font-weight:500}
+.mono{font-family:var(--mono);font-size:11.5px;color:var(--text-3)}
+
+/* ---------- pills ---------- */
+.pill{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10px;
+  padding:2px 7px;border-radius:99px;letter-spacing:.03em;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.flat{background:var(--panel-2);color:var(--text-2)}
+.pill.win{background:var(--garnet);color:#fff}
+
+/* ---------- season detail ---------- */
+.two{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:13px}
+.kv dt{font-family:var(--mono);font-size:10.5px;color:var(--text-3);letter-spacing:.04em;
+  text-transform:uppercase;padding-top:3px}
+.kv dd{margin:0;color:var(--text)}
+.leaders{display:flex;flex-direction:column;gap:11px}
+.leader{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  padding-bottom:10px;border-bottom:1px solid var(--line-soft)}
+.leader:last-child{border-bottom:0;padding-bottom:0}
+.leader .who{display:flex;flex-direction:column}
+.leader .role{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-3)}
+.leader .nm{font-weight:500}
+.leader .v{font-family:var(--display);font-size:21px;font-weight:800;color:var(--garnet);
+  font-variant-numeric:tabular-nums}
+.xfer{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--line-soft);font-size:12.5px}
+.xfer:last-child{border-bottom:0}
+.xfer .dir{font-family:var(--mono);font-size:10px;width:22px;flex:none;padding-top:2px}
+.xfer .dir.in{color:var(--ok)} .xfer .dir.out{color:var(--bad)}
+.xfer .who{flex:1;min-width:0}
+.xfer .nm{font-weight:500;display:block}
+.xfer .cl{color:var(--text-3);font-size:11.5px}
+.xfer .fee{font-family:var(--mono);font-size:11.5px;color:var(--text-2);white-space:nowrap;padding-top:2px}
+.note{background:var(--sunk);border-left:2px solid var(--garnet);padding:11px 14px;
+  border-radius:0 5px 5px 0;font-size:12.5px;color:var(--text-2)}
+
+/* ---------- player detail ---------- */
+.p-head{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between}
+.p-id h2{font-size:31px;line-height:1.1}
+.p-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.radar-wrap{display:grid;grid-template-columns:270px minmax(0,1fr);gap:20px;align-items:start}
+.attr-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:20px}
+.attr-col h4{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-3);font-weight:500;margin-bottom:9px}
+.attr{display:flex;align-items:center;gap:8px;padding:2.5px 0;font-size:12.5px}
+.attr .an{flex:1;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.attr .track{width:44px;height:4px;background:var(--sunk);border-radius:2px;overflow:hidden;flex:none}
+.attr .track i{display:block;height:100%;border-radius:2px}
+.attr .av{font-family:var(--mono);font-size:11.5px;width:17px;text-align:right;
+  font-variant-numeric:tabular-nums;flex:none}
+.trophy-row{display:flex;gap:7px;flex-wrap:wrap}
+.trophy{display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--sunk);
+  border-radius:6px;padding:9px 13px;min-width:56px}
+.trophy .n{font-family:var(--display);font-size:20px;font-weight:800;line-height:1;
+  font-variant-numeric:tabular-nums}
+.trophy .l{font-size:10.5px;color:var(--text-3)}
+.trophy.has{background:var(--garnet-soft);box-shadow:inset 0 0 0 1px var(--garnet)}
+.trophy.has .n{color:var(--garnet)}
+.awards{display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto}
+.awards div{font-size:12.5px;color:var(--text-2);padding-left:13px;position:relative}
+.awards div::before{content:"";position:absolute;left:0;top:9px;width:5px;height:5px;
+  border-radius:50%;background:var(--gold)}
+.back{background:none;border:0;cursor:pointer;font-family:var(--mono);font-size:11px;
+  color:var(--text-3);padding:0;letter-spacing:.04em}
+.back:hover{color:var(--garnet)}
+
+/* ---------- chronicle ---------- */
+.filters{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.filters input,.filters select{font:inherit;font-size:12.5px;background:var(--panel);
+  color:var(--text);border:1px solid var(--line);border-radius:5px;padding:6px 10px;min-width:0}
+.filters input{flex:1;min-width:150px}
+.filters input:focus,.filters select:focus{outline:2px solid var(--garnet);outline-offset:1px}
+.chron{display:flex;flex-direction:column}
+.ev{display:grid;grid-template-columns:78px 1fr;gap:16px;padding:11px 0;
+  border-bottom:1px solid var(--line-soft)}
+.ev .when{font-family:var(--mono);font-size:11px;color:var(--garnet);font-weight:500;padding-top:2px}
+.ev .what{min-width:0}
+.ev .f{font-size:13px;margin-bottom:3px}
+.ev .src{font-family:var(--mono);font-size:10px;color:var(--text-3)}
+
+/* ---------- integrity ---------- */
+.finding{border:1px solid var(--line);border-radius:8px;padding:16px 18px;background:var(--panel);
+  display:flex;flex-direction:column;gap:7px}
+.finding.high{border-left:3px solid var(--bad)}
+.finding.medium{border-left:3px solid var(--warn)}
+.finding.low{border-left:3px solid var(--text-3)}
+.finding h4{font-size:14.5px;font-family:var(--display);font-weight:800}
+.finding p{margin:0;font-size:12.5px;color:var(--text-2)}
+.finding .meta{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.bars{display:flex;flex-direction:column;gap:7px}
+.brow{display:grid;grid-template-columns:1fr 46px;gap:10px;align-items:center;font-size:12.5px}
+.brow .lb{display:flex;align-items:center;gap:8px;min-width:0}
+.brow .lb span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .tr{flex:1;height:5px;background:var(--sunk);border-radius:3px;overflow:hidden;min-width:24px}
+.brow .tr i{display:block;height:100%;background:var(--azul);border-radius:3px}
+.brow .vv{font-family:var(--mono);font-size:11.5px;text-align:right;color:var(--text-2);
+  font-variant-numeric:tabular-nums}
+.clasico{display:flex;gap:3px;flex-wrap:wrap}
+.cl-m{width:23px;height:23px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;font-weight:600;color:#fff}
+.cl-m.W{background:var(--ok)} .cl-m.L{background:var(--bad)} .cl-m.D{background:var(--text-3)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;
+  color:var(--text-3);margin-top:12px}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:9px;height:9px;border-radius:2px;display:block}
+
+@media (max-width:900px){
+  :root{--rail:0px}
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;height:auto;flex-direction:column;border-right:0;
+    border-bottom:1px solid var(--line);padding:18px 16px}
+  nav{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:2px}
+  nav button{width:auto;white-space:nowrap;padding:7px 12px}
+  nav .k{display:none}
+  .rail-foot{margin-top:0}
+  main{padding:26px 16px 70px}
+  .two,.radar-wrap{grid-template-columns:minmax(0,1fr)}
+  .view-head h2{font-size:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="stamp">
+      <div class="crest"><i style="background:var(--garnet)"></i><i style="background:var(--azul)"></i><i style="background:var(--garnet)"></i><i style="background:var(--azul)"></i></div>
+      <h1>藍紅檔案館</h1>
+      <div class="sub" id="stampSub">FM24 · v6.4.0</div>
+    </div>
+    <nav id="nav"></nav>
+    <div class="rail-foot" id="railFoot"></div>
+    <button class="themer" id="themer" type="button">切換主題</button>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<script>
+const DATA = "__ARCHIVE_DATA__";
+
+/* ------------------------------------------------------------------ utils */
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") n.className = v;
+    else if (k === "html") n.innerHTML = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2).toLowerCase(), v);
+    else n.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    n.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return n;
+};
+const svg = (tag, attrs = {}, ...kids) => {
+  const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) if (v !== null && v !== undefined) n.setAttribute(k, v);
+  for (const kid of kids.flat()) if (kid) n.append(kid);
+  return n;
+};
+const fmt = (n, d = 0) => (n === null || n === undefined || Number.isNaN(n)) ? "—" : Number(n).toFixed(d);
+const dash = v => (v === null || v === undefined || v === "") ? "—" : v;
+
+/* status strings in the workbook are long sentences; classify by prefix */
+const statusPill = s => {
+  if (!s) return el("span", { class: "pill flat" }, "無狀態");
+  const t = String(s);
+  const short = t.length > 16 ? t.slice(0, 14) + "…" : t;
+  const kind = t.startsWith("已確認") || t.startsWith("VERIFIED") ? "ok"
+    : (t.includes("未解析") || t.includes("UNRESOLVED") || t.includes("PRESERVED")) ? "warn" : "flat";
+  return el("span", { class: "pill " + kind, title: t }, short);
+};
+
+/* ------------------------------------------------------------------ views */
+const VIEWS = [
+  { id: "dynasty",   label: "王朝",     render: renderDynasty },
+  { id: "seasons",   label: "賽季",     render: renderSeasons },
+  { id: "squad",     label: "陣容",     render: renderSquad },
+  { id: "chronicle", label: "編年史",   render: renderChronicle },
+  { id: "integrity", label: "檔案完整性", render: renderIntegrity },
+];
+
+const state = {
+  view: "dynasty",
+  season: DATA.seasons[DATA.seasons.length - 1].id,
+  player: null,
+  sort: { key: "apps", dir: -1 },
+  chronQuery: "",
+  chronType: "",
+};
+
+/* ------------------------------------------------------- dynasty overview */
+function renderDynasty() {
+  const s = DATA.seasons;
+  const titles = s.reduce((a, x) => a + x.titles.length, 0);
+  const ligaWins = s.filter(x => x.position === "1").length;
+  const uclWins = s.filter(x => x.ucl === "冠軍").length;
+  const points = s.reduce((a, x) => a + x.points, 0);
+
+  const maxPoints = Math.max(...s.map(x => x.points), 1);
+  const ribbon = el("div", { class: "ribbon" }, s.map(x => {
+    const h = 34 + Math.round((x.points / maxPoints) * 96);
+    const champion = x.position === "1";
+    return el("button", {
+      class: "rib", type: "button", "aria-current": String(x.id === state.season),
+      title: `${x.season}　西甲第 ${dash(x.position)} 名・${x.points} 分・${x.titles.length} 冠`,
+      onClick: () => { state.season = x.id; go("seasons"); },
+    },
+      el("div", { class: "pips" }, x.titles.map(() => el("i"))),
+      el("div", {
+        class: "bar",
+        style: `height:${h}px;background:${champion ? "var(--garnet)" : "var(--azul)"};opacity:${champion ? 1 : .55}`,
+      }, el("span", {}, x.points)),
+      el("div", { class: "pos" }, dash(x.position)),
+      el("div", { class: "yr" }, x.season.replace("20", "").replace("/", "/")));
+  }));
+
+  const comps = [
+    ["西甲", x => x.position === "1" ? ["win", "1"] : x.position ? ["near", x.position] : ["none", "—"]],
+    ["歐冠", x => badge(x.ucl)],
+    ["國王盃", x => badge(x.copa)],
+    ["西超盃", x => badge(x.supercopa)],
+    ["歐超盃", x => badge(x.superCup)],
+    ["世俱盃", x => badge(x.cwc)],
+  ];
+  function badge(v) {
+    if (!v) return ["none", "—"];
+    if (v === "冠軍") return ["win", "★"];
+    const map = { "亞軍": "2", "四強": "SF", "八強": "QF", "十六強": "R16", "小組賽": "GS" };
+    return ["near", map[v] || (v.startsWith("排名") ? v.replace("排名 ", "") : v.slice(0, 2))];
+  }
+
+  const ledger = el("div", { class: "ledger" },
+    el("table", {},
+      el("thead", {}, el("tr", {}, el("th", { class: "rowh" }, "賽事"),
+        s.map(x => el("th", {}, x.season.slice(2))))),
+      el("tbody", {}, comps.map(([name, fn]) =>
+        el("tr", {}, el("th", { class: "rowh" }, name),
+          s.map(x => {
+            const [cls, txt] = fn(x);
+            return el("td", {}, el("span", { class: "cell " + cls, title: `${x.season} ${name}` }, txt));
+          }))))));
+
+  const cl = DATA.clasico;
+  const w = cl.filter(m => m.verdict === "W").length;
+  const d = cl.filter(m => m.verdict === "D").length;
+  const l = cl.filter(m => m.verdict === "L").length;
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, "2023/24 – 2034/35　十二季"),
+      el("h2", {}, "巴塞隆納王朝總覽"),
+      el("p", {}, "每個數字都能回推到一列來源紀錄。點擊任一賽季柱狀可進入該季檔案。")),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, titles), el("div", { class: "l" }, "總冠軍數")),
+      el("div", {}, el("div", { class: "n tnum" }, ligaWins), el("div", { class: "l" }, "西甲冠軍")),
+      el("div", {}, el("div", { class: "n tnum" }, uclWins), el("div", { class: "l" }, "歐冠冠軍")),
+      el("div", {}, el("div", { class: "n tnum" }, Math.round(points / s.length)), el("div", { class: "l" }, "每季平均積分")),
+      el("div", {}, el("div", { class: "n tnum" }, DATA.players.length), el("div", { class: "l" }, "在檔球員")),
+    ),
+    el("section", { class: "panel" },
+      el("h3", {}, "聯賽積分與冠軍軌跡"),
+      el("p", { class: "cap" }, "柱高為西甲積分，柱內數字為積分，柱下為最終名次；上方金點為該季冠軍數。"),
+      ribbon),
+    el("section", { class: "panel" },
+      el("h3", {}, "六項賽事榮譽總表"),
+      el("p", { class: "cap" }, "★ 冠軍　數字／縮寫 為當季最終成績　— 表示來源未提供。"),
+      ledger,
+      el("div", { class: "legend" },
+        el("span", {}, el("i", { style: "background:var(--garnet)" }), "冠軍"),
+        el("span", {}, el("i", { style: "background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)" }), "有成績紀錄"),
+        el("span", {}, el("i", { style: "background:var(--gold);border-radius:50%" }), "冠軍計點"))),
+    el("section", { class: "panel" },
+      el("h3", {}, "國家德比戰績"),
+      el("p", { class: "cap" }, `${cl.length} 場有紀錄的對戰　${w} 勝 ${d} 和 ${l} 負，依日期排列。`),
+      el("div", { class: "clasico" }, cl.map(m =>
+        el("div", {
+          class: "cl-m " + (m.verdict || "D"),
+          title: `${m.date}　${m.competition}　${m.home} ${m.result} ${m.away}`,
+        }, m.verdict || "?"))),
+      el("div", { class: "legend" },
+        el("span", {}, el("i", { style: "background:var(--ok)" }), "勝"),
+        el("span", {}, el("i", { style: "background:var(--text-3)" }), "和"),
+        el("span", {}, el("i", { style: "background:var(--bad)" }), "負"))),
+  ];
+}
+
+/* ---------------------------------------------------------- season detail */
+function renderSeasons() {
+  const s = DATA.seasons.find(x => x.id === state.season) || DATA.seasons[0];
+  const picker = el("div", { class: "filters" },
+    el("select", { id: "seasonPick", onChange: e => { state.season = e.target.value; paint(); } },
+      DATA.seasons.slice().reverse().map(x =>
+        el("option", { value: x.id, selected: x.id === s.id }, `${x.season}　${x.titles.length} 冠`))));
+
+  const record = `${s.w}勝 ${s.d}和 ${s.l}負`;
+  const gd = (s.gf !== null && s.ga !== null) ? `${s.gf} : ${s.ga}` : "來源未提供";
+
+  const leaders = [
+    ["最佳射手", s.topScorer, s.topScorerGoals],
+    ["助攻王", s.topAssist, s.topAssistCount],
+    ["最高評分", s.bestRatingPlayer, s.bestRating],
+    ["最多 MOTM", s.mostMotmPlayer, s.mostMotm],
+  ].filter(([, who]) => who);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, "賽季檔案"),
+      el("h2", {}, `${s.season} 賽季`),
+      el("p", {}, s.titles.length
+        ? `本季奪得 ${s.titles.join("、")}，共 ${s.titles.length} 冠。`
+        : "本季無冠軍紀錄。")),
+    picker,
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, dash(s.position)), el("div", { class: "l" }, "西甲名次")),
+      el("div", {}, el("div", { class: "n tnum" }, s.points), el("div", { class: "l" }, "積分")),
+      el("div", {}, el("div", { class: "n tnum" }, s.titles.length), el("div", { class: "l" }, "冠軍數")),
+      el("div", {}, el("div", { class: "n tnum", style: "font-size:17px" }, dash(s.ucl)), el("div", { class: "l" }, "歐冠成績")),
+      el("div", {}, el("div", { class: "n tnum", style: "font-size:17px" }, dash(s.copa)), el("div", { class: "l" }, "國王盃")),
+    ),
+    el("div", { class: "two" },
+      el("section", { class: "panel" },
+        el("h3", {}, "球季概況"),
+        el("p", { class: "cap" }, "欄位由來源表程式化衍生，非公式快取。"),
+        el("dl", { class: "kv" },
+          el("dt", {}, "聯賽戰績"), el("dd", { class: "tnum" }, record),
+          el("dt", {}, "進球 / 失球"), el("dd", { class: "tnum" }, gd),
+          el("dt", {}, "西超盃"), el("dd", {}, dash(s.supercopa)),
+          el("dt", {}, "歐超盃"), el("dd", {}, dash(s.superCup)),
+          el("dt", {}, "世俱盃"), el("dd", {}, dash(s.cwc)),
+          el("dt", {}, "球迷年度"), el("dd", {}, dash(s.fanPlayer)),
+          el("dt", {}, "最高身價轉入"), el("dd", {}, dash(s.arrival)),
+          el("dt", {}, "最高身價轉出"), el("dd", {}, dash(s.departure)),
+          el("dt", {}, "淨支出"), el("dd", { class: "mono" }, dash(s.netSpend)),
+          s.ballonDor ? el("dt", {}, "本季金球") : null,
+          s.ballonDor ? el("dd", {}, `${s.ballonDor.player}（${s.ballonDor.club}）`) : null),
+        s.note ? el("div", { class: "note", style: "margin-top:16px" }, s.note) : null),
+      el("section", { class: "panel" },
+        el("h3", {}, "球季個人領先"),
+        el("p", { class: "cap" }, "取自 Barcelona_Season_Master 衍生欄位。"),
+        el("div", { class: "leaders" }, leaders.map(([role, who, val]) =>
+          el("div", { class: "leader" },
+            el("div", { class: "who" }, el("div", { class: "role" }, role), el("div", { class: "nm" }, who)),
+            el("div", { class: "v" }, dash(val))))))),
+    el("div", { class: "two" },
+      el("section", { class: "panel" },
+        el("h3", {}, `轉入　${s.transfersIn.length}`),
+        el("p", { class: "cap" }, "來源：Barcelona_Transfers"),
+        s.transfersIn.length
+          ? el("div", {}, s.transfersIn.map(t => xferRow(t, "in")))
+          : el("p", { class: "cap" }, "本季無轉入紀錄。")),
+      el("section", { class: "panel" },
+        el("h3", {}, `轉出　${s.transfersOut.length}`),
+        el("p", { class: "cap" }, "來源：Barcelona_Transfers"),
+        s.transfersOut.length
+          ? el("div", {}, s.transfersOut.map(t => xferRow(t, "out")))
+          : el("p", { class: "cap" }, "本季無轉出紀錄。"))),
+  ];
+}
+const xferRow = (t, dir) => el("div", { class: "xfer" },
+  el("div", { class: "dir " + dir }, dir === "in" ? "IN" : "OUT"),
+  el("div", { class: "who" }, el("span", { class: "nm" }, t.player), el("span", { class: "cl" }, dash(t.club))),
+  el("div", { class: "fee" }, dash(t.fee)));
+
+/* ------------------------------------------------------------------ squad */
+const SQUAD_COLS = [
+  { key: "name", label: "球員", num: false },
+  { key: "position", label: "位置", num: false },
+  { key: "seasons", label: "季", num: true },
+  { key: "apps", label: "出場", num: true },
+  { key: "goals", label: "進球", num: true },
+  { key: "assists", label: "助攻", num: true },
+  { key: "motm", label: "MOTM", num: true },
+  { key: "rating", label: "評分", num: true },
+  { key: "trophyTotal", label: "團隊冠軍", num: true },
+];
+
+function renderSquad() {
+  if (state.player) return renderPlayer();
+  const rows = DATA.players.map(p => ({
+    ...p, trophyTotal: Object.values(p.titles).reduce((a, b) => a + b, 0),
+  }));
+  const { key, dir } = state.sort;
+  rows.sort((a, b) => {
+    const x = a[key], y = b[key];
+    if (typeof x === "string" || typeof y === "string") return String(x ?? "").localeCompare(String(y ?? "")) * dir;
+    return ((x ?? -1) - (y ?? -1)) * dir;
+  });
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${DATA.players.length} 名在檔球員`),
+      el("h2", {}, "王朝陣容名冊"),
+      el("p", {}, "巴塞隆納生涯累計數據，團隊冠軍依 A1 歸屬政策計算（該季在隊即計入）。點欄位標題排序，點列查看球員檔案。")),
+    el("section", { class: "panel" },
+      el("div", { class: "tblwrap" },
+        el("table", { class: "data" },
+          el("thead", {}, el("tr", {}, SQUAD_COLS.map(c =>
+            el("th", {
+              class: "sortable" + (c.num ? " num" : ""), "data-active": String(key === c.key),
+              onClick: () => {
+                state.sort = { key: c.key, dir: key === c.key ? -dir : (c.num ? -1 : 1) };
+                paint();
+              },
+            }, c.label + (key === c.key ? (dir < 0 ? " ↓" : " ↑") : ""))))),
+          el("tbody", {}, rows.map(p =>
+            el("tr", { class: "click", onClick: () => { state.player = p.id; paint(); } },
+              el("td", { class: "name-cell" }, p.name,
+                p.ballonTop3 ? el("span", { class: "pill win", style: "margin-left:7px" }, `金球前三 ×${p.ballonTop3}`) : null),
+              el("td", { class: "mono" }, dash(p.position)),
+              el("td", { class: "num tnum" }, p.seasons),
+              el("td", { class: "num tnum" }, p.apps),
+              el("td", { class: "num tnum" }, p.goals),
+              el("td", { class: "num tnum" }, p.assists),
+              el("td", { class: "num tnum" }, p.motm),
+              el("td", { class: "num tnum" }, fmt(p.rating, 2)),
+              el("td", { class: "num tnum" }, p.trophyTotal))))))),
+  ];
+}
+
+function renderPlayer() {
+  const p = DATA.players.find(x => x.id === state.player);
+  if (!p) { state.player = null; return renderSquad(); }
+  const per90 = p.apps ? ((p.goals + p.assists) / p.apps) : null;
+
+  const statLine = el("div", { class: "strip" },
+    el("div", { class: "garnet" }, el("div", { class: "n tnum" }, p.apps), el("div", { class: "l" }, "出場")),
+    el("div", {}, el("div", { class: "n tnum" }, p.goals), el("div", { class: "l" }, "進球")),
+    el("div", {}, el("div", { class: "n tnum" }, p.assists), el("div", { class: "l" }, "助攻")),
+    el("div", {}, el("div", { class: "n tnum" }, fmt(p.rating, 2)), el("div", { class: "l" }, "平均評分")),
+    el("div", {}, el("div", { class: "n tnum" }, fmt(per90, 2)), el("div", { class: "l" }, "每場攻擊參與")),
+  );
+
+  return [
+    el("button", { class: "back", type: "button", onClick: () => { state.player = null; paint(); } }, "← 返回名冊"),
+    el("div", { class: "p-head" },
+      el("div", { class: "p-id" },
+        el("div", { class: "eyebrow" }, p.id),
+        el("h2", {}, p.name),
+        el("div", { class: "p-meta" },
+          p.position ? el("span", { class: "pill flat" }, p.position) : null,
+          p.nationality ? el("span", { class: "pill flat" }, p.nationality) : null,
+          p.dob ? el("span", { class: "pill flat" }, "生於 " + p.dob) : null,
+          el("span", { class: "pill flat" }, `巴薩 ${p.seasons} 季`),
+          p.fifpro ? el("span", { class: "pill win" }, `FIFPro 最佳陣容 ×${p.fifpro}`) : null))),
+    statLine,
+    el("section", { class: "panel" },
+      el("h3", {}, "團隊冠軍歸屬"),
+      el("p", { class: "cap" }, "A1 政策：該賽季具巴塞隆納出場紀錄即計入該季球隊冠軍。"),
+      el("div", { class: "trophy-row" }, Object.entries(p.titles).map(([k, v]) =>
+        el("div", { class: "trophy" + (v > 0 ? " has" : "") },
+          el("div", { class: "n" }, v), el("div", { class: "l" }, k))))),
+    p.seasonStats.length ? el("section", { class: "panel" },
+      el("h3", {}, "逐季表現"),
+      el("p", { class: "cap" }, "來源：Player_Club_Season_Totals（僅 Club_ID = C-0030 的列）。"),
+      dupWarning(p.seasonStats),
+      seasonChart(p.seasonStats),
+      el("div", { class: "tblwrap", style: "margin-top:18px" },
+        el("table", { class: "data" },
+          el("thead", {}, el("tr", {},
+            ["賽季", "出場", "進球", "助攻", "MOTM", "評分", "驗證狀態"].map((h, i) =>
+              el("th", { class: i > 0 && i < 6 ? "num" : "" }, h)))),
+          el("tbody", {}, p.seasonStats.map(r =>
+            el("tr", {},
+              el("td", { class: "mono" }, r.season),
+              el("td", { class: "num tnum" }, r.apps),
+              el("td", { class: "num tnum" }, r.goals),
+              el("td", { class: "num tnum" }, r.assists),
+              el("td", { class: "num tnum" }, r.motm),
+              el("td", { class: "num tnum" }, fmt(r.rating, 2)),
+              el("td", {}, statusPill(r.status))))))),
+    ) : null,
+    p.attrs ? el("section", { class: "panel" },
+      el("h3", {}, "能力值快照"),
+      el("p", { class: "cap" }, `${p.attrs.date}　${p.attrs.schema === "GOALKEEPER" ? "門將" : "非門將"}屬性組　來源 ${p.attrs.source}`),
+      el("div", { class: "radar-wrap" },
+        p.attrs.radar.length ? radarChart(p.attrs.radar) : el("div"),
+        el("div", { class: "attr-cols" }, Object.entries(p.attrs.groups)
+          .filter(([, list]) => list.length)
+          .map(([group, list]) => el("div", { class: "attr-col" },
+            el("h4", {}, group),
+            list.map(([name, v]) => el("div", { class: "attr" },
+              el("span", { class: "an" }, name),
+              el("span", { class: "track" }, el("i", {
+                style: `width:${(v / 20) * 100}%;background:${v >= 16 ? "var(--garnet)" : v >= 12 ? "var(--azul)" : "var(--text-3)"}`,
+              })),
+              el("span", { class: "av" }, v)))))))) : null,
+    p.national.length ? el("section", { class: "panel" },
+      el("h3", {}, "國家隊"),
+      el("p", { class: "cap" }, "來源：Player_Career_Summaries"),
+      el("dl", { class: "kv" }, p.national.flatMap(n => [
+        el("dt", {}, n.scope.includes("Senior") ? "成年隊" : n.scope.includes("U20") ? "U20" : "U21"),
+        el("dd", { class: "tnum" }, `${dash(n.country)}　${n.apps} 場 / ${n.goals} 球 / ${n.assists} 助`),
+      ]))) : null,
+    p.awards.length ? el("section", { class: "panel" },
+      el("h3", {}, `個人榮譽　${p.awards.length}`),
+      el("p", { class: "cap" }, "來源：Barcelona_Player_Career.Major_Awards"),
+      el("div", { class: "awards" }, p.awards.map(a => el("div", {}, a)))) : null,
+  ];
+}
+
+/* the 2034/35 double-entry is a real defect; flag it where it would inflate a sum */
+function dupWarning(stats) {
+  const seen = new Map();
+  for (const s of stats) {
+    const key = s.season.replace(/[^0-9]/g, "");
+    seen.set(key, (seen.get(key) || 0) + 1);
+  }
+  const dupes = [...seen].filter(([, n]) => n > 1);
+  if (!dupes.length) return null;
+  return el("div", { class: "note", style: "margin-bottom:16px" },
+    `注意：${dupes.map(([k]) => k.slice(0, 4) + "/" + k.slice(4)).join("、")} 在來源中有兩筆賽季總計（Season_Display 寫法不一致），`
+    + "下方圖表與表格照實呈現，未合併。詳見「檔案完整性」。");
+}
+
+/* goals / assists per season, drawn to one shared scale */
+function seasonChart(stats) {
+  const W = 700, H = 160, PAD_L = 30, PAD_B = 26, PAD_T = 12;
+  const max = Math.max(...stats.map(s => Math.max(s.goals, s.assists)), 5);
+  const step = (W - PAD_L - 12) / stats.length;
+  const bw = Math.min(16, step / 2.6);
+  const y = v => PAD_T + (1 - v / max) * (H - PAD_T - PAD_B);
+  const ticks = [0, Math.round(max / 2), max];
+
+  return el("div", { style: "overflow-x:auto" },
+    svg("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img",
+      "aria-label": "逐季進球與助攻", style: "min-width:520px;display:block" },
+      ticks.map(t => svg("g", {},
+        svg("line", { x1: PAD_L, x2: W - 6, y1: y(t), y2: y(t), stroke: "currentColor", "stroke-opacity": t === 0 ? .28 : .1 }),
+        svg("text", { x: PAD_L - 7, y: y(t) + 4, "text-anchor": "end", fill: "currentColor",
+          "fill-opacity": .5, "font-size": 10, "font-family": "IBM Plex Mono, monospace" }, t))),
+      stats.map((s, i) => {
+        const cx = PAD_L + step * i + step / 2;
+        return svg("g", {},
+          svg("rect", { x: cx - bw - 1, y: y(s.goals), width: bw, height: Math.max(1, y(0) - y(s.goals)),
+            fill: "var(--garnet)", rx: 2 }, svg("title", {}, `${s.season} 進球 ${s.goals}`)),
+          svg("rect", { x: cx + 1, y: y(s.assists), width: bw, height: Math.max(1, y(0) - y(s.assists)),
+            fill: "var(--azul)", "fill-opacity": .75, rx: 2 }, svg("title", {}, `${s.season} 助攻 ${s.assists}`)),
+          svg("text", { x: cx, y: H - 9, "text-anchor": "middle", fill: "currentColor", "fill-opacity": .5,
+            "font-size": 9.5, "font-family": "IBM Plex Mono, monospace" }, s.season.slice(2)));
+      })),
+    el("div", { class: "legend" },
+      el("span", {}, el("i", { style: "background:var(--garnet)" }), "進球"),
+      el("span", {}, el("i", { style: "background:var(--azul);opacity:.75" }), "助攻")));
+}
+
+/* six-axis summary of the 36 raw FM attributes */
+function radarChart(axes) {
+  const W = 300, H = 250, C = W / 2, CY = H / 2, R = 72;
+  const pt = (i, r) => {
+    const a = (Math.PI * 2 * i) / axes.length - Math.PI / 2;
+    return [C + Math.cos(a) * r, CY + Math.sin(a) * r];
+  };
+  const poly = axes.map((d, i) => pt(i, (d.value / 20) * R).join(",")).join(" ");
+  return el("div", {},
+    svg("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": "六維能力概覽",
+      style: "max-width:270px;display:block" },
+      [5, 10, 15, 20].map(ring => svg("polygon", {
+        points: axes.map((_, i) => pt(i, (ring / 20) * R).join(",")).join(" "),
+        fill: "none", stroke: "currentColor", "stroke-opacity": ring === 20 ? .25 : .1,
+      })),
+      axes.map((_, i) => svg("line", {
+        x1: C, y1: CY, x2: pt(i, R)[0], y2: pt(i, R)[1], stroke: "currentColor", "stroke-opacity": .12,
+      })),
+      svg("polygon", { points: poly, fill: "var(--garnet)", "fill-opacity": .22,
+        stroke: "var(--garnet)", "stroke-width": 1.8, "stroke-linejoin": "round" }),
+      axes.map((d, i) => {
+        const [x, y] = pt(i, (d.value / 20) * R);
+        return svg("circle", { cx: x, cy: y, r: 2.6, fill: "var(--garnet)" });
+      }),
+      axes.map((d, i) => {
+        const [x, y] = pt(i, R + 22);
+        const anchor = x > C + 6 ? "start" : x < C - 6 ? "end" : "middle";
+        return svg("text", {
+          x: Math.min(Math.max(x, 4), W - 4), y: y + 3.5, "text-anchor": anchor,
+          fill: "currentColor", "fill-opacity": .68, "font-size": 11,
+          "font-family": "IBM Plex Mono, monospace",
+        }, `${d.axis} ${d.value}`);
+      })));
+}
+
+/* -------------------------------------------------------------- chronicle */
+function renderChronicle() {
+  const types = [...new Set(DATA.chronicle.map(e => e.type))].sort();
+  const q = state.chronQuery.trim();
+  const rows = DATA.chronicle.filter(e =>
+    (!state.chronType || e.type === state.chronType) &&
+    (!q || (e.fact + e.subject + e.season).includes(q)));
+  const shown = rows.slice(0, 300);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${DATA.chronicle.length} 筆已確認事件`),
+      el("h2", {}, "王朝編年史"),
+      el("p", {}, "World_Timeline 中與巴塞隆納或重大獎項相關的事件，依賽季倒序。每筆均標註來源工作表。")),
+    el("div", { class: "filters" },
+      el("input", {
+        id: "chronQ", type: "search", placeholder: "搜尋球員、球隊或事件敘述…", value: state.chronQuery,
+        onInput: e => { state.chronQuery = e.target.value; repaintChronicle(); },
+      }),
+      el("select", {
+        id: "chronT", onChange: e => { state.chronType = e.target.value; repaintChronicle(); },
+      },
+        el("option", { value: "" }, "全部類型"),
+        types.map(t => el("option", { value: t, selected: t === state.chronType }, t)))),
+    el("section", { class: "panel", id: "chronPanel" },
+      el("p", { class: "cap" }, `符合 ${rows.length} 筆${rows.length > shown.length ? `，顯示前 ${shown.length} 筆` : ""}`),
+      el("div", { class: "chron" }, shown.map(e =>
+        el("div", { class: "ev" },
+          el("div", { class: "when" }, dash(e.season)),
+          el("div", { class: "what" },
+            el("div", { class: "f" }, e.fact),
+            el("div", { class: "src" }, `${e.type}　·　${e.sheet}　·　${e.id}`)))))),
+  ];
+}
+/* keep focus in the search box instead of repainting the whole view */
+function repaintChronicle() {
+  const panel = document.getElementById("chronPanel");
+  if (!panel) return paint();
+  const q = state.chronQuery.trim();
+  const rows = DATA.chronicle.filter(e =>
+    (!state.chronType || e.type === state.chronType) &&
+    (!q || (e.fact + e.subject + e.season).includes(q)));
+  const shown = rows.slice(0, 300);
+  panel.replaceChildren(
+    el("p", { class: "cap" }, `符合 ${rows.length} 筆${rows.length > shown.length ? `，顯示前 ${shown.length} 筆` : ""}`),
+    el("div", { class: "chron" }, shown.map(e =>
+      el("div", { class: "ev" },
+        el("div", { class: "when" }, dash(e.season)),
+        el("div", { class: "what" },
+          el("div", { class: "f" }, e.fact),
+          el("div", { class: "src" }, `${e.type}　·　${e.sheet}　·　${e.id}`))))));
+}
+
+/* -------------------------------------------------------------- integrity */
+function renderIntegrity() {
+  const g = DATA.integrity;
+  const resolvedPct = Math.round(((g.totalAwards - g.unresolvedAwards) / g.totalAwards) * 100);
+  const maxDomain = Math.max(...g.domains.map(d => d.count), 1);
+  const maxName = Math.max(...g.topUnresolved.map(d => d.count), 1);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, "Append-only 觀測／事實模型"),
+      el("h2", {}, "檔案完整性報告"),
+      el("p", {}, "這份工作簿的政策是保留來源、不補值、不覆寫。以下是 ETL 直接從資料本身驗證出的結果，不是人工維護的清單。")),
+    el("div", { class: "strip" },
+      el("div", {}, el("div", { class: "n tnum" }, g.totalAwards.toLocaleString()), el("div", { class: "l" }, "獎項事實列")),
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, g.unresolvedAwards), el("div", { class: "l" }, "身分未解析")),
+      el("div", {}, el("div", { class: "n tnum" }, resolvedPct + "%"), el("div", { class: "l" }, "已綁定 Player_ID")),
+      el("div", {}, el("div", { class: "n tnum" }, g.issueTotal), el("div", { class: "l" }, "Data_Issues 列")),
+      el("div", {}, el("div", { class: "n tnum" }, DATA.meta.identity_links.toLocaleString()), el("div", { class: "l" }, "身分對照連結")),
+    ),
+    el("section", { style: "display:flex;flex-direction:column;gap:12px" },
+      el("h3", { style: "font-size:15px" }, `ETL 自動偵測　${g.findings.length} 項`),
+      g.findings.map(f => el("div", { class: "finding " + f.severity },
+        el("div", { class: "meta" },
+          el("span", { class: "pill " + (f.severity === "high" ? "bad" : f.severity === "medium" ? "warn" : "flat") },
+            f.severity === "high" ? "高" : f.severity === "medium" ? "中" : "低"),
+          el("span", { class: "mono" }, f.where)),
+        el("h4", {}, f.title),
+        el("p", {}, f.detail),
+        f.sample.length ? el("div", { class: "mono" }, "樣本：" + f.sample.join("、")) : null))),
+    el("div", { class: "two" },
+      el("section", { class: "panel" },
+        el("h3", {}, "待解析身分排行"),
+        el("p", { class: "cap" }, "同一原始姓名在多張獎項表重複出現，優先處理可一次消掉最多列。"),
+        el("div", { class: "bars" }, g.topUnresolved.slice(0, 14).map(d =>
+          el("div", { class: "brow" },
+            el("div", { class: "lb" },
+              el("span", { title: d.sheets }, d.name),
+              el("span", { class: "tr" }, el("i", { style: `width:${(d.count / maxName) * 100}%;background:var(--garnet)` }))),
+            el("div", { class: "vv" }, d.count))))),
+      el("section", { class: "panel" },
+        el("h3", {}, "Data_Issues 分佈"),
+        el("p", { class: "cap" }, "依 Domain 統計，全數為「已保存、未修正」的來源限制紀錄。"),
+        el("div", { class: "bars" }, g.domains.slice(0, 14).map(d =>
+          el("div", { class: "brow" },
+            el("div", { class: "lb" },
+              el("span", { class: "mono" }, d.domain),
+              el("span", { class: "tr" }, el("i", { style: `width:${(d.count / maxDomain) * 100}%` }))),
+            el("div", { class: "vv" }, d.count)))))),
+    el("section", { class: "panel" },
+      el("h3", {}, "工作簿來源規模"),
+      el("p", { class: "cap" }, `結構版本 ${DATA.meta.schema_version}　·　遷移 ${DATA.meta.migration_id}`),
+      el("div", { class: "tblwrap" },
+        el("table", { class: "data" },
+          el("thead", {}, el("tr", {}, el("th", {}, "工作表"), el("th", { class: "num" }, "資料列"))),
+          el("tbody", {}, DATA.meta.biggest_sheets.map(s =>
+            el("tr", {}, el("td", { class: "mono" }, s.sheet_name),
+              el("td", { class: "num tnum" }, s.row_count.toLocaleString()))))))),
+  ];
+}
+
+/* ------------------------------------------------------------------ shell */
+function paint() {
+  const view = VIEWS.find(v => v.id === state.view);
+  const main = document.getElementById("main");
+  main.replaceChildren(el("div", { class: "view" }, view.render()));
+  document.querySelectorAll("#nav button").forEach(b =>
+    b.setAttribute("aria-current", String(b.dataset.view === state.view)));
+  main.scrollIntoView({ block: "start", behavior: "auto" });
+}
+function go(id) { state.view = id; state.player = null; paint(); }
+
+document.getElementById("nav").replaceChildren(...VIEWS.map((v, i) =>
+  el("button", { type: "button", "data-view": v.id, onClick: () => go(v.id) },
+    el("span", { class: "k" }, String(i + 1).padStart(2, "0")),
+    el("span", { class: "t" }, v.label))));
+
+document.getElementById("stampSub").textContent =
+  `${DATA.meta.sheet_count} 表 · ${DATA.meta.row_count.toLocaleString()} 列`;
+document.getElementById("railFoot").replaceChildren(
+  el("div", {}, el("b", {}, DATA.meta.player_count.toLocaleString()), " 名球員",
+    el("span", { style: "opacity:.6" }, ` / ${DATA.meta.alias_count} 別名`)),
+  el("div", {}, el("b", {}, DATA.meta.club_count.toLocaleString()), " 間俱樂部"),
+  el("div", {}, el("b", {}, DATA.meta.nation_count.toLocaleString()), " 個國家"),
+  el("div", { style: "margin-top:8px;opacity:.7" }, "建置 " + DATA.meta.generated));
+
+const themer = document.getElementById("themer");
+themer.addEventListener("click", () => {
+  const dark = matchMedia("(prefers-color-scheme:dark)").matches;
+  const cur = document.documentElement.getAttribute("data-theme") || (dark ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem("fm24-theme", next); } catch (e) { /* private mode */ }
+});
+try {
+  const saved = localStorage.getItem("fm24-theme");
+  if (saved) document.documentElement.setAttribute("data-theme", saved);
+} catch (e) { /* private mode */ }
+
+paint();
+</script>
