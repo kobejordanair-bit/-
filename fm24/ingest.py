@@ -10,6 +10,7 @@ Usage:
     python3 ingest.py fm24-imports-2035-06-02.json                      # dry run
     python3 ingest.py fm24-imports-2035-06-02.json --commit
     python3 ingest.py fm24-identity-decisions-2035-06-02.json --identity --commit
+    python3 ingest.py fm24-club-decisions-2035-06-02.json --clubs --commit
 """
 
 from __future__ import annotations
@@ -25,6 +26,8 @@ from pathlib import Path
 SCHEMA = "FM24_IMPORT_BATCH_V1"
 IDENTITY_SCHEMA = "FM24_IDENTITY_DECISIONS_V1"
 IDENTITY_TABLE = "Ingest_Identity_Decisions"
+CLUB_SCHEMA = "FM24_CLUB_DECISIONS_V1"
+CLUB_TABLE = "Ingest_Club_Decisions"
 
 # Where each import kind lands. Imports go to their own tables rather than into
 # the mirrored workbook sheets, so a rebuild from the .xlsx never silently
@@ -151,6 +154,100 @@ def ingest_identity(payload_path: Path, db_path: Path, commit: bool) -> int:
     return 0
 
 
+CLUB_DDL = (
+    f'CREATE TABLE IF NOT EXISTS "{CLUB_TABLE}" ('
+    '"Decision_ID" TEXT PRIMARY KEY, "Raw_Name" TEXT, "Action" TEXT, '
+    '"Assigned_Club_ID" TEXT, "Matched_Club_Name" TEXT, "Merged_From" TEXT, '
+    '"Affected_Rows" TEXT, "Decided_At" TEXT, "Applied_At" TEXT)'
+)
+
+CLUB_VERB = {"confirm": "確認", "new": "新建", "merge": "合併", "distinct": "分開", "reject": "跳過"}
+
+
+def next_club_id(con: sqlite3.Connection) -> str:
+    """Mint the next C-nnnn, considering both the workbook and earlier decisions."""
+    highest = 0
+    for table, column in (("Club_Dim", "Club_ID"), (CLUB_TABLE, "Assigned_Club_ID")):
+        try:
+            rows = con.execute(f'SELECT DISTINCT "{column}" FROM "{table}" WHERE "{column}" LIKE ?', ("C-%",))
+            for (value,) in rows:
+                try:
+                    highest = max(highest, int(str(value).split("-")[1]))
+                except (IndexError, ValueError):
+                    continue
+        except sqlite3.OperationalError:
+            continue
+    return f"C-{highest + 1:04d}"
+
+
+def ingest_clubs(payload_path: Path, db_path: Path, commit: bool) -> int:
+    """Apply club-console decisions.
+
+    Two kinds arrive together: a reference decision ('this string is C-0169',
+    or 'mint a new club'), and a merge decision over two Club_IDs the archive
+    recorded for one club. Both are recorded, never applied destructively —
+    Club_Dim keeps every row it has, and a later merge into the workbook reads
+    this table to know what was decided and by what evidence.
+    """
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    if payload.get("schema") != CLUB_SCHEMA:
+        print(f"error: expected schema {CLUB_SCHEMA}, got {payload.get('schema')!r}", file=sys.stderr)
+        return 2
+
+    decisions = payload.get("decisions", [])
+    if not decisions:
+        print("nothing to apply: export contains no decisions", file=sys.stderr)
+        return 1
+
+    con = sqlite3.connect(db_path)
+    con.execute(CLUB_DDL)
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    applied = skipped = minted = merged = 0
+
+    for decision in sorted(decisions, key=lambda d: d.get("decidedAt") or ""):
+        raw = decision.get("raw")
+        if not raw:
+            continue
+        decision_id = "CDD-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
+        if con.execute(f'SELECT 1 FROM "{CLUB_TABLE}" WHERE "Decision_ID"=?', (decision_id,)).fetchone():
+            skipped += 1
+            continue
+
+        action = decision.get("action")
+        club_id = decision.get("clubId")
+        merged_from = ""
+        if action == "new":
+            club_id = next_club_id(con)
+            minted += 1
+        elif action == "merge":
+            club_id = decision.get("keepId")
+            merged_from = "、".join(decision.get("mergeIds") or [])
+            merged += 1
+        elif action in ("reject", "distinct"):
+            club_id = None
+
+        con.execute(
+            f'INSERT INTO "{CLUB_TABLE}" VALUES (?,?,?,?,?,?,?,?,?)',
+            (decision_id, raw, action, club_id,
+             decision.get("clubName") or decision.get("keepName"), merged_from,
+             str(decision.get("rows") or ""), decision.get("decidedAt"), now))
+        applied += 1
+        target = club_id or "—"
+        suffix = f"  (併入來源 {merged_from})" if merged_from else ""
+        print(f"  {CLUB_VERB.get(action, action):<4} {raw:<26} -> {target}{suffix}")
+
+    if commit:
+        con.commit()
+        print(f"\napplied {applied} decisions ({minted} new Club_IDs, {merged} merges), {skipped} already present")
+        print(f"stored in {CLUB_TABLE}; Club_Dim itself is untouched")
+    else:
+        con.rollback()
+        print(f"\nDRY RUN: would apply {applied} ({minted} new, {merged} merges), skip {skipped}"
+              "\nre-run with --commit to write")
+    con.close()
+    return 0
+
+
 def ingest(payload_path: Path, db_path: Path, commit: bool) -> int:
     payload = json.loads(payload_path.read_text(encoding="utf-8"))
     if payload.get("schema") != SCHEMA:
@@ -221,12 +318,17 @@ def main() -> None:
     ap.add_argument("-d", "--database", type=Path, default=here / "data" / "fm24.sqlite")
     ap.add_argument("--commit", action="store_true", help="actually write (default is a dry run)")
     ap.add_argument("--identity", action="store_true",
-                    help="the payload is a resolution-console decisions export, not an import batch")
+                    help="the payload is a player identity decisions export")
+    ap.add_argument("--clubs", action="store_true",
+                    help="the payload is a club identity decisions export")
     args = ap.parse_args()
     if not args.database.exists():
         print(f"error: {args.database} not found — run etl.py first", file=sys.stderr)
         raise SystemExit(2)
-    run = ingest_identity if args.identity else ingest
+    if args.identity and args.clubs:
+        print("error: pass --identity or --clubs, not both", file=sys.stderr)
+        raise SystemExit(2)
+    run = ingest_identity if args.identity else ingest_clubs if args.clubs else ingest
     raise SystemExit(run(args.payload, args.database, args.commit))
 
 

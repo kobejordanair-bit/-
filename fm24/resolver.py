@@ -21,10 +21,31 @@ from collections import Counter, defaultdict
 try:
     from opencc import OpenCC
     _S2T = OpenCC("s2t")
-    to_trad = _S2T.convert
+    _convert = _S2T.convert
 except Exception:  # pragma: no cover - resolver still works, just less well
-    def to_trad(text: str) -> str:
+    def _convert(text: str) -> str:
         return text
+
+
+def to_trad(text: str) -> str:
+    """Convert to Traditional and keep converting until it stops changing.
+
+    OpenCC's s2t is not idempotent: it reads an already-Traditional 里 as the
+    Simplified form and rewrites it to 裏 (likewise 托 -> 託). One pass therefore
+    sends a Simplified source and its Traditional counterpart to DIFFERENT
+    strings — '里尔足球俱乐部' became 里爾足球俱樂部 while the dimension's own
+    '里爾足球俱樂部' became 裏爾足球俱樂部, so the two never matched.
+
+    Iterating to the fixed point lands both on the same form without needing a
+    hand-kept table of variant characters. This is a comparison key only; no
+    source value is ever rewritten with it.
+    """
+    for _ in range(4):
+        nxt = _convert(text)
+        if nxt == text:
+            return text
+        text = nxt
+    return text
 
 SEPARATORS = re.compile(r"[·・.·‧•\s\-_]+")
 
@@ -424,3 +445,195 @@ class IdentityResolver:
         for name in ordered:
             groups[find(name)].append(name)
         return [sorted(v) for v in groups.values()]
+
+
+# ---------------------------------------------------------------------------
+# Clubs
+# ---------------------------------------------------------------------------
+
+# Club names carry corporate affixes that the same club is written with or
+# without across tables — '里爾' and '里爾足球俱樂部' are one club with two
+# Club_IDs. Stripping them gives a second, looser key for matching and for
+# spotting duplicate identities.
+CLUB_SUFFIX = re.compile(
+    r"(足球俱樂部|足球俱乐部|競賽俱樂部|竞赛俱乐部|體育俱樂部|体育俱乐部"
+    r"|俱樂部|俱乐部|足球會|足球会|足球隊|足球队)$")
+CLUB_PREFIX = re.compile(
+    r"^(?:1\.\s*)?(?:FC|CF|AC|AS|RC|SC|SV|SS|SSC|US|VfB|VfL|TSG|BSC|RB|OGC|OL|AFC|CD|UD|RCD)\s*",
+    re.IGNORECASE)
+CLUB_TRAIL = re.compile(r"\s*(?:FC|CF|AC|AS|RC|SC|AFC|CD|UD)\.?$", re.IGNORECASE)
+
+# The source truncates long club names with an ellipsis ('多特蒙德足球俱...'),
+# which no exact key can match but a prefix comparison still can.
+TRUNCATED = re.compile(r"(\.{2,}|…)\s*$")
+
+
+def is_truncated(name: str | None) -> bool:
+    return bool(name and TRUNCATED.search(str(name)))
+
+
+def club_key(name: str | None) -> str:
+    """A club's identity key with corporate affixes removed."""
+    if not name:
+        return ""
+    text = TRUNCATED.sub("", to_trad(str(name).strip())).strip()
+    previous = None
+    while previous != text:
+        previous = text
+        text = CLUB_SUFFIX.sub("", text)
+        text = CLUB_PREFIX.sub("", text)
+        text = CLUB_TRAIL.sub("", text)
+    return normalise(text)
+
+
+# Columns that genuinely name a CLUB. Kept as an explicit list rather than a
+# pattern because a regex over column names also catches nation columns —
+# Intl_Tournament_Results.Winner holds 葡萄牙, not a club — which inflates the
+# backlog with entities that were never meant to have a Club_ID.
+CLUB_REFERENCE_COLUMNS = [
+    ("Domestic_League_Standings", "Club_Raw"), ("Barcelona_Transfers", "Counterparty_Club"),
+    ("Player_League_Career", "Club_Raw"), ("Player_Club_Competition_Stats", "Club_Raw"),
+    ("Player_Club_Season_Totals", "Club_Raw"), ("Canonical_Award_Facts", "Club_Raw"),
+    ("National_Tournaments", "Club"), ("Canonical_Competition_Results", "Club_Raw"),
+    ("Canonical_Competition_Results", "Opponent_Raw"), ("Domestic_Leagues", "Club"),
+    ("Competition_History", "Winner_Raw"), ("Competition_History", "Runner_Up_Raw"),
+    ("UCL_Season_Leaders", "Club"), ("Youth_Awards", "Club"), ("Golden_Shoe", "Club_Raw"),
+    ("FIFA_FIFPro_World_XI", "Club"), ("Retirement_Career_History", "Club_Raw"),
+    ("El_Clasico_Match_History", "Home_Club_Raw"), ("El_Clasico_Match_History", "Away_Club_Raw"),
+    ("Club_Cup_History", "Club_Raw"), ("UCL", "Winner"), ("UCL", "Runner_Up"),
+    ("Ballon_dOr", "Club"), ("LaLiga_2034_35_Table_RAW", "Club_Raw"),
+    ("PL_2034_35_Table_RAW", "Club_Raw"),
+]
+
+
+class ClubResolver:
+    """Resolves club references and finds club identities that were split in two."""
+
+    def __init__(self, con: sqlite3.Connection):
+        self.con = con
+        con.row_factory = sqlite3.Row
+        self.canonical: dict[str, str] = {}
+        self.exact: dict[str, str] = {}
+        self.stripped: dict[str, set[str]] = defaultdict(set)
+        self.club_leagues: dict[str, set[str]] = defaultdict(set)
+        self.full_keys: dict[str, str] = {}
+        self._build()
+
+    def _build(self) -> None:
+        for r in self.con.execute(
+            "SELECT Club_ID, Canonical_Display_Name, Alias_Name FROM Club_Dim WHERE Club_ID IS NOT NULL"
+        ):
+            cid = r["Club_ID"]
+            name = r["Canonical_Display_Name"] or r["Alias_Name"]
+            if name:
+                self.canonical.setdefault(cid, name)
+            for value in (r["Canonical_Display_Name"], r["Alias_Name"]):
+                if not value:
+                    continue
+                key = normalise(value)
+                if key:
+                    self.exact.setdefault(key, cid)
+                loose = club_key(value)
+                if loose:
+                    self.stripped[loose].add(cid)
+                if key:
+                    self.full_keys.setdefault(key, cid)
+
+        # which league each club plays in, for the same corroboration the player
+        # resolver uses; the standings name clubs without any Club_ID at all
+        for r in self.con.execute("SELECT DISTINCT Club_Raw, Competition_Raw FROM Domestic_League_Standings"):
+            key = league_key(r["Competition_Raw"])
+            cid = self.exact.get(normalise(r["Club_Raw"])) or next(
+                iter(self.stripped.get(club_key(r["Club_Raw"]), ())), None)
+            if key and cid:
+                self.club_leagues[cid].add(key)
+        try:
+            for r in self.con.execute("SELECT Club_ID, League_Raw FROM Player_League_Career WHERE Club_ID IS NOT NULL"):
+                key = league_key(r["League_Raw"])
+                if key:
+                    self.club_leagues[r["Club_ID"]].add(key)
+        except sqlite3.OperationalError:
+            pass
+
+    def resolve(self, raw: str | None) -> str | None:
+        """The Club_ID this string already maps to, if any."""
+        key = normalise(raw)
+        return self.exact.get(key) if key else None
+
+    def candidates(self, raw: str, league: str | None = None, limit: int = 5) -> list[dict]:
+        key = normalise(raw)
+        loose = club_key(raw)
+        scored: dict[str, float] = {}
+        reasons: dict[str, list[str]] = defaultdict(list)
+
+        if key and key in self.exact:
+            cid = self.exact[key]
+            scored[cid] = 1.0
+            reasons[cid].append("正規化後完全相同")
+
+        for cid in self.stripped.get(loose, ()):  # same club, different corporate affix
+            if scored.get(cid, 0) < 0.95:
+                scored[cid] = 0.95
+                reasons[cid] = ["去除俱樂部綴詞後相同"]
+
+        if is_truncated(raw):
+            # '多特蒙德足球俱...' is a prefix of the club's full name, so compare
+            # against the unstripped keys — the stripped ones are shorter than
+            # the fragment itself and can never contain it.
+            stem = normalise(TRUNCATED.sub("", to_trad(str(raw).strip())))
+            if stem:
+                for full, cid in self.full_keys.items():
+                    if full.startswith(stem) and scored.get(cid, 0) < 0.92:
+                        scored[cid] = 0.92
+                        reasons[cid] = ["來源字串被截斷，前綴相符"]
+
+        for other, cids in self.stripped.items():
+            if other == loose:
+                continue
+            score = similarity(loose, other)
+            if score < 0.70:
+                continue
+            for cid in cids:
+                if score > scored.get(cid, 0):
+                    scored[cid] = score
+                    reasons[cid] = [f"字面相似 {score:.0%}"]
+
+        results = []
+        for cid, score in scored.items():
+            boosted = score
+            note = list(dict.fromkeys(reasons[cid]))
+            known = self.club_leagues.get(cid, set())
+            if league and known:
+                if league in known:
+                    boosted = min(0.98, boosted + 0.08) if score < 1.0 else score
+                    note.append(f"{LEAGUE_LABELS.get(league, league)} 相符")
+                else:
+                    if score < 0.90:
+                        boosted = max(0.0, boosted - 0.12)
+                    note.append("聯賽不符：" + "、".join(
+                        sorted(LEAGUE_LABELS.get(k, k) for k in known)))
+            if boosted < 0.62:
+                continue
+            results.append({
+                "id": cid,
+                "name": self.canonical.get(cid, cid),
+                "score": round(boosted, 3),
+                "reasons": note,
+                "leagues": sorted(LEAGUE_LABELS.get(k, k) for k in known),
+            })
+        results.sort(key=lambda r: -r["score"])
+        return results[:limit]
+
+    def duplicates(self) -> list[dict]:
+        """Club_IDs that share an affix-stripped key: one club recorded twice."""
+        out = []
+        for key, cids in self.stripped.items():
+            if len(cids) < 2:
+                continue
+            members = sorted(cids)
+            out.append({
+                "key": key,
+                "ids": members,
+                "names": [self.canonical.get(c, c) for c in members],
+            })
+        return sorted(out, key=lambda d: d["ids"])

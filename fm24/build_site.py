@@ -20,7 +20,8 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from resolver import LEAGUE_LABELS, IdentityResolver, normalise, sheet_league, start_year
+from resolver import (CLUB_REFERENCE_COLUMNS, LEAGUE_LABELS, ClubResolver, IdentityResolver,
+                      club_key, is_truncated, league_key, normalise, sheet_league, start_year)
 
 BARCELONA_CLUB_ID = "C-0030"
 
@@ -500,6 +501,104 @@ class Archive:
             "indexKeys": len(resolver.index),
         }
 
+
+    # ----------------------------------------------------------------- clubs --
+    def clubs(self) -> dict:
+        """Club references that carry no Club_ID, and identities recorded twice."""
+        resolver = ClubResolver(self.con)
+
+        refs = defaultdict(lambda: {"rows": 0, "tables": Counter(), "leagues": Counter(),
+                                    "seasons": set()})
+        for table, column in CLUB_REFERENCE_COLUMNS:
+            try:
+                has_season = "Season" in {
+                    d[0] for d in self.con.execute(f'SELECT * FROM "{table}" LIMIT 0').description}
+                season_col = ", Season" if has_season else ""
+                rows = self.q(f'SELECT "{column}" v{season_col} FROM "{table}" WHERE "{column}" IS NOT NULL')
+            except sqlite3.OperationalError:
+                continue
+            league = None
+            if table == "Domestic_League_Standings":
+                league = "PER_ROW"
+            for r in rows:
+                name = str(r["v"]).strip()
+                if not name:
+                    continue
+                bucket = refs[name]
+                bucket["rows"] += 1
+                bucket["tables"][table] += 1
+                if has_season and r.get("Season"):
+                    bucket["seasons"].add(str(r["Season"]))
+
+        # the standings are the one place a reference states its own league
+        for r in self.q("SELECT Club_Raw, Competition_Raw FROM Domestic_League_Standings WHERE Club_Raw IS NOT NULL"):
+            key = league_key(r["Competition_Raw"])
+            name = str(r["Club_Raw"]).strip()
+            if key and name in refs:
+                refs[name]["leagues"][key] += 1
+
+        unresolved, resolved_rows = [], 0
+        for name, bucket in refs.items():
+            if resolver.resolve(name):
+                resolved_rows += bucket["rows"]
+                continue
+            league = bucket["leagues"].most_common(1)[0][0] if bucket["leagues"] else None
+            candidates = resolver.candidates(name, league=league)
+            unresolved.append({
+                "raw": name,
+                "rows": bucket["rows"],
+                "tables": [{"table": k, "n": v} for k, v in bucket["tables"].most_common()],
+                "league": LEAGUE_LABELS.get(league) if league else None,
+                "seasons": sorted(bucket["seasons"], reverse=True)[:4],
+                "truncated": is_truncated(name),
+                "candidates": candidates,
+                "verdict": IdentityResolver.verdict(candidates),
+            })
+        unresolved.sort(key=lambda x: (-x["rows"], x["raw"]))
+
+        # duplicate identities, with the weight of data sitting on each side
+        duplicates = []
+        for dupe in resolver.duplicates():
+            members = []
+            for cid in dupe["ids"]:
+                used = Counter()
+                for table, column in CLUB_REFERENCE_COLUMNS:
+                    try:
+                        cols = {d[0] for d in self.con.execute(f'SELECT * FROM "{table}" LIMIT 0').description}
+                    except sqlite3.OperationalError:
+                        continue
+                    if "Club_ID" not in cols:
+                        continue
+                    n = as_int(self.one(f'SELECT COUNT(*) n FROM "{table}" WHERE Club_ID=?', cid)["n"])
+                    if n:
+                        used[table] = n
+                members.append({
+                    "id": cid,
+                    "name": resolver.canonical.get(cid, cid),
+                    "rows": sum(used.values()),
+                    "tables": [{"table": k, "n": v} for k, v in used.most_common()],
+                    "leagues": sorted(LEAGUE_LABELS.get(k, k) for k in resolver.club_leagues.get(cid, ())),
+                })
+            members.sort(key=lambda m: -m["rows"])
+            duplicates.append({
+                "key": dupe["key"],
+                "members": members,
+                "bothCarryData": sum(1 for m in members if m["rows"]) > 1,
+            })
+        duplicates.sort(key=lambda d: (not d["bothCarryData"], -sum(m["rows"] for m in d["members"])))
+
+        verdicts = Counter(u["verdict"] for u in unresolved)
+        return {
+            "unresolved": unresolved,
+            "duplicates": duplicates,
+            "totalRefs": len(refs),
+            "resolvedRefs": len(refs) - len(unresolved),
+            "unresolvedRows": sum(u["rows"] for u in unresolved),
+            "resolvedRows": resolved_rows,
+            "controlled": len(resolver.canonical),
+            "verdicts": [{"verdict": k, "n": v} for k, v in verdicts.most_common()],
+        }
+
     # ------------------------------------------------------------ timetravel --
     def timetravel(self) -> dict:
         """The archive's own knowledge history.
@@ -675,31 +774,35 @@ class Archive:
                 "sample": ["NULL", "!"],
             })
 
-        by_name = defaultdict(set)
-        display = {}
-        for r in self.q("SELECT Club_ID, Canonical_Display_Name FROM Club_Dim WHERE Club_ID IS NOT NULL"):
-            key = normalise(r["Canonical_Display_Name"])
-            if key:
-                by_name[key].add(r["Club_ID"])
-                display[key] = r["Canonical_Display_Name"]
-        split_clubs = {display[k]: sorted(v) for k, v in by_name.items() if len(v) > 1}
-        if split_clubs:
-            carrying = []
-            for name, ids in split_clubs.items():
-                used = [i for i in ids if as_int(self.one(
-                    "SELECT (SELECT COUNT(*) FROM Player_Club_Season_Totals WHERE Club_ID=?)"
-                    " + (SELECT COUNT(*) FROM Canonical_Award_Facts WHERE Club_ID=?) n", i, i)["n"])]
-                if len(used) > 1:
-                    carrying.append(f"{name}（{'、'.join(used)}）")
+        # comparing canonical names alone finds only the exact-duplicate pairs;
+        # the club key also strips the corporate affix, which is what actually
+        # splits '里爾' from '里爾足球俱樂部'
+        club_report = self.clubs()
+        dupes = club_report["duplicates"]
+        if dupes:
+            risky = [d for d in dupes if d["bothCarryData"]]
             findings.append({
-                "severity": "high" if carrying else "medium",
+                "severity": "high" if risky else "medium",
                 "title": "同一間俱樂部持有多個 Club_ID",
-                "detail": f"{len(split_clubs)} 個俱樂部名稱對應到一個以上的 Club_ID："
-                          + "、".join(f"{n}→{'/'.join(i)}" for n, i in split_clubs.items())
-                          + ("。其中 " + "、".join(carrying) + " 兩邊都有資料列，依 Club_ID 分組會把同一間俱樂部算成兩間。"
-                             if carrying else "。目前尚無資料列引用重複的 ID。"),
+                "detail": f"{len(dupes)} 組俱樂部身分在去除「足球俱樂部」等綴詞後指向同一隊。"
+                          + (f"其中 {len(risky)} 組的兩個 ID 都有資料列（"
+                             + "、".join(f"{d['members'][0]['name']} {'/'.join(m['id'] for m in d['members'])}"
+                                        for d in risky)
+                             + "），依 Club_ID 分組會把同一間俱樂部算成兩間。"
+                             if risky else "目前沒有任何一組兩邊都持有資料列。"),
                 "where": "Club_Dim",
-                "sample": sorted(split_clubs),
+                "sample": [d["members"][0]["name"] for d in dupes[:8]],
+            })
+
+        unresolved_clubs = club_report["unresolved"]
+        if unresolved_clubs:
+            findings.append({
+                "severity": "medium",
+                "title": "俱樂部字串未對應到 Club_ID",
+                "detail": f"{len(unresolved_clubs)} 個俱樂部字串（{club_report['unresolvedRows']} 列）"
+                          f"在 Club_Dim 中找不到對應身分，多數是從未建檔的球隊。詳見「俱樂部身分」控制台。",
+                "where": "Club_Dim",
+                "sample": [u["raw"] for u in unresolved_clubs[:6]],
             })
 
         missing_gf = [s["Season"] for s in self.q("SELECT Season, LaLiga_GF FROM Barcelona_Season_Master WHERE LaLiga_GF IS NULL")]
@@ -765,6 +868,7 @@ def build(db_path: Path, out_path: Path, template_path: Path) -> None:
         "meta": archive.meta(),
         "world": archive.world(),
         "resolution": archive.resolution(),
+        "clubs": archive.clubs(),
         "timetravel": archive.timetravel(),
         "people": archive.people(),
         "seasons": archive.seasons(),

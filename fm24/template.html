@@ -311,6 +311,23 @@ tr.q-win td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
 .decided.skip{background:var(--panel-2)}
 .decided.new{background:var(--warn-bg)}
 
+/* ---------- club merge ---------- */
+.merge{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:stretch}
+.side{border:1px solid var(--line-soft);border-radius:6px;padding:11px 13px;background:var(--sunk);
+  display:flex;flex-direction:column;gap:6px}
+.side.keep{box-shadow:inset 0 0 0 1px var(--ok);background:var(--ok-bg)}
+.side .sn{font-weight:500;font-size:13.5px}
+.side .si{font-family:var(--mono);font-size:10.5px;color:var(--text-3)}
+.side .sr{font-family:var(--mono);font-size:11.5px;color:var(--text-2)}
+.mergearrow{display:flex;align-items:center;justify-content:center;color:var(--text-3);
+  font-family:var(--mono);font-size:16px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;cursor:pointer;
+  padding:9px 15px;color:var(--text-3);font-size:13.5px;margin-bottom:-1px}
+.tabs button:hover{color:var(--text)}
+.tabs button[aria-selected="true"]{color:var(--garnet);border-bottom-color:var(--garnet);font-weight:500}
+@media (max-width:640px){.merge{grid-template-columns:1fr}.mergearrow{transform:rotate(90deg)}}
+
 /* ---------- time travel ---------- */
 .daterail{display:flex;gap:4px;overflow-x:auto;padding-bottom:6px;align-items:flex-end}
 .day{flex:1 1 42px;min-width:30px;background:none;border:0;padding:0;cursor:pointer;display:flex;
@@ -450,7 +467,8 @@ const VIEWS = [
   { id: "dynasty",   group: "檔案", label: "巴薩王朝",   render: renderDynasty },
   { id: "seasons",   group: "檔案", label: "巴薩賽季",   render: renderSeasons },
   { id: "squad",     group: "檔案", label: "巴薩陣容",   render: renderSquad },
-  { id: "resolve",   group: "工具", label: "身分解析",   render: renderResolve },
+  { id: "resolve",   group: "工具", label: "球員身分",   render: renderResolve },
+  { id: "clubs",     group: "工具", label: "俱樂部身分", render: renderClubs },
   { id: "import",    group: "工具", label: "匯入資料",   render: renderImport },
   { id: "integrity", group: "工具", label: "檔案完整性", render: renderIntegrity },
 ];
@@ -465,6 +483,10 @@ const state = {
   person: null,
   importKind: "season",
   resolveFilter: "todo",
+  clubTab: "dupes",
+  clubFilter: "todo",
+  clubQuery: "",
+  clubDecisions: null,
   resolveQuery: "",
   decisions: null,
   ttDate: null,
@@ -1492,6 +1514,242 @@ function resolveCard(item, decision) {
           el("div", { class: "btnrow", style: "margin-top:12px" },
             el("button", { class: "btn ghost", type: "button", onClick: () => decide(item, "new") }, "建立新身分"),
             el("button", { class: "btn ghost", type: "button", onClick: () => decide(item, "reject") }, "無法判定，跳過"))));
+}
+
+
+/* ===================================================================
+   CLUB IDENTITY — two different problems under one roof:
+   references with no Club_ID, and one club recorded under two Club_IDs.
+   =================================================================== */
+
+const CLUB_FILTERS = [
+  { id: "todo", label: "待處理", test: (i, d) => !d[i.raw] },
+  { id: "cand", label: "有候選", test: (i, d) => !d[i.raw] && i.candidates.length },
+  { id: "none", label: "無候選（需建新身分）", test: (i, d) => !d[i.raw] && !i.candidates.length },
+  { id: "done", label: "已決定", test: (i, d) => !!d[i.raw] },
+];
+
+const clubDocKey = raw => "c" + [...raw].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7).toString(36);
+
+async function loadClubDecisions() {
+  const db = await getDb();
+  if (!db) { state.clubDecisions = "unavailable"; return; }
+  try {
+    const docs = await db.collection("club_decisions").limit(500).get();
+    const map = {};
+    docs.forEach(d => { map[d.data.raw] = d.data; });
+    state.clubDecisions = map;
+  } catch (e) { state.clubDecisions = "unavailable"; }
+}
+
+async function decideClub(raw, action, payload) {
+  const db = await getDb();
+  if (!db) return;
+  const doc = { raw, action, decidedAt: new Date().toISOString(), ...payload };
+  try {
+    await db.doc("club_decisions/" + clubDocKey(raw)).set(doc);
+    if (state.clubDecisions && state.clubDecisions !== "unavailable") state.clubDecisions[raw] = doc;
+  } catch (e) {
+    state.clubError = e?.code === "not_granted" ? "沒有寫入權限，決定無法保存。" : "寫入失敗：" + (e?.message || e?.code);
+  }
+  paint();
+}
+
+async function undecideClub(raw) {
+  const db = await getDb();
+  if (!db) return;
+  try { await db.doc("club_decisions/" + clubDocKey(raw)).delete(); } catch (e) { /* gone */ }
+  if (state.clubDecisions && state.clubDecisions !== "unavailable") delete state.clubDecisions[raw];
+  paint();
+}
+
+async function exportClubDecisions() {
+  if (!downloadsHandle) await getDb();
+  const map = state.clubDecisions;
+  if (!downloadsHandle || !map || map === "unavailable") return;
+  const list = Object.values(map);
+  if (!list.length) return;
+  try {
+    await downloadsHandle.save({
+      filename: `fm24-club-decisions-${new Date().toISOString().slice(0, 10)}.json`,
+      data: JSON.stringify({
+        exportedAt: new Date().toISOString(),
+        schema: "FM24_CLUB_DECISIONS_V1",
+        note: "餵給 fm24/ingest.py --clubs，會寫入 Ingest_Club_Decisions 表。",
+        decisions: list,
+      }, null, 2),
+    });
+  } catch (e) { /* declined */ }
+}
+
+function renderClubs() {
+  if (state.clubDecisions === null) loadClubDecisions().then(paint);
+  const c = DATA.clubs;
+  const decided = (state.clubDecisions && state.clubDecisions !== "unavailable") ? state.clubDecisions : {};
+  const byVerdict = Object.fromEntries(c.verdicts.map(v => [v.verdict, v.n]));
+  const risky = c.duplicates.filter(d => d.bothCarryData);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" },
+        `${c.totalRefs} 個俱樂部字串　·　已解析 ${c.resolvedRefs}　·　${c.controlled} 個受控身分`),
+      el("h2", {}, "俱樂部身分"),
+      el("p", {}, "兩件不同的事：有些字串對不到任何 Club_ID，有些俱樂部則被記成了兩個 Club_ID。"
+        + "俱樂部名的差異來自綴詞而非音譯——「里爾」與「里爾足球俱樂部」是同一隊——所以比對前先去掉綴詞。")),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, c.unresolved.length),
+        el("div", { class: "l" }, "未解析字串")),
+      el("div", {}, el("div", { class: "n tnum" }, c.unresolvedRows), el("div", { class: "l" }, "受影響列")),
+      el("div", {}, el("div", { class: "n tnum" }, (byVerdict.strong || 0) + (byVerdict.exact || 0)),
+        el("div", { class: "l" }, "高可信候選")),
+      el("div", {}, el("div", { class: "n tnum" }, byVerdict.no_candidate || 0),
+        el("div", { class: "l" }, "需建新身分")),
+      el("div", { class: risky.length ? "garnet" : "" }, el("div", { class: "n tnum" }, c.duplicates.length),
+        el("div", { class: "l" }, "重複身分")),
+    ),
+    state.clubError ? el("div", { class: "note" }, state.clubError) : null,
+    state.clubDecisions === "unavailable" ? el("div", { class: "hint" },
+      "儲存空間不可用，決定不會被保存。候選比對仍可正常檢視。") : null,
+    Object.keys(decided).length ? el("div", { class: "btnrow" },
+      el("button", { class: "btn", type: "button", onClick: exportClubDecisions },
+        `匯出決定 JSON　${Object.keys(decided).length} 筆`),
+      el("span", { class: "cap" }, "下載後執行　", el("code", {}, "python3 ingest.py <檔案> --clubs --commit"))) : null,
+    el("div", { class: "tabs" },
+      el("button", {
+        type: "button", "aria-selected": String(state.clubTab === "dupes"),
+        onClick: () => { state.clubTab = "dupes"; paint(); },
+      }, `重複身分　${c.duplicates.length}`),
+      el("button", {
+        type: "button", "aria-selected": String(state.clubTab === "refs"),
+        onClick: () => { state.clubTab = "refs"; paint(); },
+      }, `未解析引用　${c.unresolved.length}`)),
+    ...(state.clubTab === "dupes" ? renderClubDupes(c, decided, risky) : renderClubRefs(c, decided)),
+  ];
+}
+
+function renderClubDupes(c, decided, risky) {
+  return [
+    el("p", { class: "cap" }, risky.length
+      ? `${risky.length} 組的兩個 ID 都有資料列——依 Club_ID 分組會把同一間俱樂部算成兩間，這幾組排在最前面。`
+      : "沒有任何一組的兩個 ID 同時持有資料列。"),
+    el("div", { class: "queue" }, c.duplicates.map(d => {
+      const key = "dupe:" + d.key;
+      const decision = decided[key];
+      const keep = decision?.keepId ?? d.members[0].id;
+      return el("div", { class: "card " + (d.bothCarryData ? "v-weak" : "v-no_candidate") + (decision ? " done" : "") },
+        el("div", { class: "card-top" },
+          el("div", {},
+            el("div", { class: "card-name" }, d.members[0].name),
+            el("div", { class: "card-meta" },
+              el("span", { class: "pill " + (d.bothCarryData ? "warn" : "flat") },
+                d.bothCarryData ? "兩邊都有資料" : "僅一邊有資料"),
+              el("span", { class: "pill flat" }, `合計 ${d.members.reduce((a, m) => a + m.rows, 0)} 列`)))),
+        el("div", { class: "merge" },
+          el("div", { class: "side" + (keep === d.members[0].id ? " keep" : "") },
+            el("div", { class: "sn" }, d.members[0].name),
+            el("div", { class: "si" }, d.members[0].id,
+              d.members[0].leagues.length ? "　" + d.members[0].leagues.join("、") : ""),
+            el("div", { class: "sr" }, `${d.members[0].rows} 列`),
+            el("div", { class: "si" }, d.members[0].tables.map(x => `${x.table} ×${x.n}`).join("　") || "無引用")),
+          el("div", { class: "mergearrow" }, "⇄"),
+          el("div", { class: "side" + (keep === d.members[1].id ? " keep" : "") },
+            el("div", { class: "sn" }, d.members[1].name),
+            el("div", { class: "si" }, d.members[1].id,
+              d.members[1].leagues.length ? "　" + d.members[1].leagues.join("、") : ""),
+            el("div", { class: "sr" }, `${d.members[1].rows} 列`),
+            el("div", { class: "si" }, d.members[1].tables.map(x => `${x.table} ×${x.n}`).join("　") || "無引用"))),
+        decision
+          ? el("div", { class: "decided" + (decision.action === "merge" ? "" : " skip") },
+              el("span", {}, decision.action === "merge"
+                ? `已決定合併至 ${decision.keepId}（${decision.keepName}）`
+                : "已標記為不同俱樂部，保持分開"),
+              el("button", { class: "btn danger", type: "button", style: "margin-left:auto",
+                onClick: () => undecideClub(key) }, "撤銷"))
+          : el("div", { class: "btnrow" },
+              d.members.map(m => el("button", {
+                class: "btn", type: "button",
+                onClick: () => decideClub(key, "merge", {
+                  keepId: m.id, keepName: m.name,
+                  mergeIds: d.members.filter(x => x.id !== m.id).map(x => x.id),
+                  rows: d.members.reduce((a, x) => a + x.rows, 0),
+                }),
+              }, `保留 ${m.id}`)),
+              el("button", {
+                class: "btn ghost", type: "button",
+                onClick: () => decideClub(key, "distinct", { ids: d.members.map(m => m.id) }),
+              }, "其實是不同俱樂部")));
+    })),
+  ];
+}
+
+function renderClubRefs(c, decided) {
+  const f = CLUB_FILTERS.find(x => x.id === state.clubFilter) || CLUB_FILTERS[0];
+  const q = state.clubQuery.trim();
+  const items = c.unresolved.filter(i => f.test(i, decided) &&
+    (!q || i.raw.includes(q) || i.candidates.some(x => x.name.includes(q))));
+  const shown = items.slice(0, 40);
+
+  return [
+    el("div", { class: "filters" },
+      el("input", {
+        id: "clubQ", type: "search", placeholder: "搜尋俱樂部字串或候選…", value: state.clubQuery,
+        onInput: e => { state.clubQuery = e.target.value; paint(); },
+      }),
+      el("div", { class: "chips" }, CLUB_FILTERS.map(x =>
+        el("button", {
+          class: "chip", type: "button", "aria-pressed": String(x.id === state.clubFilter),
+          onClick: () => { state.clubFilter = x.id; paint(); },
+        }, x.label)))),
+    el("p", { class: "cap" }, `符合 ${items.length}${items.length > shown.length ? `，顯示前 ${shown.length}` : ""}`),
+    el("div", { class: "queue" }, shown.map(i => {
+      const meta = VERDICT_META[i.verdict] || VERDICT_META.no_candidate;
+      const decision = decided[i.raw];
+      return el("div", { class: "card v-" + i.verdict + (decision ? " done" : "") },
+        el("div", { class: "card-top" },
+          el("div", {},
+            el("div", { class: "card-name" }, i.raw),
+            el("div", { class: "card-meta" },
+              el("span", { class: "pill " + meta.cls }, meta.label),
+              el("span", { class: "pill flat" }, `${i.rows} 列`),
+              i.league ? el("span", { class: "pill flat" }, i.league) : null,
+              i.truncated ? el("span", { class: "pill warn", title: "來源字串以刪節號結尾" }, "來源截斷") : null)),
+          el("div", { class: "ctx", style: "text-align:right" },
+            el("div", { class: "mono" }, i.tables.slice(0, 2).map(x => `${x.table} ×${x.n}`).join("　")),
+            i.seasons.length ? el("div", {}, i.seasons.join("、")) : null)),
+        decision
+          ? el("div", { class: "decided " + (decision.action === "confirm" ? "" : decision.action === "new" ? "new" : "skip") },
+              el("span", {}, decision.action === "confirm" ? `已確認為 ${decision.clubId}　${decision.clubName || ""}`
+                : decision.action === "new" ? "已標記為新俱樂部，待建立 Club_ID"
+                : "已標記為無法判定"),
+              el("button", { class: "btn danger", type: "button", style: "margin-left:auto",
+                onClick: () => undecideClub(i.raw) }, "撤銷"))
+          : el("div", {},
+              i.candidates.length
+                ? el("div", {}, i.candidates.map(x =>
+                    el("div", { class: "cand" },
+                      el("div", { class: "who" },
+                        el("div", {}, el("span", { class: "cn" }, x.name), el("span", { class: "cid" }, x.id),
+                          x.leagues.length ? el("span", { class: "cid" }, x.leagues.join("、")) : null),
+                        el("div", { class: "why" }, x.reasons.map(rr => el("span", { class: "pill flat" }, rr)))),
+                      el("div", { class: "score" },
+                        el("span", { class: "bar" }, el("i", {
+                          style: `width:${x.score * 100}%;background:${x.score >= 0.9 ? "var(--ok)" : "var(--azul)"}`,
+                        })),
+                        el("span", { class: "pc" }, Math.round(x.score * 100) + "%"),
+                        el("button", {
+                          class: "btn", type: "button", style: "padding:6px 12px;font-size:12px",
+                          onClick: () => decideClub(i.raw, "confirm", {
+                            clubId: x.id, clubName: x.name, rows: i.rows, score: x.score,
+                          }),
+                        }, "確認")))))
+                : el("div", { class: "ctx" }, "受控名錄中沒有相近的俱樂部，需要建立新的 Club_ID。"),
+              el("div", { class: "btnrow", style: "margin-top:12px" },
+                el("button", { class: "btn ghost", type: "button",
+                  onClick: () => decideClub(i.raw, "new", { rows: i.rows }) }, "建立新俱樂部"),
+                el("button", { class: "btn ghost", type: "button",
+                  onClick: () => decideClub(i.raw, "reject", { rows: i.rows }) }, "無法判定，跳過"))));
+    })),
+  ];
 }
 
 /* ===================================================================
