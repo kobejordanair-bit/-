@@ -469,6 +469,7 @@ const VIEWS = [
   { id: "squad",     group: "檔案", label: "巴薩陣容",   render: renderSquad },
   { id: "resolve",   group: "工具", label: "球員身分",   render: renderResolve },
   { id: "clubs",     group: "工具", label: "俱樂部身分", render: renderClubs },
+  { id: "comps",     group: "工具", label: "賽事身分",   render: renderComps },
   { id: "import",    group: "工具", label: "匯入資料",   render: renderImport },
   { id: "integrity", group: "工具", label: "檔案完整性", render: renderIntegrity },
 ];
@@ -487,6 +488,8 @@ const state = {
   clubFilter: "todo",
   clubQuery: "",
   clubDecisions: null,
+  compTab: "clusters",
+  compDecisions: null,
   resolveQuery: "",
   decisions: null,
   ttDate: null,
@@ -1749,6 +1752,208 @@ function renderClubRefs(c, decided) {
                 el("button", { class: "btn ghost", type: "button",
                   onClick: () => decideClub(i.raw, "reject", { rows: i.rows }) }, "無法判定，跳過"))));
     })),
+  ];
+}
+
+
+/* ===================================================================
+   COMPETITION IDENTITY
+   The same competition is written three ways — sponsored, bilingual, or with
+   a knockout round attached — and none of them are in Competition_Dim.
+   =================================================================== */
+
+async function loadCompDecisions() {
+  const db = await getDb();
+  if (!db) { state.compDecisions = "unavailable"; return; }
+  try {
+    const docs = await db.collection("competition_decisions").limit(300).get();
+    const map = {};
+    docs.forEach(d => { map[d.data.raw] = d.data; });
+    state.compDecisions = map;
+  } catch (e) { state.compDecisions = "unavailable"; }
+}
+
+async function decideComp(raw, action, payload) {
+  const db = await getDb();
+  if (!db) return;
+  const doc = { raw, action, decidedAt: new Date().toISOString(), ...payload };
+  const key = "p" + [...raw].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7).toString(36);
+  try {
+    await db.doc("competition_decisions/" + key).set(doc);
+    if (state.compDecisions && state.compDecisions !== "unavailable") state.compDecisions[raw] = doc;
+  } catch (e) {
+    state.compError = e?.code === "not_granted" ? "沒有寫入權限，決定無法保存。" : "寫入失敗：" + (e?.message || e?.code);
+  }
+  paint();
+}
+
+async function undecideComp(raw) {
+  const db = await getDb();
+  if (!db) return;
+  const key = "p" + [...raw].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7).toString(36);
+  try { await db.doc("competition_decisions/" + key).delete(); } catch (e) { /* gone */ }
+  if (state.compDecisions && state.compDecisions !== "unavailable") delete state.compDecisions[raw];
+  paint();
+}
+
+async function exportCompDecisions() {
+  if (!downloadsHandle) await getDb();
+  const map = state.compDecisions;
+  if (!downloadsHandle || !map || map === "unavailable") return;
+  const list = Object.values(map);
+  if (!list.length) return;
+  try {
+    await downloadsHandle.save({
+      filename: `fm24-competition-decisions-${new Date().toISOString().slice(0, 10)}.json`,
+      data: JSON.stringify({
+        exportedAt: new Date().toISOString(),
+        schema: "FM24_COMPETITION_DECISIONS_V1",
+        note: "餵給 fm24/ingest.py --competitions，會寫入 Ingest_Competition_Decisions 表。",
+        decisions: list,
+      }, null, 2),
+    });
+  } catch (e) { /* declined */ }
+}
+
+function renderComps() {
+  if (state.compDecisions === null) loadCompDecisions().then(paint);
+  const c = DATA.competitions;
+  const decided = (state.compDecisions && state.compDecisions !== "unavailable") ? state.compDecisions : {};
+  const clustered = c.clusters.reduce((a, x) => a + x.rows, 0);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" },
+        `${c.totalRefs} 個賽事名稱　·　Competition_Dim 收錄 ${c.controlled} 個`),
+      el("h2", {}, "賽事身分"),
+      el("p", {}, "賽事名稱的變異有三種：贊助商（LaLiga EA Sports）、中英並列（西甲 LaLiga）、"
+        + "以及後面掛著淘汰賽輪次（Copa del Rey決賽）。比對前把這三種都剝掉——"
+        + "但層級數字不能剝，LaLiga 2 是西乙，跟 LaLiga 是兩回事。")),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, c.unresolved.length),
+        el("div", { class: "l" }, "未受控名稱")),
+      el("div", {}, el("div", { class: "n tnum" }, c.unresolvedRows.toLocaleString()),
+        el("div", { class: "l" }, "受影響列")),
+      el("div", {}, el("div", { class: "n tnum" }, c.clusters.length), el("div", { class: "l" }, "同賽事異寫組")),
+      el("div", {}, el("div", { class: "n tnum" }, clustered.toLocaleString()),
+        el("div", { class: "l" }, "可一次收斂的列")),
+      el("div", {}, el("div", { class: "n tnum" }, c.categoryRows.toLocaleString()),
+        el("div", { class: "l" }, "分類列（非賽事）")),
+    ),
+    state.compError ? el("div", { class: "note" }, state.compError) : null,
+    state.compDecisions === "unavailable" ? el("div", { class: "hint" },
+      "儲存空間不可用，決定不會被保存。分群與比對仍可正常檢視。") : null,
+    Object.keys(decided).length ? el("div", { class: "btnrow" },
+      el("button", { class: "btn", type: "button", onClick: exportCompDecisions },
+        `匯出決定 JSON　${Object.keys(decided).length} 筆`),
+      el("span", { class: "cap" }, "下載後執行　", el("code", {}, "python3 ingest.py <檔案> --competitions --commit"))) : null,
+    el("div", { class: "tabs" },
+      el("button", {
+        type: "button", "aria-selected": String(state.compTab === "clusters"),
+        onClick: () => { state.compTab = "clusters"; paint(); },
+      }, `同賽事異寫　${c.clusters.length}`),
+      el("button", {
+        type: "button", "aria-selected": String(state.compTab === "all"),
+        onClick: () => { state.compTab = "all"; paint(); },
+      }, `全部未受控　${c.unresolved.length}`),
+      el("button", {
+        type: "button", "aria-selected": String(state.compTab === "cats"),
+        onClick: () => { state.compTab = "cats"; paint(); },
+      }, `出賽分類　${c.categories.length}`)),
+    ...(state.compTab === "clusters" ? renderCompClusters(c, decided)
+      : state.compTab === "cats" ? renderCompCats(c)
+      : renderCompAll(c, decided)),
+  ];
+}
+
+function renderCompClusters(c, decided) {
+  return [
+    el("p", { class: "cap" }, "每組是同一個賽事的不同寫法。選一個當正式名稱，其餘記為別名——"
+      + "一次決定就能收斂整組的所有列。"),
+    el("div", { class: "queue" }, c.clusters.map(group => {
+      const key = "cluster:" + group.suggested;
+      const decision = decided[key];
+      return el("div", { class: "card v-strong" + (decision ? " done" : "") },
+        el("div", { class: "card-top" },
+          el("div", {},
+            el("div", { class: "card-name" }, group.suggested),
+            el("div", { class: "card-meta" },
+              el("span", { class: "pill flat" }, `${group.members.length} 種寫法`),
+              el("span", { class: "pill warn" }, `${group.rows} 列`)))),
+        el("div", {}, group.members.map(m =>
+          el("div", { class: "cand" },
+            el("div", { class: "who" }, el("span", { class: "cn" }, m.raw)),
+            el("div", { class: "score" },
+              el("span", { class: "pc" }, m.rows),
+              decision ? null : el("button", {
+                class: "btn", type: "button", style: "padding:6px 12px;font-size:12px",
+                onClick: () => decideComp(key, "canonical", {
+                  canonical: m.raw,
+                  aliases: group.members.filter(x => x.raw !== m.raw).map(x => x.raw),
+                  rows: group.rows,
+                }),
+              }, "設為正式名稱"))))),
+        decision
+          ? el("div", { class: "decided" + (decision.action === "canonical" ? "" : " skip") },
+              el("span", {}, decision.action === "canonical"
+                ? `正式名稱：${decision.canonical}　別名 ${(decision.aliases || []).length} 個`
+                : "已標記為不同賽事"),
+              el("button", { class: "btn danger", type: "button", style: "margin-left:auto",
+                onClick: () => undecideComp(key) }, "撤銷"))
+          : el("div", { class: "btnrow" },
+              el("button", { class: "btn ghost", type: "button",
+                onClick: () => decideComp(key, "distinct", { members: group.members.map(m => m.raw) }),
+              }, "其實是不同賽事")));
+    })),
+  ];
+}
+
+function renderCompAll(c, decided) {
+  const shown = c.unresolved.slice(0, 60);
+  return [
+    el("p", { class: "cap" }, `${c.unresolved.length} 個名稱對不到 Competition_Dim。`
+      + "多數是從未建檔的賽事——工作簿只收錄了國際賽與歐洲賽事。"),
+    el("div", { class: "tblwrap" }, el("table", { class: "data" },
+      el("thead", {}, el("tr", {},
+        el("th", {}, "賽事名稱"), el("th", { class: "num" }, "列數"),
+        el("th", {}, "層級"), el("th", {}, "出現於"), el("th", {}, "決定"))),
+      el("tbody", {}, shown.map(u => el("tr", {},
+        el("td", { class: "name-cell" }, u.raw),
+        el("td", { class: "num tnum" }, u.rows),
+        el("td", { class: "mono" }, u.tier.length ? u.tier.join("/") : "—"),
+        el("td", { class: "mono" }, u.tables.slice(0, 2).map(x => x.table).join("　")),
+        el("td", {}, decided[u.raw]
+          ? el("span", { class: "pill ok" }, "已建檔")
+          : el("button", {
+              class: "btn ghost", type: "button", style: "padding:4px 10px;font-size:11.5px",
+              onClick: () => decideComp(u.raw, "new", { rows: u.rows }),
+            }, "建立賽事"))))))),
+    c.unresolved.length > shown.length
+      ? el("p", { class: "cap", style: "margin-top:10px" }, `另有 ${c.unresolved.length - shown.length} 個未顯示。`) : null,
+  ];
+}
+
+function renderCompCats(c) {
+  return [
+    el("div", { class: "hint" },
+      "這些不是賽事名稱，是 Player_Club_Competition_Stats 的出賽分類。"
+      + "它們與真正的賽事名稱共用同一個欄位，而且中英兩套寫法並存——"
+      + "依此欄分組會把每個分類拆成兩半。這裡是建議的收斂對照。"),
+    el("div", { class: "queue", style: "margin-top:14px" }, c.categories.map(cat =>
+      el("div", { class: "card v-" + (cat.spellings.length > 1 ? "weak" : "no_candidate") },
+        el("div", { class: "card-top" },
+          el("div", {},
+            el("div", { class: "card-name" }, cat.label),
+            el("div", { class: "card-meta" },
+              el("span", { class: "pill flat" }, cat.category),
+              el("span", { class: cat.spellings.length > 1 ? "pill warn" : "pill flat" },
+                `${cat.spellings.length} 種寫法`),
+              el("span", { class: "pill flat" }, `${cat.rows} 列`)))),
+        el("div", {}, cat.spellings.map(sp =>
+          el("div", { class: "cand" },
+            el("div", { class: "who" }, el("span", { class: "cn" }, sp.raw)),
+            el("div", { class: "score" }, el("span", { class: "pc" }, sp.rows))))))),
+    ),
   ];
 }
 

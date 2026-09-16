@@ -11,6 +11,7 @@ Usage:
     python3 ingest.py fm24-imports-2035-06-02.json --commit
     python3 ingest.py fm24-identity-decisions-2035-06-02.json --identity --commit
     python3 ingest.py fm24-club-decisions-2035-06-02.json --clubs --commit
+    python3 ingest.py fm24-competition-decisions-2035-06-02.json --competitions --commit
 """
 
 from __future__ import annotations
@@ -28,6 +29,8 @@ IDENTITY_SCHEMA = "FM24_IDENTITY_DECISIONS_V1"
 IDENTITY_TABLE = "Ingest_Identity_Decisions"
 CLUB_SCHEMA = "FM24_CLUB_DECISIONS_V1"
 CLUB_TABLE = "Ingest_Club_Decisions"
+COMPETITION_SCHEMA = "FM24_COMPETITION_DECISIONS_V1"
+COMPETITION_TABLE = "Ingest_Competition_Decisions"
 
 # Where each import kind lands. Imports go to their own tables rather than into
 # the mirrored workbook sheets, so a rebuild from the .xlsx never silently
@@ -248,6 +251,91 @@ def ingest_clubs(payload_path: Path, db_path: Path, commit: bool) -> int:
     return 0
 
 
+COMPETITION_DDL = (
+    f'CREATE TABLE IF NOT EXISTS "{COMPETITION_TABLE}" ('
+    '"Decision_ID" TEXT PRIMARY KEY, "Raw_Name" TEXT, "Action" TEXT, '
+    '"Assigned_Competition_ID" TEXT, "Canonical_Name" TEXT, "Aliases" TEXT, '
+    '"Affected_Rows" TEXT, "Decided_At" TEXT, "Applied_At" TEXT)'
+)
+
+COMPETITION_VERB = {"canonical": "正名", "new": "新建", "distinct": "分開", "reject": "跳過"}
+
+
+def next_competition_id(con: sqlite3.Connection) -> str:
+    highest = 0
+    for table, column in (("Competition_Dim", "Competition_ID"),
+                          (COMPETITION_TABLE, "Assigned_Competition_ID")):
+        try:
+            rows = con.execute(f'SELECT DISTINCT "{column}" FROM "{table}" WHERE "{column}" LIKE ?', ("COMP-%",))
+            for (value,) in rows:
+                try:
+                    highest = max(highest, int(str(value).split("-")[1]))
+                except (IndexError, ValueError):
+                    continue
+        except sqlite3.OperationalError:
+            continue
+    return f"COMP-{highest + 1:04d}"
+
+
+def ingest_competitions(payload_path: Path, db_path: Path, commit: bool) -> int:
+    """Apply competition-console decisions.
+
+    'canonical' names one spelling as the competition and records the rest as
+    aliases, which is what collapses a whole cluster at once; 'new' mints the
+    next free COMP-nnnn. Competition_Dim is not rewritten.
+    """
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    if payload.get("schema") != COMPETITION_SCHEMA:
+        print(f"error: expected schema {COMPETITION_SCHEMA}, got {payload.get('schema')!r}", file=sys.stderr)
+        return 2
+
+    decisions = payload.get("decisions", [])
+    if not decisions:
+        print("nothing to apply: export contains no decisions", file=sys.stderr)
+        return 1
+
+    con = sqlite3.connect(db_path)
+    con.execute(COMPETITION_DDL)
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    applied = skipped = minted = 0
+
+    for decision in sorted(decisions, key=lambda d: d.get("decidedAt") or ""):
+        raw = decision.get("raw")
+        if not raw:
+            continue
+        decision_id = "PDD-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
+        if con.execute(f'SELECT 1 FROM "{COMPETITION_TABLE}" WHERE "Decision_ID"=?', (decision_id,)).fetchone():
+            skipped += 1
+            continue
+
+        action = decision.get("action")
+        comp_id = None
+        canonical = decision.get("canonical") or (raw if action == "new" else None)
+        aliases = decision.get("aliases") or []
+        if action in ("canonical", "new"):
+            comp_id = next_competition_id(con)
+            minted += 1
+
+        con.execute(
+            f'INSERT INTO "{COMPETITION_TABLE}" VALUES (?,?,?,?,?,?,?,?,?)',
+            (decision_id, raw, action, comp_id, canonical, "、".join(aliases),
+             str(decision.get("rows") or ""), decision.get("decidedAt"), now))
+        applied += 1
+        extra = f"  (別名 {len(aliases)})" if aliases else ""
+        print(f"  {COMPETITION_VERB.get(action, action):<4} {(canonical or raw):<34} -> {comp_id or '—'}{extra}")
+
+    if commit:
+        con.commit()
+        print(f"\napplied {applied} decisions ({minted} new Competition_IDs), {skipped} already present")
+        print(f"stored in {COMPETITION_TABLE}; Competition_Dim itself is untouched")
+    else:
+        con.rollback()
+        print(f"\nDRY RUN: would apply {applied} ({minted} new), skip {skipped}"
+              "\nre-run with --commit to write")
+    con.close()
+    return 0
+
+
 def ingest(payload_path: Path, db_path: Path, commit: bool) -> int:
     payload = json.loads(payload_path.read_text(encoding="utf-8"))
     if payload.get("schema") != SCHEMA:
@@ -321,14 +409,18 @@ def main() -> None:
                     help="the payload is a player identity decisions export")
     ap.add_argument("--clubs", action="store_true",
                     help="the payload is a club identity decisions export")
+    ap.add_argument("--competitions", action="store_true",
+                    help="the payload is a competition identity decisions export")
     args = ap.parse_args()
     if not args.database.exists():
         print(f"error: {args.database} not found — run etl.py first", file=sys.stderr)
         raise SystemExit(2)
-    if args.identity and args.clubs:
-        print("error: pass --identity or --clubs, not both", file=sys.stderr)
+    modes = [args.identity, args.clubs, args.competitions]
+    if sum(bool(m) for m in modes) > 1:
+        print("error: pass at most one of --identity, --clubs, --competitions", file=sys.stderr)
         raise SystemExit(2)
-    run = ingest_identity if args.identity else ingest_clubs if args.clubs else ingest
+    run = (ingest_identity if args.identity else ingest_clubs if args.clubs
+           else ingest_competitions if args.competitions else ingest)
     raise SystemExit(run(args.payload, args.database, args.commit))
 
 

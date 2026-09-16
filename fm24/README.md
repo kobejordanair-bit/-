@@ -60,10 +60,11 @@ python3 ingest.py fm24-identity-decisions-*.json --identity --commit # 身分決
 | 檔案 | 用途 |
 |---|---|
 | `etl.py` | xlsx → SQLite，1:1 鏡射 116 張表 |
-| `resolver.py` | 身分比對：簡繁正規化、球員姓氏否決制、俱樂部綴詞剝除、聯賽／賽季加權、分群與重複偵測 |
+| `resolver.py` | 三種實體的比對：簡繁正規化、球員姓氏否決制、俱樂部綴詞剝除、賽事層級否決、分群與重複偵測 |
+| `test_resolver.py` | 回歸測試（95 項），釘住每一條靠真實資料決定的規則 |
 | `build_site.py` | SQLite → 網站資料負載（JSON）並注入模板 |
 | `template.html` | 前端：無框架，手繪 SVG 圖表，深／淺色主題 |
-| `ingest.py` | 匯出的 JSON → SQLite，append-only 且冪等；`--identity`／`--clubs` 處理身分決定 |
+| `ingest.py` | 匯出的 JSON → SQLite，append-only 且冪等；`--identity`／`--clubs`／`--competitions` |
 | `data/fm24.sqlite` | 產出物（未進版控） |
 | `dist/index.html` | 產出物（未進版控） |
 
@@ -74,7 +75,7 @@ python3 ingest.py fm24-identity-decisions-*.json --identity --commit # 身分決
 
 **檔案** — 球員名錄（332 個受控身分）、巴薩王朝／賽季／陣容（含六維能力雷達）
 
-**工具** — 球員身分控制台、俱樂部身分控制台、匯入資料、檔案完整性報告
+**工具** — 球員身分、俱樂部身分、賽事身分三個控制台，匯入資料、檔案完整性報告
 
 ## 身分解析
 
@@ -146,7 +147,75 @@ weak 本來就是要人判斷的桶子，不是宣稱配對成功。
 決定同樣匯出後由 `ingest.py --clubs` 寫入 `Ingest_Club_Decisions`，`new` 自動分配下一個
 `C-nnnn`，`merge` 記下保留哪個 ID 與併入來源。**`Club_Dim` 本身不會被改寫。**
 
-## 踩到的坑：OpenCC s2t 不是冪等的
+## 賽事身分
+
+第三種實體，第三種變異模式。賽事名稱的差異來自：
+
+| 類型 | 例子 |
+|---|---|
+| 贊助商 | `LaLiga EA Sports` / `LaLiga`、`Serie A TIM`、`Ligue 1 Uber Eats` |
+| 中英並列 | `西甲 LaLiga`、`英超 Premier League`、`英格蘭足總盃 FA Cup` |
+| 淘汰賽輪次 | `Copa del Rey決賽`、`Copa del Rey半決賽第1回合` |
+
+`competition_keys()` 把一個名稱拆成多個索引鍵（原字串、去贊助商、中文半、拉丁半、去輪次），
+任一種寫法都能找到同一個賽事。
+
+**但層級數字絕對不能剝。** 第一版分群跑出這種結果：
+
+```
+['2. Bundesliga', 'Bundesliga', '德甲 Bundesliga']        ← 2. Bundesliga 是德乙
+['LaLiga', 'LaLiga 2', 'LaLiga EA Sports', '西甲 LaLiga']  ← LaLiga 2 是西乙
+['Copa del Rey决赛', 'FIFA Club World Cup决赛', 'Supercopa决赛']  ← 靠「决赛」合併的
+```
+
+這跟球員「同名不同人」是同一類錯誤：**共用的 token 不帶身分**。所以加了兩道守則——
+`tier_signature()` 抽出層級標記（數字、羅馬數字、`1ª`/`2ª` 序數），不同就直接否決；
+`strip_stage()` 在比對前把輪次剝掉。修好後 11 組分群全部正確。
+
+### 結果
+
+74 個賽事名稱，`Competition_Dim` 只收錄 13 個，**61 個未受控涵蓋 2,429 列**。
+其中 11 組是同一賽事的不同寫法，**光是收斂這 11 組就能處理 2,041 列**。最大一組：
+`LaLiga EA Sports`(287) + `LaLiga`(257) + `西甲 LaLiga`(33) = 577 列。
+
+### 出賽分類不是賽事
+
+`Player_Club_Competition_Stats.Competition_Raw` 同時存放賽事名稱**和出賽分類**，
+而分類有中英兩套寫法：
+
+| 分類 | 寫法 | 列數 |
+|---|---|---|
+| 聯賽 | `联赛` 265 / `League` 173 | 438 |
+| 洲際 | `洲际级别` 265 / `Continental` 166 | 431 |
+| 盃賽 | `杯赛` 265 / `Cup` 161 | 426 |
+| 非正式 | `非正式比赛` 253 | 253 |
+
+依此欄分組會把每個分類拆成兩半。`CompetitionResolver.candidates()` 對分類值直接回傳空陣列——
+分類永遠不該被配對成賽事。
+
+## 國家：幾乎不用做
+
+60 個國家字串、49 個已建檔，只有兩個問題，規模小到用完整性報告處理即可：
+
+- `N-0001「3國聯辦」` 與 `N-0002「三國聯合主辦」` 描述的是世界盃多國共同主辦，
+  **既不是國家隊，彼此也是同一件事的兩種寫法**，卻各佔一個身分編號。
+- 5 個 `Host` 值把國家與球場寫在同一欄：`英格蘭；維拉球場（倫敦,英格蘭）`。
+
+## 踩到的坑（二）：SQLite 的雙引號會退化成字串常值
+
+掃描賽事欄位時，`UCL_Knockout_Results.Competition_Raw` 跑出 268 列值為字串 `"Competition_Raw"`，
+看起來像標題列被寫進資料。**其實是我自己的 bug**——那張表根本沒有這個欄位，而 SQLite
+在雙引號識別字解析不到欄位時**會退化成字串常值而不是報錯**：
+
+```sql
+SELECT "Competition_Raw" FROM UCL_Knockout_Results   -- 回傳 268 個字串 'Competition_Raw'
+SELECT Competition_Raw   FROM UCL_Knockout_Results   -- 這才會報 no such column
+```
+
+差點把這當成資料缺陷回報。現在 `Archive.has()` 會先驗證欄位存在，所有動態欄位查詢都經過它，
+並有測試把這個 SQLite 行為釘住。
+
+## 踩到的坑（一）：OpenCC s2t 不是冪等的
 
 `to_trad('里爾')` 會得到 `裏爾`——OpenCC 把已經是繁體的 `里` 當成簡體，轉成「裏面」的裏
 （`托` → `託` 同理）。結果是**簡體來源與繁體維度表會正規化成不同字串**：
@@ -204,9 +273,33 @@ weak 本來就是要人判斷的桶子，不是宣稱配對成功。
 其餘：轉會方向欄位混用中英文編碼、630 列以字串 `'NULL'` 表示空值、
 同一 `Club_ID` 對應多種原始寫法、賽季主表的來源空值。
 
+## 測試
+
+```bash
+python3 -m pytest test_resolver.py -q      # 95 passed
+```
+
+每個案例都是看真實資料決定的，其中好幾個記錄著實際出過的 bug——包含 OpenCC 冪等性、
+SQLite 雙引號行為、以及那個 `路易斯·迪亞斯` / `路易斯·蘇亞雷斯` 的已知限制。
+它們存在的目的是：評分邏輯可以改，但不能無聲地把這些推論撤銷掉。
+
+## 三種實體，三種比對法
+
+同一套字串相似度，但每種實體的「什麼算同一個」規則完全不同：
+
+| 實體 | 變異來源 | 否決規則 |
+|---|---|---|
+| 球員 | 音譯漂移 | 姓氏相似度過低 → 否決（名重複率太高） |
+| 俱樂部 | 公司綴詞 | 剝除綴詞後比對；來源截斷改用前綴比對 |
+| 賽事 | 贊助商、中英並列、輪次 | 層級標記不同 → 否決 |
+
+三者共用 `normalise()`／`similarity()`，差異在鍵函式與否決條件。這不是重複程式碼，
+是同一個問題在三個領域的不同答案。
+
 ## 下一步候選
 
 - 把匯入的觀測與身分決定直接併回 .xlsx，讓工作簿與 SQLite 雙向同步
 - 認知史加上「以當日認知重算排行榜」，而不只是統計當日學到什麼
 - 把 `Ingest_*` 的決定實際套用回 `.xlsx`，完成雙向同步
-- 國家隊／競賽名稱也做一次同樣的收斂（`Nation_Dim`、`Competition_Dim`）
+- 用已收斂的賽事身分重算聯賽視圖，取代目前寫死的 `league_key()` 對照
+

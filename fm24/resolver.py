@@ -290,15 +290,17 @@ class IdentityResolver:
             for club_id in clubs:
                 self.player_leagues[pid] |= self.club_leagues.get(club_id, set())
 
+        # A double-quoted identifier SQLite cannot resolve becomes a string
+        # literal instead of an error, so every dynamic column is checked first.
         for table, column in (("Player_Club_Season_Totals", "Season_Display"),
                               ("Canonical_Award_Facts", "Season")):
-            try:
-                for r in q(f'SELECT Player_ID, "{column}" s FROM "{table}" WHERE Player_ID IS NOT NULL'):
-                    year = start_year(r["s"])
-                    if year:
-                        self.player_seasons[r["Player_ID"]].add(year)
-            except sqlite3.OperationalError:
+            present = {r[1] for r in self.con.execute(f'PRAGMA table_info("{table}")')}
+            if column not in present or "Player_ID" not in present:
                 continue
+            for r in q(f'SELECT Player_ID, "{column}" s FROM "{table}" WHERE Player_ID IS NOT NULL'):
+                year = start_year(r["s"])
+                if year:
+                    self.player_seasons[r["Player_ID"]].add(year)
 
 
     # ------------------------------------------------------------------ match
@@ -637,3 +639,204 @@ class ClubResolver:
                 "names": [self.canonical.get(c, c) for c in members],
             })
         return sorted(out, key=lambda d: d["ids"])
+
+
+# ---------------------------------------------------------------------------
+# Competitions
+# ---------------------------------------------------------------------------
+
+# Competition names vary in two ways players' and clubs' names do not: a title
+# sponsor that comes and goes ('LaLiga EA Sports' / 'LaLiga'), and a bilingual
+# form that carries the Chinese and Latin names side by side ('西甲 LaLiga').
+SPONSORS = re.compile(
+    r"\s*(EA\s*Sports|Uber\s*Eats|Trendyol|TIM|Emirates|Santander|Barclays|BBVA|Betfred)\s*",
+    re.IGNORECASE)
+CJK = re.compile(r"[一-鿿]")
+LATIN = re.compile(r"[A-Za-z]")
+
+# A knockout round is not a competition: 'Copa del Rey决赛' is the Copa del Rey.
+STAGE = re.compile(
+    r"(1/2|1/4|1/8|四分之一|八分之一|半)?\s*(決賽|决赛|準決賽|准决赛|複賽|复赛|附加賽|附加赛"
+    r"|決賽圈|决赛圈|淘汰圈|小組賽|小组赛|資格賽|资格赛)"
+    r"|第\s*\d+\s*(回合|輪|轮)"
+    r"|\b(Final|Semi[- ]?finals?|Quarter[- ]?finals?|Round\s*of\s*\d+|Group\s*Stage|Play[- ]?offs?)\b",
+    re.IGNORECASE)
+
+# A tier marker is the whole difference between two real competitions:
+# 'LaLiga' and 'LaLiga 2', 'Bundesliga' and '2. Bundesliga'. Treating them as
+# one is the competition-side equivalent of matching two players on a shared
+# given name, so a tier disagreement vetoes the pair.
+TIER = re.compile(r"(?:^|[\s.])(\d+)(?:[\s.ªº°]|$)|\b([IVX]{1,4})\b")
+
+
+def strip_stage(name: str) -> str:
+    """Remove the knockout round so the competition underneath can be compared."""
+    return STAGE.sub(" ", str(name)).strip(" -–—·:：")
+
+
+def tier_signature(name: str | None) -> tuple[str, ...]:
+    """The division markers in a name, as a comparable signature."""
+    if not name:
+        return ()
+    found = []
+    for digits, roman in TIER.findall(str(name)):
+        token = digits or roman
+        if token:
+            found.append(token.upper())
+    return tuple(sorted(found))
+
+
+# Stat rows group appearances by a competition CATEGORY rather than naming one,
+# and the archive records those categories in two languages.
+COMPETITION_CATEGORIES = {
+    "LEAGUE": ("联赛", "聯賽", "League"),
+    "CUP": ("杯赛", "盃賽", "Cup"),
+    "CONTINENTAL": ("洲际级别", "洲際級別", "Continental"),
+    "OTHER": ("非正式比赛", "非正式比賽", "Friendly", "Other"),
+}
+CATEGORY_LABELS = {"LEAGUE": "聯賽", "CUP": "盃賽", "CONTINENTAL": "洲際", "OTHER": "非正式"}
+_CATEGORY_LOOKUP = {normalise(v): k for k, vs in COMPETITION_CATEGORIES.items() for v in vs}
+
+
+def competition_category(name: str | None) -> str | None:
+    """LEAGUE / CUP / CONTINENTAL / OTHER, for a value that names a category."""
+    return _CATEGORY_LOOKUP.get(normalise(name)) if name else None
+
+
+def competition_keys(name: str | None) -> set[str]:
+    """Every key one competition string should be findable under.
+
+    '西甲 LaLiga EA Sports' yields the whole string, the sponsor-free form, the
+    Latin half and the Chinese half, so any of the archive's spellings reaches
+    the same competition.
+    """
+    if not name:
+        return set()
+    raw = to_trad(str(name).strip())
+    keys = {normalise(raw)}
+
+    staged = strip_stage(raw)
+    if staged and staged != raw:
+        keys.add(normalise(staged))
+        raw = staged
+
+    without_sponsor = SPONSORS.sub(" ", raw).strip()
+    if without_sponsor:
+        keys.add(normalise(without_sponsor))
+
+    # split the bilingual form into its two halves
+    cjk_part = "".join(ch for ch in without_sponsor if not LATIN.match(ch)).strip(" -–—·")
+    latin_part = " ".join(
+        token for token in re.split(r"\s+", without_sponsor) if LATIN.search(token)).strip()
+    if cjk_part and CJK.search(cjk_part):
+        keys.add(normalise(cjk_part))
+    if latin_part:
+        keys.add(normalise(latin_part))
+    return {k for k in keys if k}
+
+
+# Columns naming a competition. The Award column is deliberately absent: an
+# award is not a competition, and including it added 60 award names to what
+# should be a competition backlog.
+COMPETITION_REFERENCE_COLUMNS = [
+    ("Domestic_League_Standings", "Competition_Raw"), ("Domestic_Leagues", "Competition"),
+    ("National_Tournaments", "Competition"), ("Competition_History", "Competition_Raw"),
+    ("Club_Cup_History", "Competition_Raw"), ("Intl_Tournament_Results", "Tournament"),
+    ("El_Clasico_Match_History", "Competition_Raw"), ("Player_League_Career", "League_Raw"),
+    ("Canonical_Competition_Results", "Competition_Raw"),
+    ("Player_Club_Competition_Stats", "Competition_Raw"),
+]
+
+
+class CompetitionResolver:
+    """Resolves competition names, and separates them from stat categories."""
+
+    def __init__(self, con: sqlite3.Connection):
+        self.con = con
+        con.row_factory = sqlite3.Row
+        self.canonical: dict[str, str] = {}
+        self.index: dict[str, set[str]] = defaultdict(set)
+        self._build()
+
+    def _build(self) -> None:
+        for r in self.con.execute("SELECT Competition_ID, Competition_Name FROM Competition_Dim"):
+            cid = r["Competition_ID"]
+            if not cid:
+                continue
+            self.canonical.setdefault(cid, r["Competition_Name"])
+            for key in competition_keys(r["Competition_Name"]):
+                self.index[key].add(cid)
+
+    def resolve(self, raw: str | None) -> str | None:
+        key = normalise(raw)
+        hits = self.index.get(key)
+        return next(iter(hits)) if hits and len(hits) == 1 else None
+
+    def candidates(self, raw: str, limit: int = 5) -> list[dict]:
+        if competition_category(raw):
+            return []  # a category is not a competition and must not be matched to one
+        keys = competition_keys(raw)
+        tier = tier_signature(strip_stage(to_trad(str(raw))))
+        scored: dict[str, float] = {}
+        reasons: dict[str, list[str]] = defaultdict(list)
+
+        for cid in self.index.get(normalise(raw), ()):
+            scored[cid] = 1.0
+            reasons[cid].append("正規化後完全相同")
+
+        for key in keys:
+            for cid in self.index.get(key, ()):
+                if scored.get(cid, 0) < 0.94:
+                    scored[cid] = 0.94
+                    reasons[cid] = ["去除贊助商／拆解中英並列後相同"]
+
+        for other, cids in self.index.items():
+            best = max((similarity(k, other) for k in keys), default=0.0)
+            if best < 0.72:
+                continue
+            for cid in cids:
+                if tier_signature(self.canonical.get(cid, "")) != tier:
+                    continue  # different division, not a spelling variant
+                if best > scored.get(cid, 0):
+                    scored[cid] = best
+                    reasons[cid] = [f"字面相似 {best:.0%}"]
+
+        results = [{
+            "id": cid,
+            "name": self.canonical.get(cid, cid),
+            "score": round(score, 3),
+            "reasons": list(dict.fromkeys(reasons[cid])),
+        } for cid, score in scored.items()]
+        results.sort(key=lambda r: -r["score"])
+        return results[:limit]
+
+    def cluster(self, names: list[str], threshold: float = 0.94) -> list[list[str]]:
+        """Group spellings of one competition among the unresolved names."""
+        keys = {n: competition_keys(n) for n in names}
+        tiers = {n: tier_signature(strip_stage(to_trad(n))) for n in names}
+        parent = {n: n for n in names}
+
+        def find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        ordered = sorted(names)
+        for i, a in enumerate(ordered):
+            for b in ordered[i + 1:]:
+                if tiers[a] != tiers[b]:
+                    continue  # 'LaLiga' and 'LaLiga 2' are two competitions
+                if tiers[a] != tiers[b]:
+                    continue  # 'LaLiga' and 'LaLiga 2' are two competitions
+                shared = keys[a] & keys[b]
+                best = max((similarity(x, y) for x in keys[a] for y in keys[b]), default=0.0)
+                if shared or best >= threshold:
+                    ra, rb = find(a), find(b)
+                    if ra != rb:
+                        parent[rb] = ra
+
+        groups = defaultdict(list)
+        for name in ordered:
+            groups[find(name)].append(name)
+        return [sorted(v) for v in groups.values()]

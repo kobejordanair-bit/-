@@ -20,8 +20,10 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from resolver import (CLUB_REFERENCE_COLUMNS, LEAGUE_LABELS, ClubResolver, IdentityResolver,
-                      club_key, is_truncated, league_key, normalise, sheet_league, start_year)
+from resolver import (CATEGORY_LABELS, CLUB_REFERENCE_COLUMNS, COMPETITION_REFERENCE_COLUMNS,
+                      LEAGUE_LABELS, ClubResolver, CompetitionResolver, IdentityResolver,
+                      competition_category, is_truncated, league_key, normalise,
+                      sheet_league, start_year, strip_stage, tier_signature)
 
 BARCELONA_CLUB_ID = "C-0030"
 
@@ -88,6 +90,7 @@ class Archive:
     def __init__(self, db_path: Path):
         self.con = sqlite3.connect(db_path)
         self.con.row_factory = sqlite3.Row
+        self._column_cache: dict[str, set[str]] = {}
 
     def q(self, sql: str, *args) -> list[dict]:
         return [dict(r) for r in self.con.execute(sql, args)]
@@ -95,6 +98,27 @@ class Archive:
     def one(self, sql: str, *args):
         rows = self.q(sql, *args)
         return rows[0] if rows else None
+
+    def columns(self, table: str) -> set[str]:
+        """Column names of a table, or an empty set if the table is absent."""
+        if table not in self._column_cache:
+            try:
+                self._column_cache[table] = {r[1] for r in self.con.execute(f'PRAGMA table_info("{table}")')}
+            except sqlite3.OperationalError:
+                self._column_cache[table] = set()
+        return self._column_cache[table]
+
+    def has(self, table: str, *columns: str) -> bool:
+        """Guard every dynamically-built column reference with this.
+
+        SQLite resolves a double-quoted identifier that matches no column as a
+        STRING LITERAL rather than raising, so `SELECT "Competition_Raw" FROM t`
+        on a table without that column silently returns the text
+        "Competition_Raw" once per row. A survey built on that pattern invents
+        data that looks entirely real.
+        """
+        available = self.columns(table)
+        return bool(available) and all(c in available for c in columns)
 
     # ---------------------------------------------------------------- meta --
     def meta(self) -> dict:
@@ -510,16 +534,11 @@ class Archive:
         refs = defaultdict(lambda: {"rows": 0, "tables": Counter(), "leagues": Counter(),
                                     "seasons": set()})
         for table, column in CLUB_REFERENCE_COLUMNS:
-            try:
-                has_season = "Season" in {
-                    d[0] for d in self.con.execute(f'SELECT * FROM "{table}" LIMIT 0').description}
-                season_col = ", Season" if has_season else ""
-                rows = self.q(f'SELECT "{column}" v{season_col} FROM "{table}" WHERE "{column}" IS NOT NULL')
-            except sqlite3.OperationalError:
+            if not self.has(table, column):
                 continue
-            league = None
-            if table == "Domestic_League_Standings":
-                league = "PER_ROW"
+            has_season = self.has(table, "Season")
+            season_col = ", Season" if has_season else ""
+            rows = self.q(f'SELECT "{column}" v{season_col} FROM "{table}" WHERE "{column}" IS NOT NULL')
             for r in rows:
                 name = str(r["v"]).strip()
                 if not name:
@@ -563,11 +582,7 @@ class Archive:
             for cid in dupe["ids"]:
                 used = Counter()
                 for table, column in CLUB_REFERENCE_COLUMNS:
-                    try:
-                        cols = {d[0] for d in self.con.execute(f'SELECT * FROM "{table}" LIMIT 0').description}
-                    except sqlite3.OperationalError:
-                        continue
-                    if "Club_ID" not in cols:
+                    if not self.has(table, "Club_ID"):
                         continue
                     n = as_int(self.one(f'SELECT COUNT(*) n FROM "{table}" WHERE Club_ID=?', cid)["n"])
                     if n:
@@ -599,6 +614,77 @@ class Archive:
             "verdicts": [{"verdict": k, "n": v} for k, v in verdicts.most_common()],
         }
 
+    # ---------------------------------------------------------- competitions --
+    def competitions(self) -> dict:
+        """Competition references, split from the stat categories they share a column with."""
+        resolver = CompetitionResolver(self.con)
+
+        refs = defaultdict(lambda: {"rows": 0, "tables": Counter()})
+        categories = defaultdict(lambda: {"rows": 0, "tables": Counter()})
+        for table, column in COMPETITION_REFERENCE_COLUMNS:
+            if not self.has(table, column):
+                continue
+            for r in self.q(f'SELECT "{column}" v, COUNT(*) n FROM "{table}" WHERE "{column}" IS NOT NULL GROUP BY 1'):
+                name = str(r["v"]).strip()
+                if not name or name == "-":
+                    continue
+                bucket = categories if competition_category(name) else refs
+                bucket[name]["rows"] += as_int(r["n"])
+                bucket[name]["tables"][table] += as_int(r["n"])
+
+        unresolved = []
+        for name, bucket in refs.items():
+            if resolver.resolve(name):
+                continue
+            candidates = resolver.candidates(name)
+            unresolved.append({
+                "raw": name,
+                "rows": bucket["rows"],
+                "tables": [{"table": k, "n": v} for k, v in bucket["tables"].most_common()],
+                "tier": list(tier_signature(strip_stage(name))),
+                "candidates": candidates,
+                "verdict": IdentityResolver.verdict(candidates),
+            })
+        unresolved.sort(key=lambda x: (-x["rows"], x["raw"]))
+
+        by_name = {u["raw"]: u for u in unresolved}
+        clusters = []
+        for group in resolver.cluster([u["raw"] for u in unresolved]):
+            if len(group) < 2:
+                continue
+            members = sorted((by_name[n] for n in group), key=lambda m: -m["rows"])
+            clusters.append({
+                "members": [{"raw": m["raw"], "rows": m["rows"]} for m in members],
+                "rows": sum(m["rows"] for m in members),
+                "suggested": members[0]["raw"],
+            })
+        clusters.sort(key=lambda c: -c["rows"])
+
+        # the same four categories are recorded in two languages
+        grouped = defaultdict(lambda: {"rows": 0, "spellings": []})
+        for name, bucket in categories.items():
+            key = competition_category(name)
+            grouped[key]["rows"] += bucket["rows"]
+            grouped[key]["spellings"].append({"raw": name, "rows": bucket["rows"]})
+        category_report = [{
+            "category": key,
+            "label": CATEGORY_LABELS.get(key, key),
+            "rows": value["rows"],
+            "spellings": sorted(value["spellings"], key=lambda s: -s["rows"]),
+        } for key, value in sorted(grouped.items(), key=lambda kv: -kv[1]["rows"])]
+
+        verdicts = Counter(u["verdict"] for u in unresolved)
+        return {
+            "unresolved": unresolved,
+            "clusters": clusters,
+            "categories": category_report,
+            "categoryRows": sum(c["rows"] for c in category_report),
+            "controlled": len(resolver.canonical),
+            "totalRefs": len(refs),
+            "unresolvedRows": sum(u["rows"] for u in unresolved),
+            "verdicts": [{"verdict": k, "n": v} for k, v in verdicts.most_common()],
+        }
+
     # ------------------------------------------------------------ timetravel --
     def timetravel(self) -> dict:
         """The archive's own knowledge history.
@@ -619,13 +705,12 @@ class Archive:
 
         per_date = defaultdict(lambda: defaultdict(int))
         for table, column, label in date_sources:
-            try:
-                for r in self.q(f'SELECT "{column}" d, COUNT(*) n FROM "{table}" WHERE "{column}" IS NOT NULL GROUP BY 1'):
-                    date = str(r["d"])[:10]
-                    if re.match(r"^20\d\d-\d\d-\d\d$", date):
-                        per_date[date][label] += as_int(r["n"])
-            except sqlite3.OperationalError:
+            if not self.has(table, column):
                 continue
+            for r in self.q(f'SELECT "{column}" d, COUNT(*) n FROM "{table}" WHERE "{column}" IS NOT NULL GROUP BY 1'):
+                date = str(r["d"])[:10]
+                if re.match(r"^20\d\d-\d\d-\d\d$", date):
+                    per_date[date][label] += as_int(r["n"])
 
         # attribute movement between two snapshots, per player
         changes = defaultdict(list)
@@ -805,6 +890,62 @@ class Archive:
                 "sample": [u["raw"] for u in unresolved_clubs[:6]],
             })
 
+        comp_report = self.competitions()
+        if comp_report["clusters"]:
+            top = comp_report["clusters"][0]
+            findings.append({
+                "severity": "high",
+                "title": "同一賽事有多種寫法且都未受控",
+                "detail": f"{len(comp_report['unresolved'])} 個賽事名稱（{comp_report['unresolvedRows']} 列）"
+                          f"對不到 Competition_Dim，而其中 {len(comp_report['clusters'])} 組彼此是同一賽事的不同寫法"
+                          f"（贊助商名、中英並列、淘汰賽輪次）。最大一組是 "
+                          + "、".join(m["raw"] for m in top["members"]) + f"，共 {top['rows']} 列。"
+                          f"Competition_Dim 目前只收錄 {comp_report['controlled']} 個賽事。",
+                "where": "Competition_Dim",
+                "sample": [c["suggested"] for c in comp_report["clusters"][:6]],
+            })
+
+        bilingual = [c for c in comp_report["categories"] if len(c["spellings"]) > 1]
+        if bilingual:
+            findings.append({
+                "severity": "high",
+                "title": "出賽分類以中英兩種語言記錄",
+                "detail": "Player_Club_Competition_Stats.Competition_Raw 同時存放賽事名稱與出賽分類，"
+                          + "且分類有中英兩套寫法："
+                          + "、".join(f"{c['label']}（{' / '.join(s['raw'] + ' ' + str(s['rows']) for s in c['spellings'])}）"
+                                     for c in bilingual)
+                          + "。依此欄分組會把每個分類拆成兩半。",
+                "where": "Player_Club_Competition_Stats",
+                "sample": [s["raw"] for c in bilingual for s in c["spellings"]][:6],
+            })
+
+        host_venues = [r["Host"] for r in self.q(
+            "SELECT DISTINCT Host FROM Intl_Tournament_Results WHERE Host LIKE '%；%'")]
+        if host_venues:
+            findings.append({
+                "severity": "medium",
+                "title": "主辦欄位混入球場資訊",
+                "detail": f"{len(host_venues)} 個 Host 值把國家與球場寫在同一欄（以全形分號分隔），"
+                          "例如「" + host_venues[0] + "」。國家名在分號前，其餘是場館，"
+                          "直接拿 Host 當國家參照會對不到 Nation_Dim。",
+                "where": "Intl_Tournament_Results",
+                "sample": [h.split("；")[0] for h in host_venues[:5]],
+            })
+
+        cohosts = [r for r in self.q(
+            "SELECT National_Team_ID, Canonical_Display_Name FROM Nation_Dim "
+            "WHERE Canonical_Display_Name LIKE '%聯辦%' OR Canonical_Display_Name LIKE '%聯合主辦%'")]
+        if len(cohosts) > 1:
+            findings.append({
+                "severity": "medium",
+                "title": "非國家的值被建成了國家隊身分",
+                "detail": "、".join(f"{r['National_Team_ID']}「{r['Canonical_Display_Name']}」" for r in cohosts)
+                          + " 描述的是世界盃由多國共同主辦，既不是國家隊，彼此也是同一件事的兩種寫法。"
+                          "它們佔用了 Nation_Dim 的身分編號。",
+                "where": "Nation_Dim",
+                "sample": [r["Canonical_Display_Name"] for r in cohosts],
+            })
+
         missing_gf = [s["Season"] for s in self.q("SELECT Season, LaLiga_GF FROM Barcelona_Season_Master WHERE LaLiga_GF IS NULL")]
         if missing_gf:
             findings.append({
@@ -869,6 +1010,7 @@ def build(db_path: Path, out_path: Path, template_path: Path) -> None:
         "world": archive.world(),
         "resolution": archive.resolution(),
         "clubs": archive.clubs(),
+        "competitions": archive.competitions(),
         "timetravel": archive.timetravel(),
         "people": archive.people(),
         "seasons": archive.seasons(),
