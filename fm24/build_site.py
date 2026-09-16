@@ -20,7 +20,7 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from resolver import IdentityResolver
+from resolver import LEAGUE_LABELS, IdentityResolver, normalise, sheet_league, start_year
 
 BARCELONA_CLUB_ID = "C-0030"
 
@@ -425,7 +425,8 @@ class Archive:
                FROM Award_Resolution_Status WHERE Resolution_Status='UNRESOLVED_IDENTITY'"""
         )
         context = defaultdict(lambda: {"rows": 0, "sheets": Counter(), "awards": Counter(),
-                                       "seasons": set(), "clubs": Counter(), "clubIds": Counter()})
+                                       "seasons": set(), "clubs": Counter(), "clubIds": Counter(),
+                                       "leagues": Counter(), "years": []})
         for r in rows:
             bucket = context[r["Player_Raw"]]
             bucket["rows"] += 1
@@ -446,6 +447,11 @@ class Archive:
                 bucket["clubs"][r["Club_Raw"]] += 1
             if r["Club_ID"]:
                 bucket["clubIds"][r["Club_ID"]] += 1
+                for key in resolver.club_leagues.get(r["Club_ID"], ()):
+                    bucket["leagues"][key] += 1
+            year = start_year(r["Season"])
+            if year:
+                bucket["years"].append(year)
 
         names = sorted(context)
         clusters = resolver.cluster_backlog(names)
@@ -459,10 +465,18 @@ class Archive:
         for name in names:
             bucket = context[name]
             club_id = bucket["clubIds"].most_common(1)[0][0] if bucket["clubIds"] else None
-            candidates = resolver.candidates(name, club_id=club_id)
+            # the club the award names is a better league signal than the sheet,
+            # because cross-league awards live on sheets that name no league
+            league = (bucket["leagues"].most_common(1)[0][0] if bucket["leagues"]
+                      else next((k for k in (sheet_league(s["sheet"]) for s in
+                                             [{"sheet": x} for x, _ in bucket["sheets"].most_common()]) if k), None))
+            season_year = max(bucket["years"]) if bucket["years"] else None
+            candidates = resolver.candidates(name, club_id=club_id, league=league, season_year=season_year)
             items.append({
                 "raw": name,
                 "rows": bucket["rows"],
+                "league": LEAGUE_LABELS.get(league) if league else None,
+                "seasonYear": season_year,
                 "sheets": [{"sheet": k, "n": v} for k, v in bucket["sheets"].most_common()],
                 "awards": [{"award": k, "n": v} for k, v in bucket["awards"].most_common()],
                 "seasons": sorted(bucket["seasons"], reverse=True),
@@ -659,6 +673,33 @@ class Archive:
                           "任何 IS NULL 判斷都會漏掉這些列。本站顯示時視為空白，來源值未更動。",
                 "where": "Domestic_League_Standings",
                 "sample": ["NULL", "!"],
+            })
+
+        by_name = defaultdict(set)
+        display = {}
+        for r in self.q("SELECT Club_ID, Canonical_Display_Name FROM Club_Dim WHERE Club_ID IS NOT NULL"):
+            key = normalise(r["Canonical_Display_Name"])
+            if key:
+                by_name[key].add(r["Club_ID"])
+                display[key] = r["Canonical_Display_Name"]
+        split_clubs = {display[k]: sorted(v) for k, v in by_name.items() if len(v) > 1}
+        if split_clubs:
+            carrying = []
+            for name, ids in split_clubs.items():
+                used = [i for i in ids if as_int(self.one(
+                    "SELECT (SELECT COUNT(*) FROM Player_Club_Season_Totals WHERE Club_ID=?)"
+                    " + (SELECT COUNT(*) FROM Canonical_Award_Facts WHERE Club_ID=?) n", i, i)["n"])]
+                if len(used) > 1:
+                    carrying.append(f"{name}（{'、'.join(used)}）")
+            findings.append({
+                "severity": "high" if carrying else "medium",
+                "title": "同一間俱樂部持有多個 Club_ID",
+                "detail": f"{len(split_clubs)} 個俱樂部名稱對應到一個以上的 Club_ID："
+                          + "、".join(f"{n}→{'/'.join(i)}" for n, i in split_clubs.items())
+                          + ("。其中 " + "、".join(carrying) + " 兩邊都有資料列，依 Club_ID 分組會把同一間俱樂部算成兩間。"
+                             if carrying else "。目前尚無資料列引用重複的 ID。"),
+                "where": "Club_Dim",
+                "sample": sorted(split_clubs),
             })
 
         missing_gf = [s["Season"] for s in self.q("SELECT Season, LaLiga_GF FROM Barcelona_Season_Master WHERE LaLiga_GF IS NULL")]

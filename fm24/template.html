@@ -1399,8 +1399,9 @@ function renderResolve() {
     el("div", { class: "view-head" },
       el("div", { class: "eyebrow" }, `${r.totalNames} 個未解析姓名　·　${r.totalRows} 列受影響`),
       el("h2", {}, "身分解析控制台"),
-      el("p", {}, "候選人在 build 時以 OpenCC 正規化簡繁後比對，比對依據是檔案已接受的每一筆"
-        + `原始名→ID 關聯（共 ${r.indexKeys} 組索引鍵）。姓氏不符者直接否決，避免「路易斯·迪亞斯」被配成「路易斯·蘇亞雷斯」。`)),
+      el("p", {}, "候選人在 build 時計算：OpenCC 正規化簡繁，比對檔案已接受的每一筆原始名→ID 關聯"
+        + `（共 ${r.indexKeys} 組索引鍵），再以獎項所屬聯賽與賽季加權。`
+        + "評分為姓 × 0.7 ＋ 名 × 0.3，姓氏相似度過低者直接否決——中文譯名的「名」重複率太高，撐不起配對。")),
     el("div", { class: "strip" },
       el("div", { class: "garnet" }, el("div", { class: "n tnum" }, r.totalRows), el("div", { class: "l" }, "待解析列")),
       el("div", {}, el("div", { class: "n tnum" }, (byVerdict.exact || 0) + (byVerdict.strong || 0)), el("div", { class: "l" }, "高可信候選")),
@@ -1450,6 +1451,8 @@ function resolveCard(item, decision) {
         el("div", { class: "card-meta" },
           el("span", { class: "pill " + meta.cls }, meta.label),
           el("span", { class: "pill flat" }, `${item.rows} 列`),
+          item.league ? el("span", { class: "pill flat", title: "用於加權的聯賽上下文" }, item.league) : null,
+          item.seasonYear ? el("span", { class: "pill flat" }, item.seasonYear + " 季") : null,
           item.clubs.map(c => el("span", { class: "pill flat" }, c)))),
       el("div", { class: "ctx", style: "text-align:right" },
         item.seasons.length ? el("div", {}, el("b", {}, item.seasons.length), " 個賽季　",
@@ -1470,7 +1473,10 @@ function resolveCard(item, decision) {
             ? el("div", {}, item.candidates.map(c =>
                 el("div", { class: "cand" },
                   el("div", { class: "who" },
-                    el("div", {}, el("span", { class: "cn" }, c.name), el("span", { class: "cid" }, c.id)),
+                    el("div", {}, el("span", { class: "cn" }, c.name), el("span", { class: "cid" }, c.id),
+                      (c.leagues && c.leagues.length)
+                        ? el("span", { class: "cid", title: "檔案已知此球員效力的聯賽" }, c.leagues.join("、"))
+                        : null),
                     el("div", { class: "why" },
                       c.reasons.map(x => el("span", { class: "pill flat" }, x)),
                       Object.entries(c.evidence).map(([k, v]) =>

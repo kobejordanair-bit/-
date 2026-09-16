@@ -28,6 +28,66 @@ except Exception:  # pragma: no cover - resolver still works, just less well
 
 SEPARATORS = re.compile(r"[·・.·‧•\s\-_]+")
 
+LEAGUE_PATTERNS = [
+    ("PL", ("premier league", "premierleague")),
+    ("LALIGA", ("laliga", "la liga", "primera")),
+    ("SERIEA", ("serie a", "seriea")),
+    ("LIGUE1", ("ligue 1", "ligue1")),
+    ("BUNDESLIGA", ("bundesliga",)),
+]
+
+LEAGUE_LABELS = {
+    "PL": "Premier League", "LALIGA": "LaLiga", "SERIEA": "Serie A",
+    "LIGUE1": "Ligue 1", "BUNDESLIGA": "Bundesliga",
+}
+
+# Award sheets whose name pins the competition. Cross-league awards
+# (European Golden Shoe, Ballon d'Or, UCL) are deliberately absent: their
+# winners come from anywhere, so the sheet name carries no league signal.
+SHEET_LEAGUES = [
+    ("bundesliga", "BUNDESLIGA"),
+    ("serie_a", "SERIEA"),
+    ("ligue1", "LIGUE1"),
+    ("pl_", "PL"),
+    ("premier_league", "PL"),
+    ("laliga", "LALIGA"),
+    ("pichichi", "LALIGA"),
+]
+
+
+def league_key(text: str | None) -> str | None:
+    """Fold a competition string to a stable key.
+
+    The same league is spelled differently per table — 'LaLiga EA Sports' in the
+    standings, 'LaLiga' in the career rows — so neither can be joined directly.
+    """
+    if not text:
+        return None
+    low = str(text).strip().lower()
+    for key, needles in LEAGUE_PATTERNS:
+        if any(n in low for n in needles):
+            return key
+    return None
+
+
+def sheet_league(sheet: str | None) -> str | None:
+    if not sheet:
+        return None
+    low = str(sheet).strip().lower()
+    for prefix, key in SHEET_LEAGUES:
+        if low.startswith(prefix):
+            return key
+    return None
+
+
+def start_year(season: str | None) -> int | None:
+    """'2033-2034', '2033/34' and '2033-34' all start in 2033."""
+    if not season:
+        return None
+    m = re.search(r"(20\d\d)", str(season))
+    return int(m.group(1)) if m else None
+
+
 
 def normalise(name: str | None) -> str:
     """Fold script, separators and case so variants of one name collide."""
@@ -48,8 +108,29 @@ def bigrams(text: str) -> set[str]:
     return {text[i:i + 2] for i in range(len(text) - 1)} or ({text} if text else set())
 
 
+def edit_distance(a: str, b: str) -> int:
+    """Plain Levenshtein. Names are short, so the simple DP row is enough."""
+    if a == b:
+        return 0
+    if not a or not b:
+        return len(a) or len(b)
+    previous = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        current = [i]
+        for j, cb in enumerate(b, 1):
+            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (ca != cb)))
+        previous = current
+    return previous[-1]
+
+
 def similarity(a: str, b: str) -> float:
-    """Dice coefficient over character bigrams, with a floor from raw char overlap."""
+    """How alike two normalised names are, on the most generous of three views.
+
+    Bigrams and character overlap both under-score a long name that differs by a
+    single character — '馬克安德雷特爾施特根' against '馬克安德烈特爾施特根' scores
+    0.78 on bigrams though it is plainly one transliteration of one person — so
+    edit distance carries those, and the set measures carry reorderings.
+    """
     if not a or not b:
         return 0.0
     if a == b:
@@ -58,7 +139,8 @@ def similarity(a: str, b: str) -> float:
     dice = (2 * len(ba & bb)) / (len(ba) + len(bb)) if (ba or bb) else 0.0
     ca, cb = set(a), set(b)
     chars = (2 * len(ca & cb)) / (len(ca) + len(cb))
-    return max(dice, chars * 0.85)
+    edits = 1.0 - edit_distance(a, b) / max(len(a), len(b))
+    return max(dice, chars * 0.85, edits)
 
 
 SURNAME_GATE = 0.50
@@ -99,6 +181,9 @@ class IdentityResolver:
         self.index: dict[str, set[str]] = defaultdict(set)
         self.evidence: dict[str, Counter] = defaultdict(Counter)
         self.player_clubs: dict[str, set[str]] = defaultdict(set)
+        self.club_leagues: dict[str, set[str]] = defaultdict(set)
+        self.player_leagues: dict[str, set[str]] = defaultdict(set)
+        self.player_seasons: dict[str, set[int]] = defaultdict(set)
         self.parts: dict[str, list[str]] = {}
         self.spellings: dict[str, str] = {}
         self._build()
@@ -145,9 +230,59 @@ class IdentityResolver:
                         self.player_clubs[r["Player_ID"]].add(r["Club_ID"])
             except sqlite3.OperationalError:
                 continue
+        # --- league and season context -----------------------------------
+        # Which league a club plays in, keyed by Club_ID. The standings sheet
+        # names clubs in Simplified and carries no Club_ID at all, so the join
+        # runs through the same normalisation the player names use.
+        club_key_to_id: dict[str, str] = {}
+        for r in q("SELECT Club_ID, Canonical_Display_Name, Alias_Name FROM Club_Dim WHERE Club_ID IS NOT NULL"):
+            for name in (r["Canonical_Display_Name"], r["Alias_Name"]):
+                key = normalise(name)
+                if key:
+                    club_key_to_id.setdefault(key, r["Club_ID"])
+
+        for r in q("SELECT DISTINCT Club_Raw, Competition_Raw FROM Domestic_League_Standings"):
+            league = league_key(r["Competition_Raw"])
+            club_id = club_key_to_id.get(normalise(r["Club_Raw"]))
+            if league and club_id:
+                self.club_leagues[club_id].add(league)
+
+        for r in q("SELECT Club_ID, League_Raw FROM Player_League_Career WHERE Club_ID IS NOT NULL"):
+            league = league_key(r["League_Raw"])
+            if league:
+                self.club_leagues[r["Club_ID"]].add(league)
+
+        # A player's leagues: stated directly where the archive knows them,
+        # otherwise inferred from the clubs they appear with.
+        for r in q("SELECT Player_ID, League_Raw, Season_Display FROM Player_League_Career"):
+            pid = r["Player_ID"]
+            if not pid:
+                continue
+            league = league_key(r["League_Raw"])
+            if league:
+                self.player_leagues[pid].add(league)
+            year = start_year(r["Season_Display"])
+            if year:
+                self.player_seasons[pid].add(year)
+
+        for pid, clubs in self.player_clubs.items():
+            for club_id in clubs:
+                self.player_leagues[pid] |= self.club_leagues.get(club_id, set())
+
+        for table, column in (("Player_Club_Season_Totals", "Season_Display"),
+                              ("Canonical_Award_Facts", "Season")):
+            try:
+                for r in q(f'SELECT Player_ID, "{column}" s FROM "{table}" WHERE Player_ID IS NOT NULL'):
+                    year = start_year(r["s"])
+                    if year:
+                        self.player_seasons[r["Player_ID"]].add(year)
+            except sqlite3.OperationalError:
+                continue
+
 
     # ------------------------------------------------------------------ match
-    def candidates(self, raw_name: str, club_id: str | None = None, limit: int = 5) -> list[dict]:
+    def candidates(self, raw_name: str, club_id: str | None = None, limit: int = 5,
+                   league: str | None = None, season_year: int | None = None) -> list[dict]:
         key = normalise(raw_name)
         if not key:
             return []
@@ -189,11 +324,42 @@ class IdentityResolver:
         for pid, score in scored.items():
             boosted = score
             note = list(dict.fromkeys(reasons[pid]))
+
             if club_id and club_id in self.player_clubs.get(pid, ()):  # same club is strong corroboration
                 # corroboration can raise confidence but must never manufacture an
                 # exact match: 1.0 is reserved for names that normalise identically
-                boosted = min(0.98, score + 0.18)
+                boosted = min(0.98, boosted + 0.18)
                 note.append("俱樂部吻合")
+
+            known_leagues = self.player_leagues.get(pid, set())
+            if league and known_leagues:
+                if league in known_leagues:
+                    boosted = min(0.98, boosted + 0.10)
+                    note.append(f"{LEAGUE_LABELS.get(league, league)} 相符")
+                else:
+                    other = "、".join(sorted(LEAGUE_LABELS.get(k, k) for k in known_leagues))
+                    # League disagreement only decides marginal cases. When the
+                    # name evidence is already strong the likelier story is a
+                    # transfer the archive has not recorded, so the mismatch is
+                    # reported without moving the score.
+                    if score >= 0.90:
+                        note.append(f"聯賽不符（{other}），但姓名證據強，可能為轉會")
+                    else:
+                        boosted = max(0.0, boosted - 0.14)
+                        note.append("聯賽不符：" + other)
+
+            known_years = self.player_seasons.get(pid, set())
+            if season_year and known_years:
+                gap = min(abs(season_year - y) for y in known_years)
+                if gap == 0:
+                    boosted = min(0.98, boosted + 0.06)
+                    note.append("該賽季在檔")
+                elif gap > 3:
+                    boosted = max(0.0, boosted - 0.10)
+                    note.append(f"生涯紀錄相距 {gap} 季")
+
+            if boosted < 0.55:
+                continue
             results.append({
                 "id": pid,
                 "name": self.canonical.get(pid, pid),
@@ -201,6 +367,7 @@ class IdentityResolver:
                 "baseScore": round(score, 3),
                 "reasons": note,
                 "evidence": dict(self.evidence[pid]),
+                "leagues": sorted(LEAGUE_LABELS.get(k, k) for k in known_leagues),
             })
 
         results.sort(key=lambda r: -r["score"])
