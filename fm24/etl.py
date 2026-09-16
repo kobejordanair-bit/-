@@ -70,11 +70,36 @@ def load(workbook_path: Path, db_path: Path) -> None:
     print(f"reading {workbook_path.name} ...", file=sys.stderr)
     wb = openpyxl.load_workbook(workbook_path, read_only=True, data_only=True)
 
+    # Imported observations live in Import_* tables and are NOT in the workbook,
+    # so a rebuild must carry them across rather than drop them with everything else.
+    carried = []
     if db_path.exists():
+        old = sqlite3.connect(db_path)
+        try:
+            names = [r[0] for r in old.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'Ingest|_%' ESCAPE '|'")]
+            for name in names:
+                ddl = old.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone()[0]
+                rows = list(old.execute(f'SELECT * FROM "{name}"'))
+                cols = [d[0] for d in old.execute(f'SELECT * FROM "{name}" LIMIT 0').description]
+                carried.append((name, ddl, cols, rows))
+        except sqlite3.Error:
+            carried = []
+        finally:
+            old.close()
         db_path.unlink()
+
     con = sqlite3.connect(db_path)
+    # PRAGMAs first: the carry-over inserts below open a transaction, and a
+    # safety-level change inside one is an error.
     con.execute("PRAGMA journal_mode=OFF")
     con.execute("PRAGMA synchronous=OFF")
+    for name, ddl, cols, rows in carried:
+        con.execute(ddl)
+        if rows:
+            marks = ", ".join("?" * len(cols))
+            con.executemany(f'INSERT INTO "{name}" VALUES ({marks})', rows)
+        print(f"  carried over {name:<30} {len(rows):>6} imported rows", file=sys.stderr)
     con.execute(
         """CREATE TABLE _sheets (
                sheet_name TEXT PRIMARY KEY,

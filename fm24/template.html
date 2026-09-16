@@ -242,6 +242,77 @@ table.data tbody tr.click{cursor:pointer}
 .legend span{display:flex;align-items:center;gap:5px}
 .legend i{width:9px;height:9px;border-radius:2px;display:block}
 
+
+/* ---------- nav groups ---------- */
+nav .grp{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-3);padding:12px 10px 5px;opacity:.75}
+nav .grp:first-child{padding-top:0}
+
+/* ---------- champions grid ---------- */
+.grid-wrap{overflow-x:auto}
+table.champs{border-collapse:collapse;font-size:11.5px;min-width:820px}
+table.champs th{font-family:var(--mono);font-size:9.5px;font-weight:500;color:var(--text-3);
+  padding:0 6px 9px;text-align:center;white-space:nowrap}
+table.champs th.rowh{text-align:left;font-family:var(--body);font-size:12px;color:var(--text-2);
+  padding-right:14px;position:sticky;left:0;background:var(--panel)}
+table.champs td{padding:3px 4px;text-align:center}
+table.champs td span{display:block;padding:5px 7px;border-radius:4px;background:var(--sunk);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:104px;font-size:11px}
+table.champs td span.barca{background:var(--garnet);color:#fff;font-weight:500}
+
+/* ---------- standings ---------- */
+tr.q-ucl td:first-child{box-shadow:inset 3px 0 0 var(--azul)}
+tr.q-uel td:first-child{box-shadow:inset 3px 0 0 var(--ok)}
+tr.q-rel td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+tr.q-win td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+
+/* ---------- podium ---------- */
+.podiums{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.podium{border:1px solid var(--line-soft);border-radius:8px;padding:14px 16px;background:var(--panel)}
+.podium h4{font-family:var(--mono);font-size:11px;color:var(--garnet);letter-spacing:.05em;
+  font-weight:600;margin-bottom:10px}
+.podium ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.podium li{display:grid;grid-template-columns:16px 1fr auto;gap:9px;align-items:baseline;font-size:12.5px}
+.podium .r{font-family:var(--mono);font-size:10px;color:var(--text-3)}
+.podium .nm{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.podium .cl{font-size:11px;color:var(--text-3);white-space:nowrap}
+.podium li:first-child .nm{color:var(--garnet)}
+
+/* ---------- import ---------- */
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--panel-2);border:1px solid var(--line);border-radius:99px;padding:5px 13px;
+  cursor:pointer;font-size:12.5px;color:var(--text-2)}
+.chip:hover{border-color:var(--garnet)}
+.chip[aria-pressed="true"]{background:var(--garnet);border-color:var(--garnet);color:#fff}
+textarea.paste{width:100%;min-height:180px;font-family:var(--mono);font-size:12px;line-height:1.7;
+  background:var(--sunk);color:var(--text);border:1px solid var(--line);border-radius:6px;
+  padding:12px 14px;resize:vertical}
+textarea.paste:focus{outline:2px solid var(--garnet);outline-offset:1px}
+.btn{background:var(--garnet);color:#fff;border:0;border-radius:6px;padding:9px 18px;cursor:pointer;
+  font-size:13px;font-weight:500}
+.btn:hover{filter:brightness(1.1)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn.ghost{background:none;border:1px solid var(--line);color:var(--text-2)}
+.btn.ghost:hover{border-color:var(--garnet);color:var(--text);filter:none}
+.btn.danger{background:none;border:1px solid var(--line);color:var(--bad);padding:5px 11px;font-size:11.5px}
+.btnrow{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.maprow{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;padding:6px 0;
+  border-bottom:1px solid var(--line-soft);font-size:12.5px}
+.maprow:last-child{border-bottom:0}
+.maprow .src{font-family:var(--mono);font-size:11.5px;color:var(--text-2);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.maprow .arw{color:var(--text-3);font-family:var(--mono);font-size:11px}
+.maprow select{font:inherit;font-size:12.5px;background:var(--panel-2);color:var(--text);
+  border:1px solid var(--line);border-radius:5px;padding:5px 8px;width:100%}
+.batch{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 0;
+  border-bottom:1px solid var(--line-soft)}
+.batch:last-child{border-bottom:0}
+.batch .bm{font-family:var(--mono);font-size:10.5px;color:var(--text-3);margin-top:3px}
+.hint{font-size:12px;color:var(--text-3);background:var(--sunk);border-radius:6px;padding:11px 14px;
+  line-height:1.75}
+.hint code{font-family:var(--mono);font-size:11px;color:var(--text-2)}
+.empty{text-align:center;padding:34px 20px;color:var(--text-3);font-size:12.5px}
+
 @media (max-width:900px){
   :root{--rail:0px}
   .shell{grid-template-columns:minmax(0,1fr)}
@@ -250,6 +321,10 @@ table.data tbody tr.click{cursor:pointer}
   nav{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:2px}
   nav button{width:auto;white-space:nowrap;padding:7px 12px}
   nav .k{display:none}
+  /* the horizontal scroller has no room for group headers */
+  nav .grp{display:none}
+  .strip div{padding:13px 15px}
+  .strip .n{font-size:25px}
   .rail-foot{margin-top:0}
   main{padding:26px 16px 70px}
   .two,.radar-wrap{grid-template-columns:minmax(0,1fr)}
@@ -312,20 +387,36 @@ const statusPill = s => {
 
 /* ------------------------------------------------------------------ views */
 const VIEWS = [
-  { id: "dynasty",   label: "王朝",     render: renderDynasty },
-  { id: "seasons",   label: "賽季",     render: renderSeasons },
-  { id: "squad",     label: "陣容",     render: renderSquad },
-  { id: "chronicle", label: "編年史",   render: renderChronicle },
-  { id: "integrity", label: "檔案完整性", render: renderIntegrity },
+  { id: "world",     group: "世界", label: "世界總覽",   render: renderWorld },
+  { id: "leagues",   group: "世界", label: "聯賽積分榜", render: renderLeagues },
+  { id: "honours",   group: "世界", label: "榮譽殿堂",   render: renderHonours },
+  { id: "chronicle", group: "世界", label: "編年史",     render: renderChronicle },
+  { id: "people",    group: "檔案", label: "球員名錄",   render: renderPeople },
+  { id: "dynasty",   group: "檔案", label: "巴薩王朝",   render: renderDynasty },
+  { id: "seasons",   group: "檔案", label: "巴薩賽季",   render: renderSeasons },
+  { id: "squad",     group: "檔案", label: "巴薩陣容",   render: renderSquad },
+  { id: "import",    group: "工具", label: "匯入資料",   render: renderImport },
+  { id: "integrity", group: "工具", label: "檔案完整性", render: renderIntegrity },
 ];
 
 const state = {
-  view: "dynasty",
+  view: "world",
+  league: DATA.world.leagues.includes("LaLiga EA Sports") ? "LaLiga EA Sports" : DATA.world.leagues[0],
+  leagueSeason: DATA.world.seasons[DATA.world.seasons.length - 1],
+  award: "Ballon d\u2019Or",
+  personQuery: "",
+  personFilter: "awards",
+  person: null,
+  importKind: "season",
+  importParsed: null,
+  importMap: {},
+  batches: null,
   season: DATA.seasons[DATA.seasons.length - 1].id,
   player: null,
   sort: { key: "apps", dir: -1 },
   chronQuery: "",
   chronType: "",
+  snapshot: null,
 };
 
 /* ------------------------------------------------------- dynasty overview */
@@ -718,6 +809,314 @@ function radarChart(axes) {
       })));
 }
 
+
+/* ------------------------------------------------------------------ world */
+const isBarca = name => /巴塞|巴薩|Barcelona/i.test(name || "");
+
+function renderWorld() {
+  const w = DATA.world;
+  const seasonLabel = s => s.slice(2);
+
+  const grid = el("div", { class: "grid-wrap" },
+    el("table", { class: "champs" },
+      el("thead", {}, el("tr", {}, el("th", { class: "rowh" }, "聯賽"),
+        w.seasons.map(s => el("th", {}, seasonLabel(s))))),
+      el("tbody", {}, w.leagues.map(lg =>
+        el("tr", {}, el("th", { class: "rowh" }, lg),
+          w.seasons.map(s => {
+            const champ = w.champions[`${lg}|${s}`];
+            return el("td", {}, el("span", {
+              class: isBarca(champ) ? "barca" : "", title: champ ? `${s} ${lg}：${champ}` : "來源未提供",
+            }, champ || "—"));
+          }))))));
+
+  const uclRows = w.ucl.filter(r => r.winner);
+  const uclCount = {};
+  uclRows.forEach(r => { uclCount[r.winner] = (uclCount[r.winner] || 0) + 1; });
+  const uclTop = Object.entries(uclCount).sort((a, b) => b[1] - a[1]);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${w.seasons[0]} – ${w.seasons[w.seasons.length - 1]}　十二季世界紀錄`),
+      el("h2", {}, "世界總覽"),
+      el("p", {}, "五大聯賽、歐洲賽事與國際賽的冠軍歸屬。紅底為巴塞隆納，— 表示來源未提供該季資料。")),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, w.leagues.length), el("div", { class: "l" }, "聯賽")),
+      el("div", {}, el("div", { class: "n tnum" }, DATA.people.players.length), el("div", { class: "l" }, "球員身分")),
+      el("div", {}, el("div", { class: "n tnum" }, DATA.people.clubs.length), el("div", { class: "l" }, "俱樂部")),
+      el("div", {}, el("div", { class: "n tnum" }, w.intl.length), el("div", { class: "l" }, "國際賽紀錄")),
+      el("div", {}, el("div", { class: "n tnum" }, DATA.chronicle.length.toLocaleString()), el("div", { class: "l" }, "編年史事件"))),
+    el("section", { class: "panel" },
+      el("h3", {}, "五大聯賽冠軍版圖"),
+      el("p", { class: "cap" }, "取自 Domestic_League_Standings 中 Rank = 1 的列。點欄位無作用；如需完整名次請至「聯賽積分榜」。"),
+      grid),
+    el("div", { class: "two" },
+      el("section", { class: "panel" },
+        el("h3", {}, "歐洲冠軍聯賽決賽"),
+        el("p", { class: "cap" }, `來源：UCL　${uclRows.length} 季有紀錄`),
+        el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
+          el("thead", {}, el("tr", {}, el("th", {}, "賽季"), el("th", {}, "冠軍"), el("th", {}, "亞軍"))),
+          el("tbody", {}, w.ucl.map(r => el("tr", {},
+            el("td", { class: "mono" }, r.season),
+            el("td", { class: "name-cell", style: isBarca(r.winner) ? "color:var(--garnet)" : "" }, dash(r.winner)),
+            el("td", {}, dash(r.runnerUp)))))))),
+      el("section", { class: "panel" },
+        el("h3", {}, "歐冠奪冠次數"),
+        el("p", { class: "cap" }, "同期間內累計。"),
+        el("div", { class: "bars" }, uclTop.map(([club, n]) =>
+          el("div", { class: "brow" },
+            el("div", { class: "lb" },
+              el("span", {}, club),
+              el("span", { class: "tr" }, el("i", {
+                style: `width:${(n / uclTop[0][1]) * 100}%;background:${isBarca(club) ? "var(--garnet)" : "var(--azul)"}`,
+              }))),
+            el("div", { class: "vv" }, n)))))),
+    el("section", { class: "panel" },
+      el("h3", {}, "國際賽事"),
+      el("p", { class: "cap" }, "來源：Intl_Tournament_Results"),
+      el("div", { class: "tblwrap" }, el("table", { class: "data" },
+        el("thead", {}, el("tr", {}, ["賽事", "年份", "冠軍", "亞軍", "季軍", "主辦"].map(x => el("th", {}, x)))),
+        el("tbody", {}, w.intl.map(r => el("tr", {},
+          el("td", {}, dash(r.tournament)),
+          el("td", { class: "mono" }, dash(r.period)),
+          el("td", { class: "name-cell" }, dash(r.winner)),
+          el("td", {}, dash(r.runnerUp)),
+          el("td", {}, dash(r.third)),
+          el("td", { class: "mono" }, dash(r.host)))))))),
+    el("section", { class: "panel" },
+      el("h3", {}, "歐洲其他錦標"),
+      el("p", { class: "cap" }, "來源：Competition_History"),
+      el("div", { class: "tblwrap" }, el("table", { class: "data" },
+        el("thead", {}, el("tr", {}, ["賽季", "賽事", "冠軍", "亞軍", "決賽場地"].map(x => el("th", {}, x)))),
+        el("tbody", {}, w.euroCups.map(r => el("tr", {},
+          el("td", { class: "mono" }, dash(r.season)),
+          el("td", {}, dash(r.competition)),
+          el("td", { class: "name-cell" }, dash(r.winner)),
+          el("td", {}, dash(r.runnerUp)),
+          el("td", { class: "mono" }, dash(r.venue)))))))),
+  ];
+}
+
+/* ---------------------------------------------------------------- leagues */
+function renderLeagues() {
+  const w = DATA.world;
+  const group = w.snapshots[`${state.league}|${state.leagueSeason}`] || [];
+  /* default to the adopted final table; a provisional one is opt-in and labelled */
+  const chosen = group.find(g => g.key === state.snapshot) || group.find(g => g.final) || group[group.length - 1];
+  const rows = chosen ? (w.standings[chosen.key] || []) : [];
+
+  /* Qualification_Raw is free text; classify by keyword so the rail colour means something */
+  const qual = note => {
+    const t = note || "";
+    if (/冠军|冠軍/.test(t)) return "q-win";
+    if (/欧洲冠军联赛|歐冠|冠军联赛/.test(t)) return "q-ucl";
+    if (/欧联|欧罗巴|协会联赛|歐聯/.test(t)) return "q-uel";
+    if (/降级|降級|保级/.test(t)) return "q-rel";
+    return "";
+  };
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, "Domestic_League_Standings　1,303 列"),
+      el("h2", {}, "聯賽積分榜"),
+      el("p", {}, "五大聯賽 × 十二季的完整最終名次。左側色條依來源的資格說明文字分類。")),
+    el("div", { class: "filters" },
+      el("select", { id: "lgPick", onChange: e => { state.league = e.target.value; paint(); } },
+        w.leagues.map(lg => el("option", { value: lg, selected: lg === state.league }, lg))),
+      el("select", { id: "lgSeason", onChange: e => { state.leagueSeason = e.target.value; state.snapshot = null; paint(); } },
+        w.seasons.slice().reverse().map(s => el("option", { value: s, selected: s === state.leagueSeason }, s))),
+      group.length > 1 ? el("select", {
+        id: "lgSnap", onChange: e => { state.snapshot = e.target.value; paint(); },
+      }, group.map(g => el("option", { value: g.key, selected: chosen && g.key === chosen.key },
+        `${g.snapshot}　${g.final ? "最終" : "賽季中"}`))) : null),
+    rows.length ? el("section", { class: "panel" },
+      el("h3", {}, `${state.league}　${state.leagueSeason}`),
+      el("p", { class: "cap" }, `${rows.length} 隊　·　快照 ${chosen.snapshot}　·　${chosen.status || "狀態未標註"}`),
+      chosen.final ? null : el("div", { class: "note", style: "margin-bottom:14px" },
+        "這是賽季進行中的暫定積分榜，來源尚未提供最終名次。"
+        + (group.some(g => g.final) ? "可用上方選單切換到最終版。" : "")),
+      el("div", { class: "tblwrap" }, el("table", { class: "data" },
+        el("thead", {}, el("tr", {}, w.standingsCols.map((c, i) =>
+          el("th", { class: i >= 2 && i <= 9 ? "num" : "" }, c)))),
+        el("tbody", {}, rows.map(r =>
+          el("tr", { class: qual(r[10]) },
+            el("td", { class: "mono" }, r[0]),
+            el("td", { class: "name-cell", style: isBarca(r[1]) ? "color:var(--garnet)" : "" }, r[1]),
+            el("td", { class: "num tnum" }, dash(r[2])), el("td", { class: "num tnum" }, dash(r[3])),
+            el("td", { class: "num tnum" }, dash(r[4])), el("td", { class: "num tnum" }, dash(r[5])),
+            el("td", { class: "num tnum" }, dash(r[6])), el("td", { class: "num tnum" }, dash(r[7])),
+            el("td", { class: "num tnum" }, r[8] === null ? "—" : r[8] > 0 ? "+" + r[8] : r[8]),
+            el("td", { class: "num tnum", style: "font-weight:600" }, dash(r[9])),
+            el("td", { class: "mono" }, dash(r[10])))))),
+      ),
+      el("div", { class: "legend" },
+        el("span", {}, el("i", { style: "background:var(--gold)" }), "冠軍"),
+        el("span", {}, el("i", { style: "background:var(--azul)" }), "歐冠資格"),
+        el("span", {}, el("i", { style: "background:var(--ok)" }), "歐聯／協會聯賽"),
+        el("span", {}, el("i", { style: "background:var(--bad)" }), "降級")))
+      : el("section", { class: "panel" }, el("div", { class: "empty" }, "此聯賽該季無積分榜紀錄。")),
+  ];
+}
+
+/* ---------------------------------------------------------------- honours */
+function renderHonours() {
+  const hs = DATA.honours;
+  const awards = Object.keys(hs.winners).sort();
+  const winners = hs.winners[state.award] || [];
+  const unresolved = winners.filter(x => !x.resolved).length;
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${hs.awardCatalogue.length} 種獎項　${DATA.integrity.totalAwards.toLocaleString()} 筆事實列`),
+      el("h2", {}, "榮譽殿堂"),
+      el("p", {}, "金球獎完整前三名，以及每個獎項的歷屆得主。未綁定 Player_ID 的得主會標示出來。")),
+    el("section", {},
+      el("h3", { style: "font-size:15px;margin-bottom:4px" }, "金球獎"),
+      el("p", { class: "cap", style: "margin-bottom:14px" }, "來源：Ballon_dOr　每季前三名與當季數據。"),
+      el("div", { class: "podiums" }, hs.ballonDor.map(b =>
+        el("div", { class: "podium" },
+          el("h4", {}, b.season),
+          el("ol", {}, b.podium.slice(0, 3).map(p =>
+            el("li", {},
+              el("span", { class: "r" }, p.rank),
+              el("span", { class: "nm", title: p.player }, p.player),
+              el("span", { class: "cl" }, `${p.goals}球 ${p.assists}助 ${fmt(p.rating, 2)}`)))))))),
+    el("section", { class: "panel" },
+      el("h3", {}, "歷屆得主查詢"),
+      el("p", { class: "cap" }, "只列出 Rank = 1 的列。團隊型獎項（年度最佳陣容）每季有多名一位，屬正常。"),
+      el("div", { class: "filters", style: "margin-bottom:16px" },
+        el("select", { id: "awardPick", onChange: e => { state.award = e.target.value; paint(); } },
+          awards.map(a => el("option", { value: a, selected: a === state.award }, a)))),
+      unresolved ? el("div", { class: "note", style: "margin-bottom:14px" },
+        `本獎項有 ${unresolved} 筆得主尚未綁定 Player_ID，以原始姓名呈現。`) : null,
+      el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
+        el("thead", {}, el("tr", {}, ["賽季", "得主", "俱樂部", "身分"].map(x => el("th", {}, x)))),
+        el("tbody", {}, winners.map(x => el("tr", {},
+          el("td", { class: "mono" }, dash(x.season)),
+          el("td", { class: "name-cell" }, dash(x.player)),
+          el("td", {}, dash(x.club)),
+          el("td", {}, x.resolved
+            ? el("span", { class: "pill ok" }, x.id)
+            : el("span", { class: "pill warn" }, "未解析")))))))),
+  ];
+}
+
+/* ----------------------------------------------------------------- people */
+const PERSON_FILTERS = [
+  { id: "awards", label: "有獎項紀錄", test: p => p.awards.length },
+  { id: "stats", label: "有生涯數據", test: p => p.apps > 0 },
+  { id: "barca", label: "巴薩球員", test: p => p.barca },
+  { id: "all", label: "全部身分", test: () => true },
+];
+
+function renderPeople() {
+  if (state.person) return renderPerson();
+  const f = PERSON_FILTERS.find(x => x.id === state.personFilter) || PERSON_FILTERS[0];
+  const q = state.personQuery.trim();
+  const rows = DATA.people.players.filter(p =>
+    f.test(p) && (!q || p.name.includes(q) || p.aliases.some(a => a.includes(q)) ||
+      p.clubs.some(c => c.includes(q)) || p.id.includes(q.toUpperCase())));
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" },
+        `${DATA.people.players.length} 個受控身分　${DATA.people.withAwards} 有獎項　${DATA.people.withStats} 有數據`),
+      el("h2", {}, "球員名錄"),
+      el("p", {}, "Player_Dim 的全部受控身分。多數只在獎項表中出現過姓名，沒有數據列——這是來源的實況，不是缺漏。")),
+    el("div", { class: "filters" },
+      el("input", {
+        id: "personQ", type: "search", placeholder: "搜尋姓名、別名、俱樂部或 Player_ID…",
+        value: state.personQuery, onInput: e => { state.personQuery = e.target.value; repaintPeople(); },
+      }),
+      el("div", { class: "chips" }, PERSON_FILTERS.map(x =>
+        el("button", {
+          class: "chip", type: "button", "aria-pressed": String(x.id === state.personFilter),
+          onClick: () => { state.personFilter = x.id; paint(); },
+        }, x.label)))),
+    el("section", { class: "panel", id: "peoplePanel" }, peopleTable(rows)),
+  ];
+}
+function peopleTable(rows) {
+  const shown = rows.slice(0, 200);
+  return el("div", {},
+    el("p", { class: "cap" }, `符合 ${rows.length} 人${rows.length > shown.length ? `，顯示前 ${shown.length}` : ""}`),
+    el("div", { class: "tblwrap" }, el("table", { class: "data" },
+      el("thead", {}, el("tr", {},
+        el("th", {}, "球員"), el("th", {}, "國籍"), el("th", {}, "俱樂部"),
+        el("th", { class: "num" }, "出場"), el("th", { class: "num" }, "進球"),
+        el("th", { class: "num" }, "助攻"), el("th", { class: "num" }, "獎項"))),
+      el("tbody", {}, shown.map(p =>
+        el("tr", { class: "click", onClick: () => { state.person = p.id; paint(); } },
+          el("td", { class: "name-cell" }, p.name,
+            p.barca ? el("span", { class: "pill win", style: "margin-left:7px" }, "巴薩") : null),
+          el("td", {}, dash(p.nationality)),
+          el("td", { class: "mono" }, p.clubs.length ? p.clubs.join("、") : "—"),
+          el("td", { class: "num tnum" }, p.apps || "—"),
+          el("td", { class: "num tnum" }, p.goals || "—"),
+          el("td", { class: "num tnum" }, p.assists || "—"),
+          el("td", { class: "num tnum" }, p.awards.length || "—")))))));
+}
+function repaintPeople() {
+  const panel = document.getElementById("peoplePanel");
+  if (!panel) return paint();
+  const f = PERSON_FILTERS.find(x => x.id === state.personFilter) || PERSON_FILTERS[0];
+  const q = state.personQuery.trim();
+  panel.replaceChildren(peopleTable(DATA.people.players.filter(p =>
+    f.test(p) && (!q || p.name.includes(q) || p.aliases.some(a => a.includes(q)) ||
+      p.clubs.some(c => c.includes(q)) || p.id.includes(q.toUpperCase())))));
+}
+
+function renderPerson() {
+  const p = DATA.people.players.find(x => x.id === state.person);
+  if (!p) { state.person = null; return renderPeople(); }
+  const byAward = {};
+  p.awards.forEach(a => { (byAward[a.award] ||= []).push(a); });
+
+  return [
+    el("button", { class: "back", type: "button", onClick: () => { state.person = null; paint(); } }, "← 返回名錄"),
+    el("div", { class: "p-head" },
+      el("div", { class: "p-id" },
+        el("div", { class: "eyebrow" }, p.id),
+        el("h2", {}, p.name),
+        el("div", { class: "p-meta" },
+          p.nationality ? el("span", { class: "pill flat" }, p.nationality) : null,
+          p.aliases.map(a => el("span", { class: "pill flat", title: "別名" }, a)),
+          p.barca ? el("span", { class: "pill win" }, "巴薩生涯在檔") : null))),
+    p.apps ? el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, p.apps), el("div", { class: "l" }, "聯賽出場")),
+      el("div", {}, el("div", { class: "n tnum" }, p.goals), el("div", { class: "l" }, "進球")),
+      el("div", {}, el("div", { class: "n tnum" }, p.assists), el("div", { class: "l" }, "助攻")),
+      el("div", {}, el("div", { class: "n tnum" }, p.seasonCount), el("div", { class: "l" }, "在檔賽季")),
+      el("div", {}, el("div", { class: "n tnum" }, p.awards.length), el("div", { class: "l" }, "獎項紀錄")),
+    ) : el("div", { class: "hint" },
+      "這個身分在檔案中只出現於獎項紀錄，沒有任何出場數據列。來源未提供即保持未知，不補值。"),
+    p.clubs.length ? el("section", { class: "panel" },
+      el("h3", {}, "效力俱樂部"),
+      el("p", { class: "cap" }, "來源：Player_League_Career"),
+      el("div", { class: "chips" }, p.clubs.map(c => el("span", { class: "chip" }, c)))) : null,
+    p.barca ? el("section", { class: "panel" },
+      el("h3", {}, "巴薩生涯檔案"),
+      el("p", { class: "cap" }, "此球員另有完整的巴塞隆納逐季數據與能力值快照。"),
+      el("button", {
+        class: "btn", type: "button",
+        onClick: () => { state.player = p.id; state.person = null; go("squad"); state.player = p.id; paint(); },
+      }, "開啟巴薩生涯檔案 →")) : null,
+    Object.keys(byAward).length ? el("section", { class: "panel" },
+      el("h3", {}, `獎項紀錄　${p.awards.length}`),
+      el("p", { class: "cap" }, "來源：Canonical_Award_Facts（已綁定此 Player_ID 的列）"),
+      el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
+        el("thead", {}, el("tr", {}, ["獎項", "賽季", "名次", "俱樂部"].map(x => el("th", {}, x)))),
+        el("tbody", {}, p.awards.slice().sort((a, b) => String(b.season).localeCompare(String(a.season)))
+          .map(a => el("tr", {},
+            el("td", {}, a.award),
+            el("td", { class: "mono" }, dash(a.season)),
+            el("td", {}, a.rank === 1
+              ? el("span", { class: "pill win" }, "冠軍")
+              : el("span", { class: "pill flat" }, a.rank || "入選")),
+            el("td", {}, dash(a.club)))))))) : null,
+  ];
+}
+
 /* -------------------------------------------------------------- chronicle */
 function renderChronicle() {
   const types = [...new Set(DATA.chronicle.map(e => e.type))].sort();
@@ -831,6 +1230,418 @@ function renderIntegrity() {
   ];
 }
 
+
+/* ===================================================================
+   IMPORT — paste -> parse -> resolve identity -> append-only record
+   The workbook's own model is append-only observations, so an import
+   never edits anything: it records a new observation awaiting merge.
+   =================================================================== */
+
+const IMPORT_KINDS = {
+  season: {
+    label: "賽季數據",
+    fields: ["Season", "Player", "Club", "Competition", "Apps", "Goals", "Assists", "POTM", "Rating", "Yellow", "Red"],
+    required: ["Season", "Player"],
+    hint: "一列一名球員一個賽季。可直接從 Excel 或 FM 匯出表格複製貼上（Tab 分隔）。",
+  },
+  profile: {
+    label: "球員檔案",
+    fields: ["Player", "Nationality", "DOB", "Club", "Position", "Shirt", "NT_Caps", "NT_Goals"],
+    required: ["Player"],
+    hint: "球員個人資訊。支援「欄位：值」逐行格式，空行分隔不同球員。",
+  },
+  standings: {
+    label: "聯賽積分榜",
+    fields: ["Season", "League", "Rank", "Club", "Played", "Wins", "Draws", "Losses", "Goals_For", "Goals_Against", "Points", "Note"],
+    required: ["Season", "Club"],
+    hint: "整張積分榜貼上即可，第一列視為標題列。",
+  },
+  award: {
+    label: "獎項名次",
+    fields: ["Season", "Award", "Rank", "Player", "Club"],
+    required: ["Season", "Award", "Player"],
+    hint: "獎項得主與名次。Player 欄會自動比對現有 Player_ID。",
+  },
+  raw: {
+    label: "自由欄位",
+    fields: [],
+    required: [],
+    hint: "保留原始標題列，不做欄位對應。適合還沒決定歸屬哪張表的資料。",
+  },
+};
+
+/* header synonyms, so a pasted table usually maps itself */
+const SYNONYMS = {
+  Season: ["season", "賽季", "赛季", "年度", "球季"],
+  Player: ["player", "球員", "球员", "姓名", "名字", "name", "選手"],
+  Club: ["club", "球隊", "球队", "俱樂部", "俱乐部", "team", "所屬"],
+  League: ["league", "聯賽", "联赛", "competition_league"],
+  Competition: ["competition", "賽事", "赛事", "comp"],
+  Apps: ["apps", "出場", "出场", "場次", "appearances", "上陣"],
+  Goals: ["goals", "進球", "进球", "入球", "得分", "球"],
+  Assists: ["assists", "助攻", "助"],
+  POTM: ["potm", "motm", "全場最佳", "最佳球員"],
+  Rating: ["rating", "評分", "评分", "平均分"],
+  Yellow: ["yellow", "黃牌", "黄牌"],
+  Red: ["red", "紅牌", "红牌"],
+  Rank: ["rank", "名次", "排名", "位置", "pos", "名"],
+  Award: ["award", "獎項", "奖项"],
+  Nationality: ["nationality", "國籍", "国籍", "nation"],
+  DOB: ["dob", "生日", "出生", "birth"],
+  Position: ["position", "位置", "場上位置"],
+  Shirt: ["shirt", "背號", "号码", "number"],
+  NT_Caps: ["caps", "國家隊出場", "代表隊出場"],
+  NT_Goals: ["nt_goals", "國家隊進球"],
+  Played: ["played", "賽", "场次", "比賽", "pl"],
+  Wins: ["wins", "勝", "胜", "w"],
+  Draws: ["draws", "和", "平", "d"],
+  Losses: ["losses", "負", "负", "l"],
+  Goals_For: ["gf", "進", "进球数", "得球"],
+  Goals_Against: ["ga", "失", "失球"],
+  Points: ["points", "分", "積分", "积分", "pts"],
+  Note: ["note", "備註", "备注", "說明"],
+};
+
+function guessField(header, allowed) {
+  const t = String(header || "").trim().toLowerCase();
+  if (!t) return "";
+  for (const field of allowed) {
+    if (field.toLowerCase() === t) return field;
+    if ((SYNONYMS[field] || []).some(s => t === s.toLowerCase())) return field;
+  }
+  for (const field of allowed) {
+    if ((SYNONYMS[field] || []).some(s => t.includes(s.toLowerCase()) || s.toLowerCase().includes(t))) return field;
+  }
+  return "";
+}
+
+/* --- identity index over every controlled name and alias ----------------- */
+const normName = s => String(s || "").replace(/[·・.\s·‧]/g, "").toLowerCase();
+const NAME_INDEX = (() => {
+  const idx = new Map();
+  for (const p of DATA.people.players) {
+    for (const n of [p.name, ...p.aliases]) {
+      const k = normName(n);
+      if (!k) continue;
+      if (!idx.has(k)) idx.set(k, []);
+      if (!idx.get(k).some(x => x.id === p.id)) idx.get(k).push(p);
+    }
+  }
+  return idx;
+})();
+
+/* character-overlap ratio: good enough for CJK transliteration drift */
+function similarity(a, b) {
+  if (!a || !b) return 0;
+  const A = new Set(a), B = new Set(b);
+  let shared = 0;
+  for (const c of A) if (B.has(c)) shared++;
+  return (2 * shared) / (A.size + B.size);
+}
+
+function resolveIdentity(raw) {
+  const key = normName(raw);
+  if (!key) return { status: "empty", candidates: [] };
+  const exact = NAME_INDEX.get(key);
+  if (exact && exact.length === 1) return { status: "exact", match: exact[0], candidates: exact };
+  if (exact && exact.length > 1) return { status: "ambiguous", candidates: exact };
+
+  const scored = [];
+  for (const [k, people] of NAME_INDEX) {
+    const score = similarity(key, k);
+    if (score >= 0.6) for (const p of people) scored.push({ p, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored.slice(0, 4).map(x => x.p);
+  if (!top.length) return { status: "new", candidates: [] };
+  if (scored.length === 1 || (scored[0].score - (scored[1]?.score ?? 0)) > 0.15) {
+    return { status: "fuzzy", match: top[0], score: scored[0].score, candidates: top };
+  }
+  return { status: "ambiguous", candidates: top };
+}
+
+/* --- parsers ------------------------------------------------------------- */
+function parseTabular(text) {
+  const lines = text.split(/\r?\n/).map(l => l.replace(/\s+$/, "")).filter(l => l.trim());
+  if (lines.length < 2) return null;
+  const sep = lines[0].includes("\t") ? "\t" : lines[0].includes(",") ? "," : /\s{2,}/;
+  const split = l => (sep instanceof RegExp ? l.split(sep) : l.split(sep)).map(c => c.trim());
+  const headers = split(lines[0]);
+  if (headers.length < 2) return null;
+  const rows = lines.slice(1).map(split).filter(r => r.some(c => c));
+  return { headers, rows };
+}
+
+function parseBlocks(text) {
+  const blocks = text.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+  const records = [];
+  const keys = [];
+  for (const block of blocks) {
+    const rec = {};
+    for (const line of block.split(/\r?\n/)) {
+      const m = line.match(/^\s*([^:：]+)[:：]\s*(.*)$/);
+      if (!m) continue;
+      const k = m[1].trim();
+      rec[k] = m[2].trim();
+      if (!keys.includes(k)) keys.push(k);
+    }
+    if (Object.keys(rec).length) records.push(rec);
+  }
+  if (!records.length) return null;
+  return { headers: keys, rows: records.map(r => keys.map(k => r[k] ?? "")) };
+}
+
+function doParse() {
+  const text = document.getElementById("pasteBox").value;
+  if (!text.trim()) return;
+  const parsed = parseTabular(text) || parseBlocks(text);
+  if (!parsed) {
+    state.importParsed = { error: "認不出格式。請確認是 Tab／逗號分隔的表格，或「欄位：值」逐行格式。" };
+    state.importMap = {};
+    paint();
+    return;
+  }
+  const kind = IMPORT_KINDS[state.importKind];
+  const map = {};
+  parsed.headers.forEach((hdr, i) => {
+    map[i] = kind.fields.length ? guessField(hdr, kind.fields) : hdr;
+  });
+  state.importParsed = parsed;
+  state.importMap = map;
+  paint();
+}
+
+/* --- build the observation rows the preview and the write both use ------- */
+function buildRecords() {
+  const parsed = state.importParsed;
+  if (!parsed || parsed.error) return [];
+  const kind = IMPORT_KINDS[state.importKind];
+  const playerCol = Object.entries(state.importMap).find(([, f]) => f === "Player")?.[0];
+
+  return parsed.rows.map((cells, i) => {
+    const rec = {};
+    cells.forEach((v, ci) => {
+      const field = state.importMap[ci];
+      if (field && v !== "") rec[field] = v;
+    });
+    const missing = kind.required.filter(f => !rec[f]);
+    const rawName = playerCol !== undefined ? cells[playerCol] : null;
+    const identity = rawName ? resolveIdentity(rawName) : null;
+    return { row: i + 1, values: rec, missing, rawName, identity };
+  });
+}
+
+/* --- db plumbing --------------------------------------------------------- */
+let dbHandle = null, dbTried = false, downloadsHandle = null;
+async function getDb() {
+  if (!dbTried) {
+    dbTried = true;
+    try { dbHandle = await claude.use("db"); } catch (e) { dbHandle = null; }
+    try { downloadsHandle = await claude.use("downloads"); } catch (e) { downloadsHandle = null; }
+  }
+  return dbHandle;
+}
+async function loadBatches() {
+  const db = await getDb();
+  if (!db) { state.batches = "unavailable"; return; }
+  try {
+    const docs = await db.collection("imports").orderBy("createdAt", "desc").limit(100).get();
+    state.batches = docs.map(d => ({ id: d.id, ...d.data }));
+  } catch (e) {
+    state.batches = "unavailable";
+  }
+}
+
+async function writeBatch() {
+  const db = await getDb();
+  const records = buildRecords();
+  if (!db || !records.length) return;
+  const btn = document.getElementById("writeBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "寫入中…"; }
+  const now = new Date().toISOString();
+  const id = "imp-" + now.replace(/[^0-9]/g, "").slice(0, 14) + "-" + Math.random().toString(36).slice(2, 7);
+  const matched = records.filter(r => r.identity?.match).length;
+  const doc = {
+    createdAt: now,
+    kind: state.importKind,
+    kindLabel: IMPORT_KINDS[state.importKind].label,
+    columns: Object.values(state.importMap).filter(Boolean),
+    /* every row keeps its raw name and the resolution verdict, so a later
+       merge can audit the match instead of trusting it */
+    rows: records.map(r => ({
+      values: r.values,
+      rawName: r.rawName,
+      resolvedId: r.identity?.match?.id ?? null,
+      resolution: r.identity?.status ?? "n/a",
+      missing: r.missing,
+    })),
+    stats: { total: records.length, matched, incomplete: records.filter(r => r.missing.length).length },
+    verificationStatus: "使用者匯入（待併入工作簿）",
+  };
+  try {
+    await db.doc("imports/" + id).set(doc);
+    state.importParsed = null;
+    state.importMap = {};
+    const box = document.getElementById("pasteBox");
+    if (box) box.value = "";
+    await loadBatches();
+  } catch (e) {
+    state.importError = e?.code === "not_granted"
+      ? "沒有寫入權限。這份檔案可能是以唯讀方式分享給你的。"
+      : "寫入失敗：" + (e?.message || e?.code || "未知錯誤");
+  }
+  paint();
+}
+
+async function deleteBatch(id) {
+  const db = await getDb();
+  if (!db) return;
+  try { await db.doc("imports/" + id).delete(); } catch (e) { /* already gone */ }
+  await loadBatches();
+  paint();
+}
+
+async function exportBatches() {
+  if (!downloadsHandle) await getDb();
+  if (!downloadsHandle || !Array.isArray(state.batches)) return;
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    schema: "FM24_IMPORT_BATCH_V1",
+    note: "餵給 fm24/ingest.py，會以 append-only 觀測列併入 SQLite。",
+    batches: state.batches,
+  };
+  try {
+    await downloadsHandle.save({
+      filename: `fm24-imports-${new Date().toISOString().slice(0, 10)}.json`,
+      data: JSON.stringify(payload, null, 2),
+    });
+  } catch (e) { /* viewer declined */ }
+}
+
+/* --- view ---------------------------------------------------------------- */
+function renderImport() {
+  if (state.batches === null) { loadBatches().then(paint); }
+  const kind = IMPORT_KINDS[state.importKind];
+  const parsed = state.importParsed;
+  const records = buildRecords();
+
+  const statusCell = r => {
+    if (!r.identity) return el("span", { class: "pill flat" }, "無姓名欄");
+    const s = r.identity;
+    if (s.status === "exact") return el("span", { class: "pill ok", title: s.match.name }, "✓ " + s.match.id);
+    if (s.status === "fuzzy") return el("span", { class: "pill warn", title: `${s.match.name}（相似度 ${(s.score * 100) | 0}%）` },
+      "≈ " + s.match.id);
+    if (s.status === "ambiguous") return el("span", {
+      class: "pill warn", title: s.candidates.map(c => `${c.id} ${c.name}`).join("\n"),
+    }, `多候選 ×${s.candidates.length}`);
+    return el("span", { class: "pill bad" }, "新身分");
+  };
+
+  const preview = parsed && !parsed.error ? el("section", { class: "panel" },
+    el("h3", {}, "欄位對應"),
+    el("p", { class: "cap" }, "已自動猜測；不需要的欄位設為「略過」。"),
+    el("div", {}, parsed.headers.map((hdr, i) =>
+      el("div", { class: "maprow" },
+        el("div", { class: "src", title: hdr }, hdr || `（第 ${i + 1} 欄）`),
+        el("div", { class: "arw" }, "→"),
+        kind.fields.length
+          ? el("select", {
+              id: "map" + i,
+              onChange: e => { state.importMap[i] = e.target.value; paint(); },
+            },
+            el("option", { value: "", selected: !state.importMap[i] }, "略過"),
+            kind.fields.map(f => el("option", { value: f, selected: state.importMap[i] === f }, f)))
+          : el("div", { class: "mono" }, hdr)))),
+    el("h3", { style: "margin-top:22px" }, `預覽　${records.length} 列`),
+    el("p", { class: "cap" },
+      `${records.filter(r => r.identity?.match).length} 列已比對到現有身分　·　`
+      + `${records.filter(r => r.missing.length).length} 列缺必填欄位`),
+    el("div", { class: "tblwrap" }, el("table", { class: "data" },
+      el("thead", {}, el("tr", {},
+        el("th", {}, "#"), el("th", {}, "身分比對"),
+        [...new Set(Object.values(state.importMap).filter(Boolean))].map(f => el("th", {}, f)),
+        el("th", {}, "檢查"))),
+      el("tbody", {}, records.slice(0, 50).map(r =>
+        el("tr", {},
+          el("td", { class: "mono" }, r.row),
+          el("td", {}, statusCell(r)),
+          [...new Set(Object.values(state.importMap).filter(Boolean))].map(f =>
+            el("td", {}, dash(r.values[f]))),
+          el("td", {}, r.missing.length
+            ? el("span", { class: "pill bad", title: "缺少必填欄位" }, "缺 " + r.missing.join("、"))
+            : el("span", { class: "pill ok" }, "完整"))))))),
+    records.length > 50 ? el("p", { class: "cap", style: "margin-top:10px" }, `僅顯示前 50 列，寫入時會全部保留。`) : null,
+    el("div", { class: "btnrow", style: "margin-top:18px" },
+      el("button", { class: "btn", type: "button", id: "writeBtn", onClick: writeBatch },
+        `寫入待併入區　${records.length} 列`),
+      el("button", {
+        class: "btn ghost", type: "button",
+        onClick: () => { state.importParsed = null; state.importMap = {}; paint(); },
+      }, "取消")),
+  ) : parsed?.error ? el("div", { class: "note" }, parsed.error) : null;
+
+  const batches = state.batches;
+  const pending = Array.isArray(batches) ? batches : [];
+  const totalRows = pending.reduce((a, b) => a + (b.stats?.total || 0), 0);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, "Append-only　匯入不覆寫任何既有資料"),
+      el("h2", {}, "匯入資料"),
+      el("p", {}, "貼上新資料，系統會解析欄位、比對現有 Player_ID，存成一批待併入觀測。"
+        + "匯出的 JSON 可直接餵給 ingest.py 併回 SQLite 與工作簿。")),
+    el("section", { class: "panel" },
+      el("h3", {}, "1　選擇資料類型"),
+      el("p", { class: "cap" }, "決定必填欄位與可對應的目標欄位。"),
+      el("div", { class: "chips" }, Object.entries(IMPORT_KINDS).map(([id, k]) =>
+        el("button", {
+          class: "chip", type: "button", "aria-pressed": String(id === state.importKind),
+          onClick: () => { state.importKind = id; state.importParsed = null; state.importMap = {}; paint(); },
+        }, k.label))),
+      el("div", { class: "hint", style: "margin-top:14px" }, kind.hint,
+        kind.required.length ? el("div", { style: "margin-top:6px" },
+          "必填：", el("code", {}, kind.required.join("、"))) : null),
+      el("h3", { style: "margin-top:22px" }, "2　貼上資料"),
+      el("p", { class: "cap" }, "支援 Tab 分隔、逗號分隔，或「欄位：值」逐行格式。"),
+      el("textarea", {
+        class: "paste", id: "pasteBox", spellcheck: "false",
+        placeholder: state.importKind === "profile"
+          ? "姓名：拉明·亞馬爾\n國籍：西班牙\n位置：AM(RL)\n\n姓名：佩德里\n國籍：西班牙"
+          : "賽季\t球員\t出場\t進球\t助攻\n2035/36\t拉明·亞馬爾\t41\t18\t20",
+      }),
+      el("div", { class: "btnrow", style: "margin-top:12px" },
+        el("button", { class: "btn", type: "button", onClick: doParse }, "解析並預覽"),
+        el("button", {
+          class: "btn ghost", type: "button",
+          onClick: () => { document.getElementById("pasteBox").value = ""; state.importParsed = null; paint(); },
+        }, "清空"))),
+    state.importError ? el("div", { class: "note" }, state.importError) : null,
+    preview,
+    el("section", { class: "panel" },
+      el("h3", {}, "待併入區"),
+      el("p", { class: "cap" }, batches === "unavailable"
+        ? "此檢視無法使用儲存功能。"
+        : `${pending.length} 批　${totalRows} 列，尚未併入工作簿。`),
+      batches === null ? el("div", { class: "empty" }, "載入中…")
+        : batches === "unavailable" ? el("div", { class: "hint" },
+            "儲存空間目前不可用 —— 可能是這份檔案以唯讀方式分享給你，或瀏覽器尚未授權。"
+            + "解析與比對功能仍可正常使用，只是結果不會被保存。")
+        : pending.length === 0 ? el("div", { class: "empty" }, "還沒有任何待併入批次。")
+        : el("div", {},
+            pending.map(b => el("div", { class: "batch" },
+              el("div", {},
+                el("div", { style: "font-weight:500" }, `${b.kindLabel}　${b.stats?.total ?? 0} 列`),
+                el("div", { class: "bm" },
+                  `${b.createdAt?.slice(0, 16).replace("T", " ")}　·　`
+                  + `已比對 ${b.stats?.matched ?? 0}　·　`
+                  + `缺欄位 ${b.stats?.incomplete ?? 0}　·　${b.id}`)),
+              el("button", { class: "btn danger", type: "button", onClick: () => deleteBatch(b.id) }, "刪除"))),
+            el("div", { class: "btnrow", style: "margin-top:18px" },
+              el("button", { class: "btn", type: "button", onClick: exportBatches }, "匯出全部 JSON"),
+              el("span", { class: "cap" }, "下載後執行　", el("code", {}, "python3 ingest.py <檔案>"))))),
+  ];
+}
+
 /* ------------------------------------------------------------------ shell */
 function paint() {
   const view = VIEWS.find(v => v.id === state.view);
@@ -838,14 +1649,21 @@ function paint() {
   main.replaceChildren(el("div", { class: "view" }, view.render()));
   document.querySelectorAll("#nav button").forEach(b =>
     b.setAttribute("aria-current", String(b.dataset.view === state.view)));
-  main.scrollIntoView({ block: "start", behavior: "auto" });
+  if (state.scrollTop) { window.scrollTo(0, 0); state.scrollTop = false; }
 }
-function go(id) { state.view = id; state.player = null; paint(); }
+function go(id) { state.view = id; state.player = null; state.person = null; state.scrollTop = true; paint(); }
 
-document.getElementById("nav").replaceChildren(...VIEWS.map((v, i) =>
-  el("button", { type: "button", "data-view": v.id, onClick: () => go(v.id) },
-    el("span", { class: "k" }, String(i + 1).padStart(2, "0")),
-    el("span", { class: "t" }, v.label))));
+{
+  const items = [];
+  let group = null;
+  VIEWS.forEach((v, i) => {
+    if (v.group !== group) { group = v.group; items.push(el("div", { class: "grp" }, group)); }
+    items.push(el("button", { type: "button", "data-view": v.id, onClick: () => go(v.id) },
+      el("span", { class: "k" }, String(i + 1).padStart(2, "0")),
+      el("span", { class: "t" }, v.label)));
+  });
+  document.getElementById("nav").replaceChildren(...items);
+}
 
 document.getElementById("stampSub").textContent =
   `${DATA.meta.sheet_count} 表 · ${DATA.meta.row_count.toLocaleString()} 列`;

@@ -60,6 +60,20 @@ def as_int(value, default=0):
     return default if parsed is None else int(parsed)
 
 
+def maybe_int(value):
+    """None stays None. The workbook's policy is to keep unknown unknown, never 0."""
+    parsed = num(value)
+    return None if parsed is None else int(parsed)
+
+
+def clean(value):
+    """The source transcription writes a literal 'NULL' string for absent cells."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return None if text in ("", "NULL", "null", "!") else text
+
+
 def norm_name(value: str | None) -> str:
     """Strip the separators that differ between Discord sources (・ vs ·)."""
     if not value:
@@ -229,14 +243,173 @@ class Archive:
         out.sort(key=lambda p: (-p["apps"], p["name"]))
         return out
 
+
+    # ---------------------------------------------------------------- world --
+    def world(self) -> dict:
+        """Everything outside Barcelona: five leagues, continental and international."""
+        league_rows = self.q(
+            """SELECT Competition_Raw, Season, Snapshot, Season_Status, Rank, Club_Raw, Played,
+                      Wins, Draws, Losses, Goals_For, Goals_Against, Goal_Difference, Points,
+                      Qualification_Raw, Info_Raw
+               FROM Domestic_League_Standings
+               ORDER BY Competition_Raw, Season, Snapshot, CAST(Rank AS INTEGER)"""
+        )
+
+        # A league-season can carry several snapshots: a mid-season PROVISIONAL table and
+        # a FINAL one. Mixing them doubles the table, so each snapshot stays its own view
+        # and the final one is what the page opens on.
+        snaps = defaultdict(list)
+        snap_meta = {}
+        for r in league_rows:
+            key = f"{r['Competition_Raw']}|{r['Season']}|{r['Snapshot']}"
+            snaps[key].append([
+                as_int(r["Rank"]), r["Club_Raw"], maybe_int(r["Played"]), maybe_int(r["Wins"]),
+                maybe_int(r["Draws"]), maybe_int(r["Losses"]), maybe_int(r["Goals_For"]),
+                maybe_int(r["Goals_Against"]), maybe_int(r["Goal_Difference"]), maybe_int(r["Points"]),
+                clean(r["Qualification_Raw"]) or clean(r["Info_Raw"]) or "",
+            ])
+            status = r["Season_Status"] or ""
+            snap_meta[key] = {
+                "snapshot": r["Snapshot"],
+                "status": status,
+                "final": status.startswith("FINAL") or "FINAL" in status,
+            }
+
+        # league|season -> the snapshots available, final first
+        snapshot_index = defaultdict(list)
+        for key, meta in snap_meta.items():
+            league, season, snapshot = key.split("|")
+            snapshot_index[f"{league}|{season}"].append({
+                "key": key, "snapshot": snapshot, "status": meta["status"], "final": meta["final"],
+                "teams": len(snaps[key]),
+            })
+        for group in snapshot_index.values():
+            group.sort(key=lambda x: (not x["final"], x["snapshot"]), reverse=False)
+
+        standings = dict(snaps)
+        leagues = sorted({r["Competition_Raw"] for r in league_rows})
+        seasons = sorted({r["Season"] for r in league_rows})
+
+        # champions grid reads the adopted snapshot only, never a provisional table
+        champions = {}
+        for group_key, group in snapshot_index.items():
+            chosen = next((g for g in group if g["final"]), group[-1])
+            first = next((r for r in snaps[chosen["key"]] if r[0] == 1), None)
+            if first and chosen["final"]:
+                champions[group_key] = first[1]
+            elif first:
+                champions[group_key] = first[1] + "（暫）"
+
+        ucl = [{"season": r["Season"], "winner": r["Winner"], "runnerUp": r["Runner_Up"]}
+               for r in self.q("SELECT * FROM UCL ORDER BY Season DESC")]
+        super_cup = [{"season": r["Season"], "winner": r["Winner"], "runnerUp": r["Runner_Up"]}
+                     for r in self.q("SELECT * FROM UEFA_Super_Cup ORDER BY Season DESC")]
+        intl = [{"tournament": r["Tournament"], "period": r["Period"], "winner": r["Winner"],
+                 "runnerUp": r["Runner_Up"], "third": r["Third_Place"], "host": r["Host"]}
+                for r in self.q("SELECT * FROM Intl_Tournament_Results ORDER BY Period DESC")]
+        cups = [{"season": r["Season"], "competition": r["Competition"], "rank": as_int(r["Rank"]), "club": r["Club"]}
+                for r in self.q("SELECT * FROM National_Tournaments WHERE Rank IN ('1','2') ORDER BY Season DESC")]
+        euro_cups = [{"season": r["Season"], "competition": r["Competition_Raw"], "winner": r["Winner_Raw"],
+                      "runnerUp": r["Runner_Up_Raw"], "venue": r["Final_Venue_Raw"]}
+                     for r in self.q("SELECT * FROM Competition_History ORDER BY Season DESC")]
+        cwc = [{"season": r["Season"] if "Season" in r else None, **{k: v for k, v in r.items() if k != "_row"}}
+               for r in self.q("SELECT * FROM FIFA_Club_World_Cup_Results")]
+
+        # club honour counts across every source that names a winner
+        club_titles = Counter()
+        for key, club in champions.items():
+            club_titles[club] += 1
+        for r in ucl:
+            if r["winner"]:
+                club_titles[r["winner"]] += 1
+
+        return {
+            "leagues": leagues,
+            "seasons": seasons,
+            "standingsCols": ["名次", "球隊", "賽", "勝", "和", "負", "進", "失", "淨", "分", "備註"],
+            "standings": standings,
+            "snapshots": {k: v for k, v in snapshot_index.items()},
+            "champions": champions,
+            "ucl": ucl,
+            "superCup": super_cup,
+            "intl": intl,
+            "cups": cups,
+            "euroCups": euro_cups,
+            "cwc": cwc,
+        }
+
+    # --------------------------------------------------------------- people --
+    def people(self) -> dict:
+        """Every controlled player identity, and how much the archive actually knows."""
+        aliases = defaultdict(set)
+        canonical = {}
+        for r in self.q("SELECT * FROM Player_Dim"):
+            pid = r["Player_ID"]
+            if not pid:
+                continue
+            canonical[pid] = r["Canonical_Display_Name"] or r["Alias_Name"]
+            for value in (r["Canonical_Display_Name"], r["Alias_Name"]):
+                if value:
+                    aliases[pid].add(value)
+
+        award_rows = self.q(
+            "SELECT Player_ID, Award, Season, Rank, Club_Raw FROM Canonical_Award_Facts WHERE Player_ID IS NOT NULL"
+        )
+        awards = defaultdict(list)
+        for r in award_rows:
+            awards[r["Player_ID"]].append({
+                "award": r["Award"], "season": r["Season"], "rank": as_int(r["Rank"]), "club": r["Club_Raw"],
+            })
+
+        stats = defaultdict(lambda: {"apps": 0, "goals": 0, "assists": 0, "clubs": set(), "seasons": set()})
+        for r in self.q("SELECT * FROM Player_League_Career"):
+            pid = r["Player_ID"]
+            bucket = stats[pid]
+            bucket["apps"] += as_int(r["Apps"])
+            bucket["goals"] += as_int(r["Goals"])
+            bucket["assists"] += as_int(r["Assists"])
+            if r["Club_Raw"]:
+                bucket["clubs"].add(r["Club_Raw"])
+            if r["Season_Display"]:
+                bucket["seasons"].add(r["Season_Display"])
+
+        nations = {}
+        for r in self.q("SELECT Player_ID, Nationality_Raw FROM Player_Profile_Snapshots WHERE Nationality_Raw IS NOT NULL"):
+            nations[r["Player_ID"]] = r["Nationality_Raw"]
+
+        barca = {p["Player_ID"] for p in self.q("SELECT DISTINCT Player_ID FROM Barcelona_Player_Career")}
+
+        people = []
+        for pid, name in sorted(canonical.items()):
+            s = stats.get(pid)
+            people.append({
+                "id": pid,
+                "name": name,
+                "aliases": sorted(a for a in aliases[pid] if a != name),
+                "nationality": nations.get(pid),
+                "awards": awards.get(pid, []),
+                "apps": s["apps"] if s else 0,
+                "goals": s["goals"] if s else 0,
+                "assists": s["assists"] if s else 0,
+                "clubs": sorted(s["clubs"]) if s else [],
+                "seasonCount": len(s["seasons"]) if s else 0,
+                "barca": pid in barca,
+            })
+        people.sort(key=lambda p: (-len(p["awards"]), -p["apps"], p["name"]))
+
+        clubs = [{"id": r["Club_ID"], "name": r["Canonical_Display_Name"]}
+                 for r in self.q("SELECT DISTINCT Club_ID, Canonical_Display_Name FROM Club_Dim WHERE Club_ID IS NOT NULL")]
+
+        return {
+            "players": people,
+            "clubs": sorted(clubs, key=lambda c: c["id"]),
+            "withStats": sum(1 for p in people if p["apps"]),
+            "withAwards": sum(1 for p in people if p["awards"]),
+        }
+
     # ------------------------------------------------------------ chronicle --
     def chronicle(self) -> list[dict]:
-        rows = self.q(
-            """SELECT * FROM World_Timeline
-               WHERE Event_Type IN ('巴塞隆納歐冠成績','歐洲冠軍聯賽冠軍','個人獎項','國際賽冠軍','Competition winner')
-                  OR Subject LIKE '%巴塞%' OR Objective_Fact LIKE '%巴塞%'
-               ORDER BY Period_ID DESC, Timeline_ID"""
-        )
+        rows = self.q("SELECT * FROM World_Timeline ORDER BY Period_ID DESC, Timeline_ID")
         return [{
             "id": r["Timeline_ID"], "period": r["Period_ID"], "season": r["Season_or_Year"],
             "type": r["Event_Type"], "fact": r["Objective_Fact"], "subject": r["Subject"],
@@ -318,6 +491,32 @@ class Archive:
                 "sample": list(clubs),
             })
 
+        multi_snap = self.q(
+            """SELECT Competition_Raw, Season, COUNT(DISTINCT Snapshot) n
+               FROM Domestic_League_Standings GROUP BY 1,2 HAVING n > 1"""
+        )
+        if multi_snap:
+            findings.append({
+                "severity": "high",
+                "title": "聯賽積分榜同賽季存在多份快照",
+                "detail": f"{len(multi_snap)} 個聯賽賽季同時有 PROVISIONAL（賽季中）與 FINAL（賽季末）兩份積分榜。"
+                          "不看 Season_Status 直接查詢會得到兩倍的隊伍數與錯誤的冠軍。本站已只採 FINAL 快照。",
+                "where": "Domestic_League_Standings",
+                "sample": [f"{r['Competition_Raw']} {r['Season']}" for r in multi_snap[:6]],
+            })
+
+        null_strings = as_int(self.one(
+            "SELECT COUNT(*) n FROM Domestic_League_Standings WHERE Qualification_Raw='NULL' OR Info_Raw='NULL'")["n"])
+        if null_strings:
+            findings.append({
+                "severity": "medium",
+                "title": "資格欄位以字串 'NULL' 表示空值",
+                "detail": f"{null_strings} 列的 Qualification_Raw／Info_Raw 內容是四個字元的字串 'NULL'，不是真正的空值。"
+                          "任何 IS NULL 判斷都會漏掉這些列。本站顯示時視為空白，來源值未更動。",
+                "where": "Domestic_League_Standings",
+                "sample": ["NULL", "!"],
+            })
+
         missing_gf = [s["Season"] for s in self.q("SELECT Season, LaLiga_GF FROM Barcelona_Season_Master WHERE LaLiga_GF IS NULL")]
         if missing_gf:
             findings.append({
@@ -327,6 +526,9 @@ class Archive:
                 "where": "Barcelona_Season_Master",
                 "sample": missing_gf,
             })
+
+        order = {"high": 0, "medium": 1, "low": 2}
+        findings.sort(key=lambda f: order.get(f["severity"], 3))
 
         return {
             "issueTotal": sum(domains.values()),
@@ -349,9 +551,26 @@ class Archive:
                 "rating": num(r["Average_Rating"]),
             })
         awards = self.q("SELECT Award, COUNT(*) n FROM Canonical_Award_Facts GROUP BY 1 ORDER BY n DESC")
+
+        winners = defaultdict(list)
+        for r in self.q(
+            """SELECT Award, Season, Player_Raw, Player_ID, Club_Raw, Identity_Status
+               FROM Canonical_Award_Facts WHERE Rank='1' ORDER BY Award, Season DESC"""
+        ):
+            winners[r["Award"]].append({
+                "season": r["Season"], "player": r["Player_Raw"], "id": r["Player_ID"],
+                "club": r["Club_Raw"], "resolved": bool(r["Player_ID"]),
+            })
+
+        records = [{"type": r["Record_Type"], "season": r["Season"], "who": r["Player_or_Entity"],
+                    "context": r["Club_or_Context"], "sheet": r["Origin_Sheet"]}
+                   for r in self.q("SELECT * FROM Historical_Records ORDER BY Season DESC")]
+
         return {
             "ballonDor": [{"season": k, "podium": v} for k, v in by_season.items()],
             "awardCatalogue": [{"award": r["Award"], "count": as_int(r["n"])} for r in awards],
+            "winners": winners,
+            "records": records,
         }
 
 
@@ -359,6 +578,8 @@ def build(db_path: Path, out_path: Path, template_path: Path) -> None:
     archive = Archive(db_path)
     payload = {
         "meta": archive.meta(),
+        "world": archive.world(),
+        "people": archive.people(),
         "seasons": archive.seasons(),
         "players": archive.players(),
         "chronicle": archive.chronicle(),
