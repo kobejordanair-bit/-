@@ -278,6 +278,60 @@ tr.q-win td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
 .podium .cl{font-size:11px;color:var(--text-3);white-space:nowrap}
 .podium li:first-child .nm{color:var(--garnet)}
 
+/* ---------- resolution console ---------- */
+.queue{display:flex;flex-direction:column;gap:12px}
+.card{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:16px 18px;
+  display:flex;flex-direction:column;gap:12px}
+.card.done{opacity:.62}
+.card.v-exact{border-left:3px solid var(--ok)}
+.card.v-strong{border-left:3px solid var(--azul)}
+.card.v-weak{border-left:3px solid var(--warn)}
+.card.v-no_candidate{border-left:3px solid var(--text-3)}
+.card-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.card-name{font-family:var(--display);font-size:19px;font-weight:800;letter-spacing:-.01em}
+.card-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.ctx{font-size:12px;color:var(--text-3);line-height:1.9}
+.ctx b{color:var(--text-2);font-weight:500}
+.cand{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;
+  border:1px solid var(--line-soft);border-radius:6px;padding:10px 12px;background:var(--sunk)}
+.cand + .cand{margin-top:7px}
+.cand .who{min-width:0}
+.cand .cn{font-weight:500;font-size:13.5px}
+.cand .cid{font-family:var(--mono);font-size:10.5px;color:var(--text-3);margin-left:7px}
+.cand .why{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.score{display:flex;align-items:center;gap:8px}
+.score .bar{width:52px;height:5px;background:var(--panel-2);border-radius:3px;overflow:hidden}
+.score .bar i{display:block;height:100%;border-radius:3px}
+.score .pc{font-family:var(--mono);font-size:11px;width:32px;text-align:right;
+  font-variant-numeric:tabular-nums;color:var(--text-2)}
+.prog{height:7px;background:var(--sunk);border-radius:4px;overflow:hidden;display:flex}
+.prog i{display:block;height:100%}
+.decided{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text-2);
+  background:var(--ok-bg);border-radius:6px;padding:9px 12px}
+.decided.skip{background:var(--panel-2)}
+.decided.new{background:var(--warn-bg)}
+
+/* ---------- time travel ---------- */
+.daterail{display:flex;gap:4px;overflow-x:auto;padding-bottom:6px;align-items:flex-end}
+.day{flex:1 1 42px;min-width:30px;background:none;border:0;padding:0;cursor:pointer;display:flex;
+  flex-direction:column;align-items:center;gap:5px}
+.day .stalk{width:100%;border-radius:3px 3px 0 0;background:var(--azul);opacity:.5;transition:opacity .15s}
+.day:hover .stalk,.day[aria-current="true"] .stalk{opacity:1;background:var(--garnet)}
+.day .dl{font-family:var(--mono);font-size:9px;color:var(--text-3);writing-mode:vertical-rl;
+  transform:rotate(180deg);letter-spacing:.02em;height:52px}
+.day[aria-current="true"] .dl{color:var(--garnet);font-weight:600}
+.learned{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.learned div{background:var(--sunk);border-radius:6px;padding:11px 13px}
+.learned .ln{font-family:var(--display);font-size:21px;font-weight:800;line-height:1;
+  font-variant-numeric:tabular-nums;color:var(--garnet)}
+.learned .ll{font-size:11.5px;color:var(--text-3);margin-top:5px}
+.move{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;
+  padding:6px 0;border-bottom:1px solid var(--line-soft);font-size:12.5px}
+.move:last-child{border-bottom:0}
+.move .mv{font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--text-3)}
+.move .md{font-family:var(--mono);font-size:11.5px;font-weight:600;width:28px;text-align:right}
+.move .md.up{color:var(--ok)} .move .md.down{color:var(--bad)}
+
 /* ---------- import ---------- */
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{background:var(--panel-2);border:1px solid var(--line);border-radius:99px;padding:5px 13px;
@@ -391,10 +445,12 @@ const VIEWS = [
   { id: "leagues",   group: "世界", label: "聯賽積分榜", render: renderLeagues },
   { id: "honours",   group: "世界", label: "榮譽殿堂",   render: renderHonours },
   { id: "chronicle", group: "世界", label: "編年史",     render: renderChronicle },
+  { id: "timetravel", group: "世界", label: "認知史",    render: renderTimeTravel },
   { id: "people",    group: "檔案", label: "球員名錄",   render: renderPeople },
   { id: "dynasty",   group: "檔案", label: "巴薩王朝",   render: renderDynasty },
   { id: "seasons",   group: "檔案", label: "巴薩賽季",   render: renderSeasons },
   { id: "squad",     group: "檔案", label: "巴薩陣容",   render: renderSquad },
+  { id: "resolve",   group: "工具", label: "身分解析",   render: renderResolve },
   { id: "import",    group: "工具", label: "匯入資料",   render: renderImport },
   { id: "integrity", group: "工具", label: "檔案完整性", render: renderIntegrity },
 ];
@@ -408,6 +464,10 @@ const state = {
   personFilter: "awards",
   person: null,
   importKind: "season",
+  resolveFilter: "todo",
+  resolveQuery: "",
+  decisions: null,
+  ttDate: null,
   importParsed: null,
   importMap: {},
   batches: null,
@@ -1231,6 +1291,290 @@ function renderIntegrity() {
 }
 
 
+
+/* ===================================================================
+   IDENTITY RESOLUTION CONSOLE
+   445 award rows across 212 raw names carry no Player_ID. Candidates are
+   computed at build time (OpenCC + the full accepted-association index);
+   this view presents them with their evidence and records the decision.
+   =================================================================== */
+
+const VERDICT_META = {
+  exact:        { label: "正規化後完全相同", cls: "ok" },
+  strong:       { label: "高可信候選",       cls: "ok" },
+  weak:         { label: "需人工判斷",       cls: "warn" },
+  no_candidate: { label: "查無候選",         cls: "flat" },
+};
+
+const RESOLVE_FILTERS = [
+  { id: "todo", label: "待處理", test: (i, d) => !d[i.raw] },
+  { id: "cand", label: "有候選", test: (i, d) => !d[i.raw] && i.candidates.length },
+  { id: "none", label: "無候選（需建新身分）", test: (i, d) => !d[i.raw] && !i.candidates.length },
+  { id: "done", label: "已決定", test: (i, d) => !!d[i.raw] },
+  { id: "all", label: "全部", test: () => true },
+];
+
+async function loadDecisions() {
+  const db = await getDb();
+  if (!db) { state.decisions = "unavailable"; return; }
+  try {
+    const docs = await db.collection("identity_decisions").limit(500).get();
+    const map = {};
+    docs.forEach(d => { map[d.data.raw] = d.data; });
+    state.decisions = map;
+  } catch (e) { state.decisions = "unavailable"; }
+}
+
+async function decide(item, action, playerId) {
+  const db = await getDb();
+  if (!db) return;
+  const doc = {
+    raw: item.raw,
+    action,                       // confirm | new | reject
+    playerId: playerId || null,
+    playerName: playerId ? (item.candidates.find(c => c.id === playerId)?.name ?? null) : null,
+    rows: item.rows,
+    verdict: item.verdict,
+    topScore: item.candidates[0]?.score ?? null,
+    decidedAt: new Date().toISOString(),
+  };
+  /* doc id must be stable and path-safe; the raw name is neither */
+  const key = "d" + [...item.raw].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7).toString(36)
+    + "-" + item.rows;
+  try {
+    await db.doc("identity_decisions/" + key).set(doc);
+    if (state.decisions && state.decisions !== "unavailable") state.decisions[item.raw] = doc;
+  } catch (e) {
+    state.resolveError = e?.code === "not_granted"
+      ? "沒有寫入權限，決定無法保存。" : "寫入失敗：" + (e?.message || e?.code);
+  }
+  paint();
+}
+
+async function undecide(item) {
+  const db = await getDb();
+  if (!db) return;
+  const key = "d" + [...item.raw].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7).toString(36)
+    + "-" + item.rows;
+  try { await db.doc("identity_decisions/" + key).delete(); } catch (e) { /* already gone */ }
+  if (state.decisions && state.decisions !== "unavailable") delete state.decisions[item.raw];
+  paint();
+}
+
+async function exportDecisions() {
+  if (!downloadsHandle) await getDb();
+  const map = state.decisions;
+  if (!downloadsHandle || !map || map === "unavailable") return;
+  const list = Object.values(map);
+  if (!list.length) return;
+  try {
+    await downloadsHandle.save({
+      filename: `fm24-identity-decisions-${new Date().toISOString().slice(0, 10)}.json`,
+      data: JSON.stringify({
+        exportedAt: new Date().toISOString(),
+        schema: "FM24_IDENTITY_DECISIONS_V1",
+        note: "餵給 fm24/ingest.py --identity，會寫入 Ingest_Identity_Decisions 表。",
+        decisions: list,
+      }, null, 2),
+    });
+  } catch (e) { /* viewer declined */ }
+}
+
+function renderResolve() {
+  if (state.decisions === null) loadDecisions().then(paint);
+  const r = DATA.resolution;
+  const decided = (state.decisions && state.decisions !== "unavailable") ? state.decisions : {};
+  const decidedCount = Object.keys(decided).length;
+  const clearedRows = Object.values(decided).reduce((a, d) => a + (d.rows || 0), 0);
+
+  const f = RESOLVE_FILTERS.find(x => x.id === state.resolveFilter) || RESOLVE_FILTERS[0];
+  const q = state.resolveQuery.trim();
+  const items = r.items.filter(i => f.test(i, decided) &&
+    (!q || i.raw.includes(q) || i.candidates.some(c => c.name.includes(q))));
+  const shown = items.slice(0, 40);
+
+  const byVerdict = Object.fromEntries(r.verdicts.map(v => [v.verdict, v.n]));
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${r.totalNames} 個未解析姓名　·　${r.totalRows} 列受影響`),
+      el("h2", {}, "身分解析控制台"),
+      el("p", {}, "候選人在 build 時以 OpenCC 正規化簡繁後比對，比對依據是檔案已接受的每一筆"
+        + `原始名→ID 關聯（共 ${r.indexKeys} 組索引鍵）。姓氏不符者直接否決，避免「路易斯·迪亞斯」被配成「路易斯·蘇亞雷斯」。`)),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, r.totalRows), el("div", { class: "l" }, "待解析列")),
+      el("div", {}, el("div", { class: "n tnum" }, (byVerdict.exact || 0) + (byVerdict.strong || 0)), el("div", { class: "l" }, "高可信候選")),
+      el("div", {}, el("div", { class: "n tnum" }, byVerdict.weak || 0), el("div", { class: "l" }, "需人工判斷")),
+      el("div", {}, el("div", { class: "n tnum" }, byVerdict.no_candidate || 0), el("div", { class: "l" }, "需建新身分")),
+      el("div", {}, el("div", { class: "n tnum" }, decidedCount), el("div", { class: "l" }, "已決定")),
+    ),
+    el("section", { class: "panel" },
+      el("h3", {}, "進度"),
+      el("p", { class: "cap" }, decidedCount
+        ? `已決定 ${decidedCount} 個姓名，可清掉 ${clearedRows} 列（${Math.round(clearedRows / r.totalRows * 100)}%）。`
+        : "尚未做出任何決定。由上而下處理，最上面的姓名一次能清掉最多列。"),
+      el("div", { class: "prog" },
+        el("i", { style: `width:${(clearedRows / r.totalRows) * 100}%;background:var(--garnet)` }),
+        el("i", { style: `width:${(1 - clearedRows / r.totalRows) * 100}%;background:transparent` })),
+      state.decisions === "unavailable" ? el("div", { class: "hint", style: "margin-top:14px" },
+        "儲存空間不可用，決定不會被保存。候選比對與證據仍可正常檢視。") : null,
+      decidedCount ? el("div", { class: "btnrow", style: "margin-top:16px" },
+        el("button", { class: "btn", type: "button", onClick: exportDecisions }, "匯出決定 JSON"),
+        el("span", { class: "cap" }, "下載後執行　", el("code", {}, "python3 ingest.py <檔案> --identity --commit"))) : null),
+    r.merges.length ? el("section", { class: "panel" },
+      el("h3", {}, `積欠名單內部疑似重複　${r.merges.length} 組`),
+      el("p", { class: "cap" }, "這些未解析姓名彼此高度相似，很可能是同一個尚未建檔的球員。先合併再建 ID，避免同一人拿到多個 Player_ID。"),
+      el("div", {}, r.merges.map(g => el("div", { class: "ctx" }, g.join("　⟷　"))))) : null,
+    state.resolveError ? el("div", { class: "note" }, state.resolveError) : null,
+    el("div", { class: "filters" },
+      el("input", {
+        id: "resolveQ", type: "search", placeholder: "搜尋原始姓名或候選人…", value: state.resolveQuery,
+        onInput: e => { state.resolveQuery = e.target.value; paint(); },
+      }),
+      el("div", { class: "chips" }, RESOLVE_FILTERS.map(x =>
+        el("button", {
+          class: "chip", type: "button", "aria-pressed": String(x.id === state.resolveFilter),
+          onClick: () => { state.resolveFilter = x.id; paint(); },
+        }, x.label)))),
+    el("p", { class: "cap" }, `符合 ${items.length}${items.length > shown.length ? `，顯示前 ${shown.length}` : ""}`),
+    el("div", { class: "queue" }, shown.map(i => resolveCard(i, decided[i.raw]))),
+  ];
+}
+
+function resolveCard(item, decision) {
+  const meta = VERDICT_META[item.verdict] || VERDICT_META.no_candidate;
+  return el("div", { class: "card v-" + item.verdict + (decision ? " done" : "") },
+    el("div", { class: "card-top" },
+      el("div", {},
+        el("div", { class: "card-name" }, item.raw),
+        el("div", { class: "card-meta" },
+          el("span", { class: "pill " + meta.cls }, meta.label),
+          el("span", { class: "pill flat" }, `${item.rows} 列`),
+          item.clubs.map(c => el("span", { class: "pill flat" }, c)))),
+      el("div", { class: "ctx", style: "text-align:right" },
+        item.seasons.length ? el("div", {}, el("b", {}, item.seasons.length), " 個賽季　",
+          item.seasons.slice(0, 3).join("、"), item.seasons.length > 3 ? "…" : "") : null,
+        item.awards.length ? el("div", {}, item.awards.slice(0, 2).map(a => a.award).join("、")) : null,
+        el("div", { class: "mono" }, item.sheets.map(s => s.sheet).slice(0, 2).join("、")))),
+    item.siblings.length ? el("div", { class: "hint" },
+      "疑似同一人的其他寫法：", item.siblings.join("、")) : null,
+    decision
+      ? el("div", { class: "decided " + (decision.action === "confirm" ? "" : decision.action === "new" ? "new" : "skip") },
+          el("span", {}, decision.action === "confirm" ? `已確認為 ${decision.playerId}　${decision.playerName || ""}`
+            : decision.action === "new" ? "已標記為新身分，待建立 Player_ID"
+            : "已標記為無法判定，保留原始值"),
+          el("button", { class: "btn danger", type: "button", style: "margin-left:auto",
+            onClick: () => undecide(item) }, "撤銷"))
+      : el("div", {},
+          item.candidates.length
+            ? el("div", {}, item.candidates.map(c =>
+                el("div", { class: "cand" },
+                  el("div", { class: "who" },
+                    el("div", {}, el("span", { class: "cn" }, c.name), el("span", { class: "cid" }, c.id)),
+                    el("div", { class: "why" },
+                      c.reasons.map(x => el("span", { class: "pill flat" }, x)),
+                      Object.entries(c.evidence).map(([k, v]) =>
+                        el("span", { class: "pill flat", title: "此候選在該表出現次數" }, `${k} ×${v}`)))),
+                  el("div", { class: "score" },
+                    el("span", { class: "bar" }, el("i", {
+                      style: `width:${c.score * 100}%;background:${c.score >= 0.9 ? "var(--ok)" : c.score >= 0.75 ? "var(--azul)" : "var(--warn)"}`,
+                    })),
+                    el("span", { class: "pc" }, Math.round(c.score * 100) + "%"),
+                    el("button", { class: "btn", type: "button", style: "padding:6px 12px;font-size:12px",
+                      onClick: () => decide(item, "confirm", c.id) }, "確認")))))
+            : el("div", { class: "ctx" }, "索引中沒有姓氏相符的受控身分。這個球員檔案從未收錄過，需要建立新的 Player_ID。"),
+          el("div", { class: "btnrow", style: "margin-top:12px" },
+            el("button", { class: "btn ghost", type: "button", onClick: () => decide(item, "new") }, "建立新身分"),
+            el("button", { class: "btn ghost", type: "button", onClick: () => decide(item, "reject") }, "無法判定，跳過"))));
+}
+
+/* ===================================================================
+   TIME TRAVEL — the archive's knowledge history
+   Append-only means every past state of knowledge is still reconstructible.
+   These dates are when the ARCHIVE learned things, not when they happened.
+   =================================================================== */
+function renderTimeTravel() {
+  const tt = DATA.timetravel;
+  if (!tt.timeline.length) return [el("div", { class: "empty" }, "沒有可用的快照日期。")];
+  const current = tt.timeline.find(d => d.date === state.ttDate) || tt.timeline[tt.timeline.length - 1];
+  const maxLearned = Math.max(...tt.timeline.map(d => d.total), 1);
+  const idx = tt.timeline.indexOf(current);
+  const cumulative = tt.timeline.slice(0, idx + 1).reduce((a, d) => a + d.total, 0);
+  const grandTotal = tt.timeline.reduce((a, d) => a + d.total, 0);
+
+  const rail = el("div", { class: "daterail" }, tt.timeline.map(d =>
+    el("button", {
+      class: "day", type: "button", "aria-current": String(d.date === current.date),
+      title: `${d.date}　新增 ${d.total} 筆觀測`,
+      onClick: () => { state.ttDate = d.date; paint(); },
+    },
+      el("div", { class: "stalk", style: `height:${12 + Math.round(Math.sqrt(d.total / maxLearned) * 92)}px` }),
+      el("div", { class: "dl" }, d.date.slice(5)))));
+
+  const moves = tt.changes.filter(c => c.span.endsWith(current.date));
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${tt.first} – ${tt.last}　${tt.timeline.length} 個觀測日`),
+      el("h2", {}, "檔案認知史"),
+      el("p", {}, "這條時間軸不是世界發生了什麼，而是「檔案在哪一天知道了什麼」。"
+        + "因為模型是 append-only、從不覆寫，每一個過去的認知狀態都還原得回來——這是不補值政策換來的東西。")),
+    el("section", { class: "panel" },
+      el("h3", {}, "觀測量"),
+      el("p", { class: "cap" }, "柱高為該日新增的觀測筆數（平方根尺度，否則大批匯入會壓平其他日子）。點選任一日期。"),
+      rail),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" },
+        el("div", { class: "n tnum", style: "font-size:19px;white-space:nowrap" }, current.date),
+        el("div", { class: "l" }, "選定觀測日")),
+      el("div", {}, el("div", { class: "n tnum" }, current.total.toLocaleString()),
+        el("div", { class: "l" }, "當日新增觀測")),
+      el("div", {}, el("div", { class: "n tnum" }, current.knownPlayers), el("div", { class: "l" }, "累計已知球員")),
+      el("div", {}, el("div", { class: "n tnum" }, cumulative.toLocaleString()), el("div", { class: "l" }, "累計觀測")),
+      el("div", {}, el("div", { class: "n tnum" }, Math.round(cumulative / grandTotal * 100) + "%"),
+        el("div", { class: "l" }, "佔最終認知")),
+    ),
+    el("section", { class: "panel" },
+      el("h3", {}, `${current.date} 這天，檔案學到了什麼`),
+      el("p", { class: "cap" }, current.total
+        ? `共 ${current.total.toLocaleString()} 筆新觀測。`
+        : "這天沒有新增觀測。"),
+      el("div", { class: "learned" }, current.learned.map(l =>
+        el("div", {}, el("div", { class: "ln" }, l.n), el("div", { class: "ll" }, l.label))))),
+    current.newPlayers.length ? el("section", { class: "panel" },
+      el("h3", {}, `首次進入檔案的球員　${current.newPlayers.length}`),
+      el("p", { class: "cap" }, "在此之前，檔案對這些球員沒有任何個人檔案紀錄。"),
+      el("div", { class: "chips" }, current.newPlayers.map(n => el("span", { class: "chip" }, n)))) : null,
+    moves.length ? el("section", { class: "panel" },
+      el("h3", {}, "能力值變動"),
+      el("p", { class: "cap" }, "兩次快照之間的實際差異，來源：Player_Attribute_Changes"),
+      moves.map(span => el("div", { style: "margin-top:12px" },
+        el("div", { class: "mono", style: "color:var(--text-3);margin-bottom:6px" }, span.span),
+        span.moves.slice(0, 40).map(m => el("div", { class: "move" },
+          el("div", {}, el("b", {}, tt.playerNames[m.player] || m.player),
+            el("span", { style: "color:var(--text-3)" }, "　" + m.attr)),
+          el("div", { class: "mv" }, `${m.old} → ${m.new}`),
+          el("div", { class: "md " + (m.delta > 0 ? "up" : "down") }, (m.delta > 0 ? "+" : "") + m.delta))),
+        span.moves.length > 40 ? el("p", { class: "cap" }, `另有 ${span.moves.length - 40} 筆變動`) : null))) : null,
+    el("section", { class: "panel" },
+      el("h3", {}, "全部觀測日"),
+      el("p", { class: "cap" }, "累計已知球員數的成長軌跡。"),
+      el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
+        el("thead", {}, el("tr", {}, ["觀測日", "新增觀測", "新球員", "累計已知球員", "主要內容"]
+          .map((x, i) => el("th", { class: i > 0 && i < 4 ? "num" : "" }, x)))),
+        el("tbody", {}, tt.timeline.slice().reverse().map(d =>
+          el("tr", {
+            class: "click", onClick: () => { state.ttDate = d.date; paint(); },
+            style: d.date === current.date ? "background:var(--garnet-soft)" : "",
+          },
+            el("td", { class: "mono" }, d.date),
+            el("td", { class: "num tnum" }, d.total),
+            el("td", { class: "num tnum" }, d.newPlayers.length || "—"),
+            el("td", { class: "num tnum" }, d.knownPlayers),
+            el("td", { class: "mono" }, d.learned.slice(0, 2).map(l => `${l.label} ${l.n}`).join("　")))))))),
+  ];
+}
+
 /* ===================================================================
    IMPORT — paste -> parse -> resolve identity -> append-only record
    The workbook's own model is append-only observations, so an import
@@ -1650,6 +1994,8 @@ function paint() {
   document.querySelectorAll("#nav button").forEach(b =>
     b.setAttribute("aria-current", String(b.dataset.view === state.view)));
   if (state.scrollTop) { window.scrollTo(0, 0); state.scrollTop = false; }
+  const activeDay = main.querySelector('.day[aria-current="true"]');
+  if (activeDay) activeDay.scrollIntoView({ block: "nearest", inline: "center" });
 }
 function go(id) { state.view = id; state.player = null; state.person = null; state.scrollTop = true; paint(); }
 

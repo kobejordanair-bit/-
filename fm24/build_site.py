@@ -20,6 +20,8 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from resolver import IdentityResolver
+
 BARCELONA_CLUB_ID = "C-0030"
 
 # FM attribute groups, in the game's own column order.
@@ -407,6 +409,148 @@ class Archive:
             "withAwards": sum(1 for p in people if p["awards"]),
         }
 
+
+    # ------------------------------------------------------------ resolution --
+    def resolution(self) -> dict:
+        """The unresolved-identity backlog, with candidates computed here.
+
+        Matching needs OpenCC and the whole accepted-association index, neither
+        of which belongs in a browser, so the page receives ranked candidates
+        and evidence and a person makes the call.
+        """
+        resolver = IdentityResolver(self.con)
+
+        rows = self.q(
+            """SELECT Player_Raw, Origin_Sheet, Origin_Row, Source_ID, Reason
+               FROM Award_Resolution_Status WHERE Resolution_Status='UNRESOLVED_IDENTITY'"""
+        )
+        context = defaultdict(lambda: {"rows": 0, "sheets": Counter(), "awards": Counter(),
+                                       "seasons": set(), "clubs": Counter(), "clubIds": Counter()})
+        for r in rows:
+            bucket = context[r["Player_Raw"]]
+            bucket["rows"] += 1
+            if r["Origin_Sheet"]:
+                bucket["sheets"][r["Origin_Sheet"]] += 1
+
+        # the award facts carry the season and club that make a name decidable
+        for r in self.q("SELECT Player_Raw, Award, Season, Club_Raw, Club_ID FROM Canonical_Award_Facts WHERE Player_ID IS NULL"):
+            name = r["Player_Raw"]
+            if name not in context:
+                continue
+            bucket = context[name]
+            if r["Award"]:
+                bucket["awards"][r["Award"]] += 1
+            if r["Season"]:
+                bucket["seasons"].add(r["Season"])
+            if r["Club_Raw"]:
+                bucket["clubs"][r["Club_Raw"]] += 1
+            if r["Club_ID"]:
+                bucket["clubIds"][r["Club_ID"]] += 1
+
+        names = sorted(context)
+        clusters = resolver.cluster_backlog(names)
+        sibling = {}
+        for group in clusters:
+            if len(group) > 1:
+                for name in group:
+                    sibling[name] = [n for n in group if n != name]
+
+        items = []
+        for name in names:
+            bucket = context[name]
+            club_id = bucket["clubIds"].most_common(1)[0][0] if bucket["clubIds"] else None
+            candidates = resolver.candidates(name, club_id=club_id)
+            items.append({
+                "raw": name,
+                "rows": bucket["rows"],
+                "sheets": [{"sheet": k, "n": v} for k, v in bucket["sheets"].most_common()],
+                "awards": [{"award": k, "n": v} for k, v in bucket["awards"].most_common()],
+                "seasons": sorted(bucket["seasons"], reverse=True),
+                "clubs": [k for k, _ in bucket["clubs"].most_common(3)],
+                "clubId": club_id,
+                "candidates": candidates,
+                "verdict": IdentityResolver.verdict(candidates),
+                "siblings": sibling.get(name, []),
+            })
+        # heaviest first: confirming one name can clear a dozen rows
+        items.sort(key=lambda x: (-x["rows"], x["raw"]))
+
+        verdicts = Counter(i["verdict"] for i in items)
+        return {
+            "items": items,
+            "totalRows": sum(i["rows"] for i in items),
+            "totalNames": len(items),
+            "verdicts": [{"verdict": k, "n": v} for k, v in verdicts.most_common()],
+            "merges": [g for g in clusters if len(g) > 1],
+            "controlledPlayers": len(resolver.canonical),
+            "indexKeys": len(resolver.index),
+        }
+
+    # ------------------------------------------------------------ timetravel --
+    def timetravel(self) -> dict:
+        """The archive's own knowledge history.
+
+        Distinct from the in-world timeline: these are the dates the archive
+        LEARNED things. Because the model is append-only, every one of them is
+        still reconstructible — which is the whole point of not overwriting.
+        """
+        date_sources = [
+            ("Player_Profile_Snapshots", "Snapshot_Date", "球員檔案"),
+            ("Player_Attr_Snap_O", "Snapshot_Date", "能力值快照（非門將）"),
+            ("Player_Attr_Snap_G", "Snapshot_Date", "能力值快照（門將）"),
+            ("Player_Career_Summaries", "Snapshot_Date", "生涯總計"),
+            ("Barcelona_Squad_History", "Snapshot_Date", "巴薩陣容快照"),
+            ("Domestic_League_Standings", "Snapshot", "聯賽積分榜"),
+            ("Club_Cup_History", "Snapshot", "盃賽進程"),
+        ]
+
+        per_date = defaultdict(lambda: defaultdict(int))
+        for table, column, label in date_sources:
+            try:
+                for r in self.q(f'SELECT "{column}" d, COUNT(*) n FROM "{table}" WHERE "{column}" IS NOT NULL GROUP BY 1'):
+                    date = str(r["d"])[:10]
+                    if re.match(r"^20\d\d-\d\d-\d\d$", date):
+                        per_date[date][label] += as_int(r["n"])
+            except sqlite3.OperationalError:
+                continue
+
+        # attribute movement between two snapshots, per player
+        changes = defaultdict(list)
+        for r in self.q("SELECT * FROM Player_Attribute_Changes"):
+            changes[f'{r["From_Snapshot"]}→{r["To_Snapshot"]}'].append({
+                "player": r["Player_ID"], "attr": r["Attribute_Name"],
+                "old": as_int(r["Old_Value"]), "new": as_int(r["New_Value"]), "delta": as_int(r["Delta"]),
+            })
+
+        names = {p["Player_ID"]: p["Canonical_Display_Name"]
+                 for p in self.q("SELECT DISTINCT Player_ID, Canonical_Display_Name FROM Player_Dim WHERE Player_ID IS NOT NULL")}
+
+        # which players the archive knew a profile for, as of each date
+        profile_dates = defaultdict(set)
+        for r in self.q("SELECT Snapshot_Date, Player_ID FROM Player_Profile_Snapshots WHERE Snapshot_Date IS NOT NULL"):
+            profile_dates[str(r["Snapshot_Date"])[:10]].add(r["Player_ID"])
+
+        dates = sorted(per_date)
+        known, timeline = set(), []
+        for date in dates:
+            new_players = profile_dates.get(date, set()) - known
+            known |= profile_dates.get(date, set())
+            timeline.append({
+                "date": date,
+                "learned": [{"label": k, "n": v} for k, v in sorted(per_date[date].items(), key=lambda x: -x[1])],
+                "total": sum(per_date[date].values()),
+                "newPlayers": sorted(names.get(p, p) for p in new_players),
+                "knownPlayers": len(known),
+            })
+
+        return {
+            "timeline": timeline,
+            "changes": [{"span": k, "moves": v} for k, v in sorted(changes.items())],
+            "playerNames": names,
+            "first": dates[0] if dates else None,
+            "last": dates[-1] if dates else None,
+        }
+
     # ------------------------------------------------------------ chronicle --
     def chronicle(self) -> list[dict]:
         rows = self.q("SELECT * FROM World_Timeline ORDER BY Period_ID DESC, Timeline_ID")
@@ -579,6 +723,8 @@ def build(db_path: Path, out_path: Path, template_path: Path) -> None:
     payload = {
         "meta": archive.meta(),
         "world": archive.world(),
+        "resolution": archive.resolution(),
+        "timetravel": archive.timetravel(),
         "people": archive.people(),
         "seasons": archive.seasons(),
         "players": archive.players(),
