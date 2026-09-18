@@ -22,7 +22,7 @@ from pathlib import Path
 
 from resolver import (CATEGORY_LABELS, CLUB_REFERENCE_COLUMNS, COMPETITION_REFERENCE_COLUMNS,
                       LEAGUE_LABELS, ClubResolver, CompetitionResolver, IdentityResolver,
-                      competition_category, is_truncated, league_key, normalise,
+                      club_key, competition_category, is_truncated, league_key, normalise,
                       sheet_league, start_year, strip_stage, tier_signature)
 
 BARCELONA_CLUB_ID = "C-0030"
@@ -199,15 +199,24 @@ class Archive:
         for row in self.q("SELECT * FROM Player_Profile_Snapshots ORDER BY Snapshot_Date"):
             profiles[row["Player_ID"]] = row
 
+        # The workbook states which observation is authoritative for a season in
+        # Statistical_Adoption_Status. Plotting the superseded row alongside the
+        # adopted one puts two different seasons on the chart and contradicts the
+        # career total printed on the same page, which counts only the adopted.
         season_stats = defaultdict(list)
+        superseded = defaultdict(list)
         for row in self.q(
             "SELECT * FROM Player_Club_Season_Totals WHERE Club_ID=? ORDER BY Season_ID", BARCELONA_CLUB_ID
         ):
-            season_stats[row["Player_ID"]].append({
+            adoption = row["Statistical_Adoption_Status"] or "ADOPTED"
+            record = {
                 "season": row["Season_Display"], "apps": as_int(row["Apps"]), "goals": as_int(row["Goals"]),
                 "assists": as_int(row["Assists"]), "motm": as_int(row["POTM"]), "rating": num(row["Rating"]),
                 "source": row["Source_ID"], "status": row["Verification_Status"],
-            })
+                "adoption": adoption, "adoptionNote": row["Adoption_Note"],
+                "instance": row["Source_Instance_ID"],
+            }
+            (season_stats if adoption == "ADOPTED" else superseded)[row["Player_ID"]].append(record)
 
         attrs = {}
         for row in self.q("SELECT * FROM Player_Attr_Snap_O ORDER BY Snapshot_Date"):
@@ -270,6 +279,7 @@ class Archive:
                 "dob": profile.get("DOB"),
                 "shirt": profile.get("Shirt_Number"),
                 "seasonStats": season_stats.get(pid, []),
+                "supersededStats": superseded.get(pid, []),
                 "attrs": attrs.get(pid),
                 "national": national.get(pid, []),
             })
@@ -323,18 +333,59 @@ class Archive:
         leagues = sorted({r["Competition_Raw"] for r in league_rows})
         seasons = sorted({r["Season"] for r in league_rows})
 
-        # champions grid reads the adopted snapshot only, never a provisional table
+        # Champions confirmed by another table in the workbook. A standings
+        # snapshot without a FINAL marker does not make an already-recorded title
+        # provisional — those are two different questions.
+        confirmed = set()
+        for table, competition_col, season_col, club_col, rank_col in (
+            ("Domestic_Leagues", "Competition", "Season", "Club", "Rank"),
+        ):
+            if not self.has(table, competition_col, season_col, club_col, rank_col):
+                continue
+            for r in self.q(f'SELECT "{competition_col}" c, "{season_col}" s, "{club_col}" k '
+                            f'FROM "{table}" WHERE "{rank_col}"=?', "1"):
+                key = league_key(r["c"])
+                if key and r["s"]:
+                    confirmed.add((key, str(r["s"]), normalise(r["k"])))
+
         champions = {}
         for group_key, group in snapshot_index.items():
+            league_name, season = group_key.split("|")
             chosen = next((g for g in group if g["final"]), group[-1])
             first = next((r for r in snaps[chosen["key"]] if r[0] == 1), None)
-            if first and chosen["final"]:
-                champions[group_key] = first[1]
-            elif first:
-                champions[group_key] = first[1] + "（暫）"
+            if not first:
+                continue
+            elsewhere = (league_key(league_name), season, normalise(first[1])) in confirmed
+            champions[group_key] = {
+                "club": first[1],
+                "final": chosen["final"],
+                "confirmedElsewhere": elsewhere,
+                "snapshot": chosen["snapshot"],
+            }
 
-        ucl = [{"season": r["Season"], "winner": r["Winner"], "runnerUp": r["Runner_Up"]}
-               for r in self.q("SELECT * FROM UCL ORDER BY Season DESC")]
+        club_res = ClubResolver(self.con)
+
+        def club_identity(raw):
+            """Resolve to a Club_ID so two spellings of one club count once."""
+            if not raw:
+                return None, None
+            cid = club_res.resolve(raw)
+            if not cid:
+                hits = club_res.stripped.get(club_key(raw), set())
+                cid = next(iter(hits)) if len(hits) == 1 else None
+            return cid, (club_res.canonical.get(cid) if cid else None)
+
+        ucl = []
+        ucl_titles = Counter()
+        ucl_names = {}
+        for r in self.q("SELECT * FROM UCL ORDER BY Season DESC"):
+            cid, canonical = club_identity(r["Winner"])
+            ucl.append({"season": r["Season"], "winner": r["Winner"], "runnerUp": r["Runner_Up"],
+                        "winnerId": cid, "winnerCanonical": canonical})
+            if r["Winner"]:
+                key = cid or ("raw:" + str(r["Winner"]))
+                ucl_titles[key] += 1
+                ucl_names.setdefault(key, canonical or r["Winner"])
         super_cup = [{"season": r["Season"], "winner": r["Winner"], "runnerUp": r["Runner_Up"]}
                      for r in self.q("SELECT * FROM UEFA_Super_Cup ORDER BY Season DESC")]
         intl = [{"tournament": r["Tournament"], "period": r["Period"], "winner": r["Winner"],
@@ -348,15 +399,11 @@ class Archive:
         cwc = [{"season": r["Season"] if "Season" in r else None, **{k: v for k, v in r.items() if k != "_row"}}
                for r in self.q("SELECT * FROM FIFA_Club_World_Cup_Results")]
 
-        # club honour counts across every source that names a winner
-        club_titles = Counter()
-        for key, club in champions.items():
-            club_titles[club] += 1
-        for r in ucl:
-            if r["winner"]:
-                club_titles[r["winner"]] += 1
-
         return {
+            "uclTitles": [{"id": None if k.startswith("raw:") else k,
+                           "name": ucl_names[k], "titles": v,
+                           "resolved": not k.startswith("raw:")}
+                          for k, v in ucl_titles.most_common()],
             "leagues": leagues,
             "seasons": seasons,
             "standingsCols": ["名次", "球隊", "賽", "勝", "和", "負", "進", "失", "淨", "分", "備註"],
@@ -766,21 +813,45 @@ class Archive:
 
     # -------------------------------------------------------------- clasico --
     def clasico(self) -> list[dict]:
-        out = []
-        for r in self.q("SELECT * FROM El_Clasico_Match_History ORDER BY Date"):
+        """Every recorded meeting, with the result read as the source wrote it.
+
+        The source prefixes a result decided in extra time with 加 and one
+        decided on penalties with 点. A parser that only accepts a leading digit
+        silently drops those, which is how a 46-match record summed to 43.
+
+        A penalty shoot-out is recorded as the draw it was: who advanced is not
+        stated, and this does not guess.
+        """
+        DECIDER = {"加": "aet", "延": "aet", "点": "pens", "點": "pens"}
+
+        out, undated = [], []
+        for r in self.q("SELECT * FROM El_Clasico_Match_History"):
+            raw = (r["Result_Raw"] or "").strip()
+            decider = None
+            for token, kind in DECIDER.items():
+                if raw.startswith(token):
+                    decider = kind
+                    raw = raw[len(token):].strip()
+                    break
+
             home_is_barca = "巴塞" in (r["Home_Club_Raw"] or "")
-            goals = re.match(r"(\d+)\s*[-:]\s*(\d+)", (r["Result_Raw"] or "").strip())
+            goals = re.match(r"(\d+)\s*[-:：]\s*(\d+)", raw)
             verdict = None
             if goals:
                 hg, ag = int(goals.group(1)), int(goals.group(2))
                 barca, rival = (hg, ag) if home_is_barca else (ag, hg)
                 verdict = "W" if barca > rival else "L" if barca < rival else "D"
-            out.append({
-                "date": r["Date"], "competition": r["Competition_Raw"], "home": r["Home_Club_Raw"],
-                "away": r["Away_Club_Raw"], "result": r["Result_Raw"], "verdict": verdict,
-                "homeIsBarca": home_is_barca,
-            })
-        return out
+
+            match = {
+                "date": r["Date"], "competition": r["Competition_Raw"],
+                "home": r["Home_Club_Raw"], "away": r["Away_Club_Raw"],
+                "result": r["Result_Raw"], "score": raw or None, "verdict": verdict,
+                "decider": decider, "homeIsBarca": home_is_barca,
+            }
+            (out if r["Date"] else undated).append(match)
+
+        out.sort(key=lambda m: m["date"])
+        return out + undated
 
     # -------------------------------------------------------------- quality --
     def integrity(self) -> dict:
@@ -799,19 +870,26 @@ class Archive:
         # Findings the ETL can prove from the data itself, rather than a hand-kept list.
         findings = []
 
-        dupes = self.q(
-            """SELECT Player_ID, COUNT(DISTINCT Season_Display) variants, GROUP_CONCAT(DISTINCT Season_Display) labels
-               FROM Player_Club_Season_Totals
-               WHERE Season_ID='PER-S-2034-35' GROUP BY Player_ID HAVING variants > 1"""
+        superseded = self.q(
+            """SELECT Statistical_Adoption_Status s, COUNT(*) n, COUNT(DISTINCT Player_ID) p
+               FROM Player_Club_Season_Totals WHERE Statistical_Adoption_Status != 'ADOPTED'
+               GROUP BY 1"""
         )
-        if dupes:
+        if superseded:
+            total = sum(as_int(r["n"]) for r in superseded)
+            players = as_int(self.one(
+                "SELECT COUNT(DISTINCT Player_ID) n FROM Player_Club_Season_Totals "
+                "WHERE Statistical_Adoption_Status != 'ADOPTED'")["n"])
             findings.append({
-                "severity": "high",
-                "title": "2034/35 同一球員存在兩筆賽季總計",
-                "detail": f"{len(dupes)} 名球員在 PER-S-2034-35 下同時有 '2034/35' 與 '2034-35' 兩種 Season_Display，"
-                          "且 Club_Raw 分別寫成「巴塞隆納」與「巴塞罗那」。任何 SUM 都會重複計算。",
+                "severity": "medium",
+                "title": "部分賽季保留了已被取代的較早觀測",
+                "detail": f"{total} 列被標記為非正式採用（影響 {players} 名球員），"
+                          + "、".join(f"{r['s']} {r['n']} 列" for r in superseded)
+                          + "。這是工作簿刻意保留的證據，不是錯誤——但 Statistical_Adoption_Status "
+                            "必須納入條件，否則同一賽季會被算兩次。本站的逐季圖表與統計只採用 ADOPTED，"
+                            "被取代的列另區呈現。",
                 "where": "Player_Club_Season_Totals",
-                "sample": [d["Player_ID"] for d in dupes[:8]],
+                "sample": [r["s"] for r in superseded],
             })
 
         directions = Counter(r["Direction"] for r in self.q("SELECT Direction FROM Barcelona_Transfers"))

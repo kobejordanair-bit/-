@@ -237,6 +237,7 @@ table.data tbody tr.click{cursor:pointer}
 .cl-m{width:23px;height:23px;border-radius:4px;display:flex;align-items:center;justify-content:center;
   font-family:var(--mono);font-size:10px;font-weight:600;color:#fff}
 .cl-m.W{background:var(--ok)} .cl-m.L{background:var(--bad)} .cl-m.D{background:var(--text-3)}
+.cl-m.undated{outline:2px dashed var(--line);outline-offset:1px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;
   color:var(--text-3);margin-top:12px}
 .legend span{display:flex;align-items:center;gap:5px}
@@ -259,6 +260,7 @@ table.champs td{padding:3px 4px;text-align:center}
 table.champs td span{display:block;padding:5px 7px;border-radius:4px;background:var(--sunk);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:104px;font-size:11px}
 table.champs td span.barca{background:var(--garnet);color:#fff;font-weight:500}
+table.champs td span.prov{opacity:.65;font-style:italic}
 
 /* ---------- standings ---------- */
 tr.q-ucl td:first-child{box-shadow:inset 3px 0 0 var(--azul)}
@@ -387,10 +389,21 @@ textarea.paste:focus{outline:2px solid var(--garnet);outline-offset:1px}
 @media (max-width:900px){
   :root{--rail:0px}
   .shell{grid-template-columns:minmax(0,1fr)}
-  .rail{position:static;height:auto;flex-direction:column;border-right:0;
-    border-bottom:1px solid var(--line);padding:18px 16px}
-  nav{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:2px}
-  nav button{width:auto;white-space:nowrap;padding:7px 12px}
+  /* a narrow screen should open on the content, not on a screenful of chrome */
+  .rail{position:sticky;top:0;z-index:20;height:auto;flex-direction:column;border-right:0;
+    border-bottom:1px solid var(--line);padding:10px 16px 8px;gap:9px;
+    background:var(--panel);backdrop-filter:saturate(1.2)}
+  .stamp{flex-direction:row;align-items:baseline;gap:9px}
+  .stamp .crest{margin-bottom:0;align-self:center}
+  .stamp .crest i{height:15px;width:5px}
+  .stamp h1{font-size:15px}
+  .stamp .sub{font-size:9px}
+  .rail-foot{display:none}
+  .themer{display:none}
+  nav{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:2px;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  nav::-webkit-scrollbar{display:none}
+  nav button{width:auto;white-space:nowrap;padding:6px 11px;font-size:13px}
   nav .k{display:none}
   /* the horizontal scroller has no room for group headers */
   nav .grp{display:none}
@@ -458,20 +471,20 @@ const statusPill = s => {
 
 /* ------------------------------------------------------------------ views */
 const VIEWS = [
-  { id: "world",     group: "世界", label: "世界總覽",   render: renderWorld },
-  { id: "leagues",   group: "世界", label: "聯賽積分榜", render: renderLeagues },
-  { id: "honours",   group: "世界", label: "榮譽殿堂",   render: renderHonours },
-  { id: "chronicle", group: "世界", label: "編年史",     render: renderChronicle },
-  { id: "timetravel", group: "世界", label: "認知史",    render: renderTimeTravel },
-  { id: "people",    group: "檔案", label: "球員名錄",   render: renderPeople },
-  { id: "dynasty",   group: "檔案", label: "巴薩王朝",   render: renderDynasty },
-  { id: "seasons",   group: "檔案", label: "巴薩賽季",   render: renderSeasons },
-  { id: "squad",     group: "檔案", label: "巴薩陣容",   render: renderSquad },
-  { id: "resolve",   group: "工具", label: "球員身分",   render: renderResolve },
-  { id: "clubs",     group: "工具", label: "俱樂部身分", render: renderClubs },
-  { id: "comps",     group: "工具", label: "賽事身分",   render: renderComps },
-  { id: "import",    group: "工具", label: "匯入資料",   render: renderImport },
-  { id: "integrity", group: "工具", label: "檔案完整性", render: renderIntegrity },
+  { id: "world",     group: "閱讀檔案", label: "世界總覽",   render: renderWorld },
+  { id: "leagues",   group: "閱讀檔案", label: "聯賽積分榜", render: renderLeagues },
+  { id: "honours",   group: "閱讀檔案", label: "榮譽殿堂",   render: renderHonours },
+  { id: "chronicle", group: "閱讀檔案", label: "編年史",     render: renderChronicle },
+  { id: "timetravel", group: "閱讀檔案", label: "認知史",    render: renderTimeTravel },
+  { id: "people",    group: "閱讀檔案", label: "球員名錄",   render: renderPeople },
+  { id: "dynasty",   group: "閱讀檔案", label: "巴薩王朝",   render: renderDynasty },
+  { id: "seasons",   group: "閱讀檔案", label: "巴薩賽季",   render: renderSeasons },
+  { id: "squad",     group: "閱讀檔案", label: "巴薩陣容",   render: renderSquad },
+  { id: "resolve",   group: "管理資料", label: "球員身分",   render: renderResolve },
+  { id: "clubs",     group: "管理資料", label: "俱樂部身分", render: renderClubs },
+  { id: "comps",     group: "管理資料", label: "賽事身分",   render: renderComps },
+  { id: "import",    group: "管理資料", label: "匯入資料",   render: renderImport },
+  { id: "integrity", group: "管理資料", label: "檔案完整性", render: renderIntegrity },
 ];
 
 const state = {
@@ -481,6 +494,7 @@ const state = {
   award: "Ballon d\u2019Or",
   personQuery: "",
   personFilter: "awards",
+  personLimit: 200,
   person: null,
   importKind: "season",
   resolveFilter: "todo",
@@ -560,6 +574,7 @@ function renderDynasty() {
   const w = cl.filter(m => m.verdict === "W").length;
   const d = cl.filter(m => m.verdict === "D").length;
   const l = cl.filter(m => m.verdict === "L").length;
+  const undated = cl.filter(m => !m.date).length;
 
   return [
     el("div", { class: "view-head" },
@@ -587,16 +602,20 @@ function renderDynasty() {
         el("span", {}, el("i", { style: "background:var(--gold);border-radius:50%" }), "冠軍計點"))),
     el("section", { class: "panel" },
       el("h3", {}, "國家德比戰績"),
-      el("p", { class: "cap" }, `${cl.length} 場有紀錄的對戰　${w} 勝 ${d} 和 ${l} 負，依日期排列。`),
+      el("p", { class: "cap" },
+        `${cl.length} 場有紀錄的對戰　${w} 勝 ${d} 和 ${l} 負`,
+        undated ? `，其中 ${undated} 場來源未提供日期，排在最後。` : "，依日期排列。"),
       el("div", { class: "clasico" }, cl.map(m =>
         el("div", {
-          class: "cl-m " + (m.verdict || "D"),
-          title: `${m.date}　${m.competition}　${m.home} ${m.result} ${m.away}`,
-        }, m.verdict || "?"))),
+          class: "cl-m " + (m.verdict || "D") + (m.date ? "" : " undated"),
+          title: `${m.date || "日期待補"}　${m.competition}　${m.home} ${m.result} ${m.away}`
+            + (m.decider === "aet" ? "（延長賽後）" : m.decider === "pens" ? "（和局，點球決勝；來源未載晉級方）" : ""),
+        }, m.decider === "pens" ? "P" : m.verdict || "?"))),
       el("div", { class: "legend" },
         el("span", {}, el("i", { style: "background:var(--ok)" }), "勝"),
         el("span", {}, el("i", { style: "background:var(--text-3)" }), "和"),
-        el("span", {}, el("i", { style: "background:var(--bad)" }), "負"))),
+        el("span", {}, el("i", { style: "background:var(--bad)" }), "負"),
+        el("span", {}, el("i", { style: "background:var(--text-3)" }), "P＝和局後點球決勝"))),
   ];
 }
 
@@ -719,7 +738,7 @@ function renderSquad() {
               },
             }, c.label + (key === c.key ? (dir < 0 ? " ↓" : " ↑") : ""))))),
           el("tbody", {}, rows.map(p =>
-            el("tr", { class: "click", onClick: () => { state.player = p.id; paint(); } },
+            el("tr", { class: "click", onClick: () => { state.player = p.id; paint(); writeRoute(false); } },
               el("td", { class: "name-cell" }, p.name,
                 p.ballonTop3 ? el("span", { class: "pill win", style: "margin-left:7px" }, `金球前三 ×${p.ballonTop3}`) : null),
               el("td", { class: "mono" }, dash(p.position)),
@@ -767,8 +786,8 @@ function renderPlayer() {
           el("div", { class: "n" }, v), el("div", { class: "l" }, k))))),
     p.seasonStats.length ? el("section", { class: "panel" },
       el("h3", {}, "逐季表現"),
-      el("p", { class: "cap" }, "來源：Player_Club_Season_Totals（僅 Club_ID = C-0030 的列）。"),
-      dupWarning(p.seasonStats),
+      el("p", { class: "cap" }, "巴塞隆納逐季正式數據，已排除被取代的較早觀測。"),
+      supersededNote(p.supersededStats),
       seasonChart(p.seasonStats),
       el("div", { class: "tblwrap", style: "margin-top:18px" },
         el("table", { class: "data" },
@@ -787,7 +806,14 @@ function renderPlayer() {
     ) : null,
     p.attrs ? el("section", { class: "panel" },
       el("h3", {}, "能力值快照"),
-      el("p", { class: "cap" }, `${p.attrs.date}　${p.attrs.schema === "GOALKEEPER" ? "門將" : "非門將"}屬性組　來源 ${p.attrs.source}`),
+      el("p", { class: "cap" }, `${p.attrs.date}　${p.attrs.schema === "GOALKEEPER" ? "門將" : "非門將"}屬性組`),
+      el("div", { class: "hint", style: "margin-bottom:14px" },
+        "六維圖是本站自訂的概覽指標，非 FM 官方分類：每軸取四項原始屬性的算術平均"
+        + "（終結＝射門・遠射・頭球・罰點球；創造＝傳球・視野・傳中・盤帶；"
+        + "防守＝搶斷・盯人・防守站位・侵略性；心理＝決斷・鎮定・集中・意志力；"
+        + "速度＝速度・爆發力・靈活・平衡；體能＝強壯・耐力・彈跳・體質）。"
+        + "軸名為簡稱，例如「速度」含平衡、「終結」不含無球跑動，不足以判斷位置或角色適性——"
+        + "請以右側的原始屬性為準。"),
       el("div", { class: "radar-wrap" },
         p.attrs.radar.length ? radarChart(p.attrs.radar) : el("div"),
         el("div", { class: "attr-cols" }, Object.entries(p.attrs.groups)
@@ -807,6 +833,18 @@ function renderPlayer() {
         el("dt", {}, n.scope.includes("Senior") ? "成年隊" : n.scope.includes("U20") ? "U20" : "U21"),
         el("dd", { class: "tnum" }, `${dash(n.country)}　${n.apps} 場 / ${n.goals} 球 / ${n.assists} 助`),
       ]))) : null,
+    p.supersededStats && p.supersededStats.length ? el("section", { class: "panel" },
+      el("h3", {}, `被取代的較早觀測　${p.supersededStats.length}`),
+      el("p", { class: "cap" }, "保留作為證據，不計入上方任何統計。"),
+      el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
+        el("thead", {}, el("tr", {}, ["賽季", "出場", "進球", "助攻", "取代原因"].map((x, i) =>
+          el("th", { class: i > 0 && i < 4 ? "num" : "" }, x)))),
+        el("tbody", {}, p.supersededStats.map(r => el("tr", {},
+          el("td", { class: "mono" }, r.season),
+          el("td", { class: "num tnum" }, r.apps),
+          el("td", { class: "num tnum" }, r.goals),
+          el("td", { class: "num tnum" }, r.assists),
+          el("td", { class: "mono" }, dash(r.adoptionNote))))))) ) : null,
     p.awards.length ? el("section", { class: "panel" },
       el("h3", {}, `個人榮譽　${p.awards.length}`),
       el("p", { class: "cap" }, "來源：Barcelona_Player_Career.Major_Awards"),
@@ -814,18 +852,16 @@ function renderPlayer() {
   ];
 }
 
-/* the 2034/35 double-entry is a real defect; flag it where it would inflate a sum */
-function dupWarning(stats) {
-  const seen = new Map();
-  for (const s of stats) {
-    const key = s.season.replace(/[^0-9]/g, "");
-    seen.set(key, (seen.get(key) || 0) + 1);
-  }
-  const dupes = [...seen].filter(([, n]) => n > 1);
-  if (!dupes.length) return null;
+/* A season can carry an older observation the workbook has already superseded.
+   The chart shows the adopted figures only — the superseded rows are kept and
+   listed below, because discarding evidence and silently plotting it are both
+   wrong. */
+function supersededNote(superseded) {
+  if (!superseded || !superseded.length) return null;
+  const seasons = [...new Set(superseded.map(s => s.season))].join("、");
   return el("div", { class: "note", style: "margin-bottom:16px" },
-    `注意：${dupes.map(([k]) => k.slice(0, 4) + "/" + k.slice(4)).join("、")} 在來源中有兩筆賽季總計（Season_Display 寫法不一致），`
-    + "下方圖表與表格照實呈現，未合併。詳見「檔案完整性」。");
+    `${seasons} 另有 ${superseded.length} 筆較早的觀測，已被工作簿標記為由後續完整快照取代。`
+    + "下方圖表與統計只採用正式數據；被取代的觀測列於本頁末，未刪除。");
 }
 
 /* goals / assists per season, drawn to one shared scale */
@@ -909,16 +945,22 @@ function renderWorld() {
       el("tbody", {}, w.leagues.map(lg =>
         el("tr", {}, el("th", { class: "rowh" }, lg),
           w.seasons.map(s => {
-            const champ = w.champions[`${lg}|${s}`];
+            const c = w.champions[`${lg}|${s}`];
+            if (!c) return el("td", {}, el("span", { title: "來源未提供" }, "—"));
+            /* provisional means the standings snapshot is mid-season AND no other
+               table in the workbook records the title */
+            const provisional = !c.final && !c.confirmedElsewhere;
             return el("td", {}, el("span", {
-              class: isBarca(champ) ? "barca" : "", title: champ ? `${s} ${lg}：${champ}` : "來源未提供",
-            }, champ || "—"));
+              class: (isBarca(c.club) ? "barca" : "") + (provisional ? " prov" : ""),
+              title: `${s} ${lg}：${c.club}`
+                + (c.final ? "（季末定版）" : c.confirmedElsewhere ? "（積分榜為季中快照，但冠軍已由其他來源確認）" : "（季中快照，冠軍尚未確認）")
+                + `　快照 ${c.snapshot}`,
+            }, c.club + (provisional ? "（暫）" : "")));
           }))))));
 
   const uclRows = w.ucl.filter(r => r.winner);
-  const uclCount = {};
-  uclRows.forEach(r => { uclCount[r.winner] = (uclCount[r.winner] || 0) + 1; });
-  const uclTop = Object.entries(uclCount).sort((a, b) => b[1] - a[1]);
+  /* grouped on Club_ID upstream: counting raw spellings split 巴薩 from 巴塞罗那 */
+  const uclTop = w.uclTitles || [];
 
   return [
     el("div", { class: "view-head" },
@@ -933,7 +975,8 @@ function renderWorld() {
       el("div", {}, el("div", { class: "n tnum" }, DATA.chronicle.length.toLocaleString()), el("div", { class: "l" }, "編年史事件"))),
     el("section", { class: "panel" },
       el("h3", {}, "五大聯賽冠軍版圖"),
-      el("p", { class: "cap" }, "取自 Domestic_League_Standings 中 Rank = 1 的列。點欄位無作用；如需完整名次請至「聯賽積分榜」。"),
+      el("p", { class: "cap" }, "取自各季積分榜第一名。標「（暫）」者是積分榜仍為季中快照、"
+        + "且工作簿其他表也未記載該季冠軍；若他表已確認則不標。滑鼠停留可看快照日期。"),
       grid),
     el("div", { class: "two" },
       el("section", { class: "panel" },
@@ -948,14 +991,17 @@ function renderWorld() {
       el("section", { class: "panel" },
         el("h3", {}, "歐冠奪冠次數"),
         el("p", { class: "cap" }, "同期間內累計。"),
-        el("div", { class: "bars" }, uclTop.map(([club, n]) =>
+        el("div", { class: "bars" }, uclTop.map(t =>
           el("div", { class: "brow" },
             el("div", { class: "lb" },
-              el("span", {}, club),
+              el("span", { title: t.resolved ? t.id : "此名稱未對應到受控球會身分" },
+                t.name, t.resolved ? null : el("span", { class: "pill warn", style: "margin-left:6px" }, "未受控")),
               el("span", { class: "tr" }, el("i", {
-                style: `width:${(n / uclTop[0][1]) * 100}%;background:${isBarca(club) ? "var(--garnet)" : "var(--azul)"}`,
+                style: `width:${(t.titles / uclTop[0].titles) * 100}%;background:${isBarca(t.name) ? "var(--garnet)" : "var(--azul)"}`,
               }))),
-            el("div", { class: "vv" }, n)))))),
+            el("div", { class: "vv" }, t.titles)))),
+        el("p", { class: "cap", style: "margin-top:12px" }, "依受控球會身分統計，非依來源原文——"
+          + "同一球會的不同寫法會併為一筆。"))),
     el("section", { class: "panel" },
       el("h3", {}, "國際賽事"),
       el("p", { class: "cap" }, "來源：Intl_Tournament_Results"),
@@ -1005,7 +1051,8 @@ function renderLeagues() {
     el("div", { class: "view-head" },
       el("div", { class: "eyebrow" }, "Domestic_League_Standings　1,303 列"),
       el("h2", {}, "聯賽積分榜"),
-      el("p", {}, "五大聯賽 × 十二季的完整最終名次。左側色條依來源的資格說明文字分類。")),
+      el("p", {}, "五大聯賽 × 十二季的積分榜。部分賽季來源只提供賽季中的暫定表，"
+        + "頁面會標明所看的是哪一份快照；左側色條依來源的資格說明文字分類。")),
     el("div", { class: "filters" },
       el("select", { id: "lgPick", onChange: e => { state.league = e.target.value; paint(); } },
         w.leagues.map(lg => el("option", { value: lg, selected: lg === state.league }, lg))),
@@ -1117,30 +1164,41 @@ function renderPeople() {
       el("div", { class: "chips" }, PERSON_FILTERS.map(x =>
         el("button", {
           class: "chip", type: "button", "aria-pressed": String(x.id === state.personFilter),
-          onClick: () => { state.personFilter = x.id; paint(); },
+          onClick: () => { state.personFilter = x.id; state.personLimit = 200; paint(); },
         }, x.label)))),
     el("section", { class: "panel", id: "peoplePanel" }, peopleTable(rows)),
   ];
 }
 function peopleTable(rows) {
-  const shown = rows.slice(0, 200);
+  const shown = rows.slice(0, state.personLimit);
+  const more = rows.length - shown.length;
   return el("div", {},
-    el("p", { class: "cap" }, `符合 ${rows.length} 人${rows.length > shown.length ? `，顯示前 ${shown.length}` : ""}`),
+    el("p", { class: "cap" }, `符合 ${rows.length} 人${more > 0 ? `，顯示前 ${shown.length}` : ""}`),
     el("div", { class: "tblwrap" }, el("table", { class: "data" },
       el("thead", {}, el("tr", {},
         el("th", {}, "球員"), el("th", {}, "國籍"), el("th", {}, "俱樂部"),
-        el("th", { class: "num" }, "出場"), el("th", { class: "num" }, "進球"),
-        el("th", { class: "num" }, "助攻"), el("th", { class: "num" }, "獎項"))),
+        el("th", { class: "num" }, "聯賽出場"), el("th", { class: "num" }, "聯賽進球"),
+        el("th", { class: "num" }, "聯賽助攻"), el("th", { class: "num" }, "獎項"))),
       el("tbody", {}, shown.map(p =>
-        el("tr", { class: "click", onClick: () => { state.person = p.id; paint(); } },
+        el("tr", { class: "click", onClick: () => { state.person = p.id; paint(); writeRoute(false); } },
           el("td", { class: "name-cell" }, p.name,
             p.barca ? el("span", { class: "pill win", style: "margin-left:7px" }, "巴薩") : null),
           el("td", {}, dash(p.nationality)),
           el("td", { class: "mono" }, p.clubs.length ? p.clubs.join("、") : "—"),
-          el("td", { class: "num tnum" }, p.apps || "—"),
-          el("td", { class: "num tnum" }, p.goals || "—"),
-          el("td", { class: "num tnum" }, p.assists || "—"),
-          el("td", { class: "num tnum" }, p.awards.length || "—")))))));
+          /* a recorded zero is a fact; only an absent figure is a dash */
+          el("td", { class: "num tnum" }, p.seasonCount ? p.apps : "—"),
+          el("td", { class: "num tnum" }, p.seasonCount ? p.goals : "—"),
+          el("td", { class: "num tnum" }, p.seasonCount ? p.assists : "—"),
+          el("td", { class: "num tnum" }, p.awards.length)))))),
+    more > 0 ? el("div", { class: "btnrow", style: "margin-top:16px;justify-content:center" },
+      el("button", {
+        class: "btn ghost", type: "button",
+        onClick: () => { state.personLimit += 200; repaintPeople(); },
+      }, `載入更多　還有 ${more} 人`),
+      el("button", {
+        class: "btn ghost", type: "button",
+        onClick: () => { state.personLimit = rows.length; repaintPeople(); },
+      }, "全部顯示")) : null);
 }
 function repaintPeople() {
   const panel = document.getElementById("peoplePanel");
@@ -2573,6 +2631,58 @@ function renderImport() {
   ];
 }
 
+/* ===================================================================
+   ROUTING — a page someone can send you.
+
+   Views were internal state only, so there was no way to link a specific
+   player or season: the address bar said the same thing everywhere. The hash
+   carries view plus selection, which is enough to restore a page without
+   changing how anything renders.
+   =================================================================== */
+
+const ROUTE_KEYS = { people: "person", squad: "player", seasons: "season", leagues: "league" };
+
+function currentRoute() {
+  const key = ROUTE_KEYS[state.view];
+  const selection = key ? state[key] : null;
+  if (state.view === "leagues") {
+    return `#/leagues/${encodeURIComponent(state.league)}/${encodeURIComponent(state.leagueSeason)}`;
+  }
+  return "#/" + state.view + (selection ? "/" + encodeURIComponent(selection) : "");
+}
+
+function writeRoute(replace) {
+  const target = currentRoute();
+  if (location.hash === target) return;
+  try {
+    history[replace ? "replaceState" : "pushState"](null, "", target);
+  } catch (e) {
+    location.hash = target;   // file:// in some browsers refuses pushState
+  }
+}
+
+function readRoute() {
+  const raw = decodeURI(location.hash || "").replace(/^#\/?/, "");
+  if (!raw) return false;
+  const parts = raw.split("/").filter(Boolean).map(decodeURIComponent);
+  const [view, first, second] = parts;
+  if (!VIEWS.some(v => v.id === view)) return false;
+
+  state.view = view;
+  state.player = state.person = null;
+  if (view === "leagues") {
+    if (first && DATA.world.leagues.includes(first)) state.league = first;
+    if (second && DATA.world.seasons.includes(second)) state.leagueSeason = second;
+    state.snapshot = null;
+  } else if (first) {
+    const key = ROUTE_KEYS[view];
+    if (key) state[key] = first;
+    if (view === "people" && !DATA.people.players.some(p => p.id === first)) state.person = null;
+    if (view === "squad" && !DATA.players.some(p => p.id === first)) state.player = null;
+  }
+  return true;
+}
+
 /* ------------------------------------------------------------------ shell */
 function paint() {
   const view = VIEWS.find(v => v.id === state.view);
@@ -2580,11 +2690,19 @@ function paint() {
   main.replaceChildren(el("div", { class: "view" }, view.render()));
   document.querySelectorAll("#nav button").forEach(b =>
     b.setAttribute("aria-current", String(b.dataset.view === state.view)));
+  writeRoute(true);
   if (state.scrollTop) { window.scrollTo(0, 0); state.scrollTop = false; }
   const activeDay = main.querySelector('.day[aria-current="true"]');
   if (activeDay) activeDay.scrollIntoView({ block: "nearest", inline: "center" });
 }
-function go(id) { state.view = id; state.player = null; state.person = null; state.scrollTop = true; paint(); }
+function go(id) {
+  state.view = id;
+  state.player = null;
+  state.person = null;
+  state.scrollTop = true;
+  paint();
+  writeRoute(false);
+}
 
 {
   const items = [];
@@ -2620,5 +2738,9 @@ try {
   if (saved) document.documentElement.setAttribute("data-theme", saved);
 } catch (e) { /* private mode */ }
 
+addEventListener("popstate", () => { if (readRoute()) paint(); });
+addEventListener("hashchange", () => { if (readRoute()) paint(); });
+
+readRoute();
 paint();
 </script>

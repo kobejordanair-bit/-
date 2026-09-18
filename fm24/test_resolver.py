@@ -371,3 +371,64 @@ class TestRelegationMarker:
         assert clean("!") == "!"
         assert clean("NULL") is None
         assert clean("") is None
+
+
+@needs_db
+class TestAdoptionAndTotals:
+    """The workbook states which observation counts; the site must agree with it."""
+
+    def test_career_total_equals_the_adopted_seasons(self, con):
+        con.row_factory = sqlite3.Row
+        career = con.execute(
+            "SELECT Apps, Goals FROM Barcelona_Player_Career WHERE Player_ID='P-0135'").fetchone()
+        adopted = con.execute(
+            "SELECT SUM(CAST(Apps AS INTEGER)) a, SUM(CAST(Goals AS INTEGER)) g "
+            "FROM Player_Club_Season_Totals WHERE Player_ID='P-0135' AND Club_ID='C-0030' "
+            "AND Statistical_Adoption_Status='ADOPTED'").fetchone()
+        assert int(career["Apps"]) == adopted["a"]
+        assert int(career["Goals"]) == adopted["g"]
+
+    def test_payload_splits_adopted_from_superseded(self):
+        from build_site import Archive
+        players = {p["id"]: p for p in Archive(DB).players()}
+        p = players["P-0135"]
+        assert all(s["adoption"] == "ADOPTED" for s in p["seasonStats"])
+        assert p["supersededStats"], "the superseded observation must be kept, not dropped"
+        assert sum(s["goals"] for s in p["seasonStats"]) == p["goals"]
+
+
+@needs_db
+class TestContinentalTitleGrouping:
+    def test_titles_group_by_club_identity_not_spelling(self):
+        """巴薩 and 巴塞罗那 are one club; counting raw names split eight titles."""
+        from build_site import Archive
+        titles = {t["name"]: t["titles"] for t in Archive(DB).world()["uclTitles"]}
+        assert titles.get("巴塞羅那") == 8, titles
+        assert len(titles) == len(set(titles)), "a club must appear once"
+
+
+@needs_db
+class TestClasicoParsing:
+    """A 46-match record summed to 43 because of two prefixes."""
+
+    def test_every_match_is_classified(self):
+        from build_site import Archive
+        matches = Archive(DB).clasico()
+        assert len(matches) == 46
+        assert all(m["verdict"] for m in matches), \
+            [m for m in matches if not m["verdict"]]
+
+    def test_extra_time_and_penalties_are_read(self):
+        from build_site import Archive
+        by_date = {m["date"]: m for m in Archive(DB).clasico() if m["date"]}
+        assert by_date["2024-02-07"]["decider"] == "aet"
+        assert by_date["2024-02-07"]["verdict"] == "W"
+        pens = by_date["2033-01-06"]
+        assert pens["decider"] == "pens"
+        assert pens["verdict"] == "D", "a shoot-out does not say who advanced"
+
+    def test_undated_match_sorts_last(self):
+        from build_site import Archive
+        matches = Archive(DB).clasico()
+        undated = [i for i, m in enumerate(matches) if not m["date"]]
+        assert undated == [len(matches) - 1]
