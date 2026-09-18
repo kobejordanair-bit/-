@@ -158,47 +158,57 @@ def main() -> None:
             print(f"{label}參照欄：自動偵測已全部涵蓋。")
         print()
 
-    from table_roles import (ADOPTED, PENDING_INTEGRATION, PRESERVED, ROLE_LABELS,
-                             SURFACED, TRACING, role_of)
+    from table_roles import (ADOPTED, IDENTITY, PENDING_INTEGRATION, PRESERVED, PROVENANCE,
+                             ROLE_LABELS, ROLE_MEANINGS, SURFACED, use_of)
 
-    idle = {x["sheet"] for x in untouched_sheets(args.database)}
+    unread = {x["sheet"] for x in untouched_sheets(args.database)}
     con = sqlite3.connect(args.database)
     tables = sheet_tables(con)
 
-    buckets: dict[str, list] = {ADOPTED: [], SURFACED: [], TRACING: [], PRESERVED: []}
+    print("每張工作表的用途")
+    print("用途是宣告的，不是掃出來的：一張表可能只被讀取球會欄做身分比對，")
+    print("它的進球、助攻、評分從未出現在任何讀者頁。標籤可重疊。\n")
+
+    tagged: dict[str, list] = {r: [] for r in (ADOPTED, SURFACED, IDENTITY, PROVENANCE, PRESERVED)}
     contradictions = []
     for sheet, table in sorted(tables.items()):
-        role, note = role_of(table)
+        u = use_of(table)
         rows = con.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
-        read = table not in {tables[s] for s in idle}
-        buckets[role].append((sheet, rows, read, note))
-        # a sheet declared as used but never read, or read yet declared unused,
-        # means the declaration and the code have drifted
-        if role in (ADOPTED, SURFACED, TRACING) and not read:
-            contradictions.append((sheet, role, "宣告為已使用，但建置過程未讀取"))
-        if role == PRESERVED and read:
-            contradictions.append((sheet, role, "建置過程有讀取，但未宣告用途"))
+        read = sheet not in unread
+        for role in u.sorted_roles:
+            tagged[role].append((sheet, rows, u))
+        if PRESERVED not in u.roles and not read:
+            contradictions.append((sheet, "宣告為已使用，但建置過程未讀取"))
+        if PRESERVED in u.roles and read:
+            contradictions.append((sheet, "建置過程有讀取，但未宣告用途"))
 
-    print("每張工作表的用途（宣告，並與實際建置查詢交叉比對）")
-    print("「執行過一次 SELECT」不等於完整接入，所以用途是宣告的，不是掃出來的。\n")
-    for role in (ADOPTED, SURFACED, TRACING, PRESERVED):
-        items = buckets[role]
-        total = sum(r for _, r, _, _ in items)
-        print(f"── {ROLE_LABELS[role]}　{len(items)} 張、{total:,} 列")
-        for sheet, rows, read, note in items:
-            mark = "" if read else "  ⚠ 未被讀取"
+    for role in (ADOPTED, SURFACED, IDENTITY, PROVENANCE, PRESERVED):
+        items = tagged[role]
+        if not items:
+            continue
+        rows = sum(r for _, r, _ in items)
+        print(f"── {ROLE_LABELS[role]}　{len(items)} 張　（這些表共含 {rows:,} 列，"
+              "不代表全部已採用）")
+        print(f"   {ROLE_MEANINGS[role]}")
+        for sheet, n, u in items:
             pending = PENDING_INTEGRATION.get(sheet)
-            tag = f"  [{pending[0]}]" if pending else ""
-            detail = f"　{note or (pending[1] if pending else '')}"
-            print(f"     {sheet:<38} {rows:>6} 列{tag}{detail}{mark}")
+            tag = f" [{pending[0]}]" if pending else ""
+            via = "" if u.direct else "（經衍生表間接）"
+            detail = f"　欄位：{u.columns}" if u.columns else ""
+            dest = f"　→ {u.output}" if u.output else ""
+            print(f"     {sheet:<36} {n:>6} 列{tag}{via}{detail}{dest}")
+            if u.note:
+                print(f"       註：{u.note}")
         print()
 
     if contradictions:
         print(f"宣告與實作不一致（{len(contradictions)}）：")
-        for sheet, role, why in contradictions:
-            print(f"   {sheet:<38} [{ROLE_LABELS[role]}] {why}")
+        for sheet, why in contradictions:
+            print(f"   {sheet:<38} {why}")
     else:
-        print("宣告與實作一致。")
+        print("宣告與實作一致——但請注意，此檢查只驗「有沒有讀到」。")
+        print("把一張表從『正式統計』誤標成『身分解析』，兩者都算已使用，檢查不會抓到。")
+        print("標籤正確與否仍須人工核對 build_site.py 的實際輸出。")
 
     pending_rows = sum(
         con.execute(f'SELECT COUNT(*) FROM "{tables[s]}"').fetchone()[0]
@@ -207,7 +217,7 @@ def main() -> None:
     for sheet, (priority, _) in PENDING_INTEGRATION.items():
         by_priority[priority] = by_priority.get(priority, 0) + 1
     print()
-    print(f"待接入（依審查決策表）：{len(PENDING_INTEGRATION)} 張、{pending_rows:,} 列　"
+    print(f"待接入：{len(PENDING_INTEGRATION)} 張、{pending_rows:,} 列　"
           + "　".join(f"{k} {v} 張" for k, v in sorted(by_priority.items())))
 
 

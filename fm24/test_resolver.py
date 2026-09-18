@@ -460,29 +460,49 @@ class TestScriptConversionGuard:
 
 
 @needs_db
-class TestTableRoleDeclaration:
-    """Every sheet's purpose is declared, and the declaration is checked."""
+class TestTableUseDeclaration:
+    """Uses are declared as overlapping tags, and checked against the build.
+
+    The check only proves read-versus-unread. Mislabelling an adopted sheet as
+    identity-only still passes, which is why each declaration also records the
+    columns and the output it feeds — those are reviewable by a person.
+    """
 
     def test_no_drift_between_declaration_and_build(self):
         from coverage import sheet_tables, untouched_sheets
-        from table_roles import ADOPTED, PRESERVED, SURFACED, TRACING, role_of
+        from table_roles import PRESERVED, use_of
 
-        con = sqlite3.connect(DB)
-        tables = sheet_tables(con)
-        unread = {tables[x["sheet"]] for x in untouched_sheets(DB)}
+        tables = sheet_tables(sqlite3.connect(DB))
+        unread = {x["sheet"] for x in untouched_sheets(DB)}
 
         drift = []
         for sheet, table in tables.items():
-            role, _ = role_of(table)
-            read = table not in unread
-            if role in (ADOPTED, SURFACED, TRACING) and not read:
-                drift.append((sheet, role, "declared used, never read"))
-            if role == PRESERVED and read:
-                drift.append((sheet, role, "read, but no declared purpose"))
+            u = use_of(table)
+            read = sheet not in unread
+            if PRESERVED not in u.roles and not read:
+                drift.append((sheet, "declared used, never read"))
+            if PRESERVED in u.roles and read:
+                drift.append((sheet, "read, but no declared use"))
         assert not drift, drift
 
-    def test_pending_sheets_are_the_preserved_ones(self):
-        from coverage import sheet_tables, untouched_sheets
+    def test_every_declared_use_names_its_columns_and_output(self):
+        from table_roles import PRESERVED, TABLE_USES
+        vague = [name for name, u in TABLE_USES.items()
+                 if PRESERVED not in u.roles and not (u.columns and u.output)]
+        assert not vague, vague
+
+    def test_surfaced_payload_is_actually_rendered(self):
+        """A section produced and never rendered is not surfaced.
+
+        honours.records, world.superCup, world.cwc and world.cups were all
+        serialised into the page while the template referenced none of them.
+        """
+        template = (Path(__file__).parent / "template.html").read_text(encoding="utf-8")
+        for field in ("hs.records", "w.superCup", "w.cwc", "w.cups", "w.uclTitles", "w.intl"):
+            assert field in template, f"{field} is in the payload but nothing renders it"
+
+    def test_pending_sheets_are_the_unused_ones(self):
+        from coverage import untouched_sheets
         from table_roles import PENDING_INTEGRATION
 
         unread = {x["sheet"] for x in untouched_sheets(DB)}

@@ -1,43 +1,298 @@
 #!/usr/bin/env python3
-"""What each sheet is actually used for, declared and then cross-checked.
+"""What each sheet is used for — overlapping tags, with the evidence.
 
-A reviewer pointed out that "a query touched this table" is not the same as
-"this table is properly integrated": a sheet can be read only for identity
-matching while none of its goals, assists or fixtures ever reach a reader. One
-bit of measurement cannot carry four different meanings.
+A first version used four mutually exclusive boxes. A reviewer pointed out that
+they are not exclusive: Player_Dim supplies the identity index AND the names a
+reader sees in the roster. Forcing one label made the declaration wrong, and the
+cross-check could not catch it because it only compared "read" against "not
+read" — a sheet filed under the wrong tag still counted as read.
 
-So the role is DECLARED here — it is a design fact, not something a scan can
-infer — and coverage.py cross-checks the declaration against what a build
-actually reads, so a claim and the code cannot drift apart unnoticed.
+So a sheet carries a SET of tags, and each declaration records what is actually
+taken from it: which columns, which payload field or page, and whether the
+pipeline reads the sheet directly or reaches its content through one of the
+workbook's own derived tables.
+
+Tracing is split, because they are different guarantees: knowing two names are
+one person (IDENTITY) says nothing about being able to show where a fact came
+from (PROVENANCE).
 """
 
 from __future__ import annotations
 
-# 正式統計採用 — rows become figures the site presents as fact
-ADOPTED = "adopted"
-# 讀者頁呈現 — rows are displayed to a reader, as a list or table
-SURFACED = "surfaced"
-# 來源追溯使用 — read to resolve identities or trace provenance, not displayed
-TRACING = "tracing"
-# 原始證據保留 — kept in the database, reachable by query, not used by any view
-PRESERVED = "preserved"
+from dataclasses import dataclass, field
+
+ADOPTED = "adopted"        # values become figures the site states as fact
+SURFACED = "surfaced"      # content is displayed to a reader
+IDENTITY = "identity"      # read so entities can be matched, content not shown
+PROVENANCE = "provenance"  # read so a fact's source can be cited
+PRESERVED = "preserved"    # in the database, reached by no view
 
 ROLE_LABELS = {
     ADOPTED: "正式統計採用",
     SURFACED: "讀者頁呈現",
-    TRACING: "來源追溯使用",
-    PRESERVED: "原始證據保留",
+    IDENTITY: "身分解析",
+    PROVENANCE: "事實來源查證",
+    PRESERVED: "尚未使用",
 }
 
-# Anything absent defaults to PRESERVED, which is the honest assumption: a sheet
-# is not integrated until someone says what it is for.
-# Sheets awaiting a decision on integration, with the reviewer's priority.
+ROLE_MEANINGS = {
+    ADOPTED: "欄位數值成為站上以事實呈現的數字",
+    SURFACED: "內容直接顯示給讀者",
+    IDENTITY: "僅供比對同一實體，內容未呈現",
+    PROVENANCE: "僅供查證某項事實的出處，內容未呈現",
+    PRESERVED: "保存於資料庫，尚未被任何視圖使用",
+}
+
+
+@dataclass(frozen=True)
+class Use:
+    """One sheet's declared use. `roles` may hold several tags."""
+
+    roles: frozenset
+    columns: str = ""       # which columns are taken
+    output: str = ""        # where they end up: payload field, page, or metric
+    direct: bool = True     # False when reached through a derived table instead
+    note: str = ""
+
+    @property
+    def sorted_roles(self) -> list:
+        order = [ADOPTED, SURFACED, IDENTITY, PROVENANCE, PRESERVED]
+        return [r for r in order if r in self.roles]
+
+
+def use(*roles, columns="", output="", direct=True, note="") -> Use:
+    return Use(frozenset(roles), columns, output, direct, note)
+
+
+TABLE_USES: dict[str, Use] = {
+    # --- figures presented as fact ----------------------------------------
+    "Barcelona_Season_Master": use(
+        ADOPTED, SURFACED, columns="名次、積分、勝和負、六項賽事結果、轉會摘要",
+        output="seasons[] → 巴薩王朝／巴薩賽季"),
+    "Player_Club_Season_Totals": use(
+        ADOPTED, SURFACED, columns="Apps/Goals/Assists/POTM/Rating，僅 ADOPTED 列",
+        output="players[].seasonStats → 球員逐季圖與表",
+        note="非 ADOPTED 列另存 supersededStats，不計入任何統計"),
+    "Barcelona_Player_Career": use(
+        ADOPTED, SURFACED, columns="生涯總計與六項團隊冠軍",
+        output="players[] → 巴薩陣容名冊與球員頁"),
+    "Domestic_League_Standings": use(
+        ADOPTED, SURFACED, columns="名次、積分、勝和負、進失球、資格說明",
+        output="world.standings → 聯賽積分榜；world.champions → 冠軍版圖"),
+    "Canonical_Award_Facts": use(
+        ADOPTED, SURFACED, IDENTITY,
+        columns="Award/Season/Rank/Player_Raw/Club_Raw/Player_ID",
+        output="honours.winners → 榮譽殿堂；people[].awards → 球員獎項；身分積欠統計"),
+    "UCL": use(ADOPTED, SURFACED, columns="Winner/Runner_Up",
+               output="world.ucl 與 world.uclTitles → 歐冠決賽與奪冠次數（依 Club_ID 合併）"),
+    "El_Clasico_Match_History": use(
+        ADOPTED, SURFACED, columns="Date/Competition/Home/Away/Result_Raw",
+        output="clasico[] → 國家德比戰績條"),
+    "Barcelona_Transfers": use(
+        ADOPTED, SURFACED, columns="Direction/Player/Counterparty_Club/Fee_Display",
+        output="seasons[].transfersIn/Out → 巴薩賽季轉會名單"),
+    "Player_Attr_Snap_O": use(
+        ADOPTED, SURFACED, columns="36 項非門將屬性",
+        output="players[].attrs → 能力值表與六維概覽"),
+    "Player_Attr_Snap_G": use(ADOPTED, SURFACED, columns="門將屬性組",
+                              output="players[].attrs → 能力值表"),
+    "Ballon_dOr": use(ADOPTED, SURFACED, columns="Rank/Player/Club/Goals/Assists/Rating",
+                      output="honours.ballonDor → 金球獎前三名"),
+    "Player_League_Career": use(
+        ADOPTED, SURFACED, IDENTITY,
+        columns="Apps/Goals/Assists 加總；League_Raw 供聯賽加權；Club_Raw 供比對",
+        output="people[] 的聯賽生涯累計 → 球員名錄欄位",
+        note="審查指出：此表的數值有被加總，不只是呈現"),
+    "Domestic_Leagues": use(
+        ADOPTED, IDENTITY, columns="Competition/Season/Club/Rank=1",
+        output="world.champions[].confirmedElsewhere → 決定冠軍是否標為暫定",
+        note="審查指出：不只身分比對，會影響正式統計的呈現"),
+
+    # --- displayed, not aggregated ----------------------------------------
+    "World_Timeline": use(SURFACED, columns="事件敘述、類型、賽季、來源表",
+                          output="chronicle[] → 編年史"),
+    "Intl_Tournament_Results": use(SURFACED, columns="Tournament/Period/Winner/Runner_Up/Third/Host",
+                                   output="world.intl → 國際賽事表"),
+    "Competition_History": use(SURFACED, columns="Season/Competition/Winner/Runner_Up/Venue",
+                               output="world.euroCups → 歐洲其他錦標"),
+    "National_Tournaments": use(SURFACED, columns="Season/Competition/Rank/Club",
+                                output="world.cups → 各國盃賽冠亞軍"),
+    "UEFA_Super_Cup": use(SURFACED, IDENTITY, columns="Season/Winner/Runner_Up",
+                          output="world.superCup → 歐洲超級盃歷屆",
+                          note="審查指出：已輸出賽事結果，不只讀身分欄"),
+    "FIFA_Club_World_Cup_Results": use(SURFACED, IDENTITY, columns="Period/Rank/Club",
+                                       output="world.cwc → 世俱盃歷屆",
+                                       note="審查指出：已輸出賽事結果，不只讀身分欄"),
+    "Historical_Records": use(SURFACED, columns="Record_Type/Season/Player_or_Entity/Club_or_Context",
+                              output="honours.records → 歷史紀錄查詢"),
+    "Player_Profile_Snapshots": use(SURFACED, columns="國籍、位置、生日、背號",
+                                    output="players[]／people[] 的個人欄位"),
+    "Player_Career_Summaries": use(SURFACED, columns="國家隊出場、進球、助攻",
+                                   output="players[].national → 球員頁國家隊區塊"),
+    "Player_Attribute_Changes": use(SURFACED, columns="屬性、新舊值、快照區間",
+                                    output="timetravel.changes → 認知史能力值變動"),
+    "Barcelona_Season_Leaders": use(SURFACED, columns="Metric/Player/Value",
+                                    output="seasons[].leaders → 球季個人領先"),
+    "Barcelona_Squad_History": use(SURFACED, columns="Snapshot_Date 計數",
+                                   output="timetravel.timeline → 認知史觀測量"),
+    "Club_Cup_History": use(SURFACED, IDENTITY, columns="Snapshot 計數；Club_Raw 供比對",
+                            output="timetravel.timeline → 認知史觀測量"),
+    "Award_Resolution_Status": use(SURFACED, columns="Player_Raw/Origin_Sheet/Resolution_Status",
+                                   output="resolution.items → 球員身分控制台"),
+    "Data_Issues": use(SURFACED, columns="Domain/Status 統計",
+                       output="integrity.domains → 完整性報告分佈"),
+    "Workbook_Schema_Metadata": use(SURFACED, columns="結構版本、遷移識別",
+                                    output="meta → 頁尾與完整性報告"),
+    "Player_Dim": use(
+        IDENTITY, SURFACED,
+        columns="Player_ID/Canonical_Display_Name/Alias_Name",
+        output="比對索引；people[].name 與 timetravel.playerNames → 球員名錄顯示的姓名",
+        note="審查指出：正名直接出現在讀者頁，不只是比對索引"),
+    "Club_Dim": use(IDENTITY, columns="Club_ID/正名/別名",
+                    output="俱樂部比對索引與重複身分偵測"),
+    "Nation_Dim": use(IDENTITY, columns="National_Team_ID/正名/別名",
+                      output="國家名稱比對；完整性報告的非國家身分檢查"),
+    "Competition_Dim": use(IDENTITY, columns="Competition_ID/Competition_Name",
+                           output="賽事比對索引"),
+    "Record_Identity_Map": use(IDENTITY, columns="Raw_Display_Name → Entity_ID",
+                               output="比對索引最大來源（10,558 列關聯）"),
+    # --- P0 接入：共用的來源與期間對照 -------------------------------------
+    "Source_Index": use(
+        SURFACED, PROVENANCE,
+        columns="Source_ID/File_Name/Domain/Season_Context/Source_Note（Local_Path 刻意不取）",
+        output="sources.sources → 來源與期間頁的來源名冊；引用次數由各事實表的 Source_ID 統計",
+        note="Local_Path 記的是組建機器上的檔案路徑，不入 payload 也不顯示"),
+    "Period_Dim": use(
+        SURFACED, IDENTITY,
+        columns="Period_ID/Source_Period_Display/Canonical_Period_Display/Period_Type/起迄年",
+        output="sources.periods 與 sources.mergedPeriods → 期間對照表",
+        note="同一賽季的多種寫法收斂到一個 Period_ID，共 12 個期間有多種寫法"),
+
+    "Player_Club_Competition_Stats": use(IDENTITY, columns="Club_ID/League_Raw",
+                                         output="球員聯賽歸屬，供比對加權",
+                                         note="出場、進球、評分欄位未呈現"),
+
+    # Read only so identity matching can see their club columns. Declared
+    # separately because the distinction matters: these sheets are read, but
+    # their performance figures reach no reader.
+    "Barcelona_Club_World_Cup": use(IDENTITY, columns="Opponent",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "Barcelona_UCL_Journey": use(IDENTITY, columns="Opponent",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "Bundesliga_Elf_des_Jahres": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Appearances／Goals 等欄位未呈現"),
+    "Bundesliga_Torjagerkanone": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "Bundesliga_Torjagerkanone_History": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Goals 等欄位未呈現"),
+    "Bundesliga_VDV_Newcomer": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals／Rating 等欄位未呈現"),
+    "Bundesliga_VDV_Newcomer_History": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "Canonical_Competition_Results": use(IDENTITY, columns="Club_Raw／Opponent_Raw",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "Club_Season_Player_History": use(IDENTITY, columns="Current_Club_Raw",
+                  output="俱樂部比對索引", note="Apps／Goals 等欄位未呈現"),
+    "FIFA_FIFPro_World_XI": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances／Goals 等欄位未呈現"),
+    "Goal_50": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "Golden_Shoe": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Appearances／Goals／Points 等欄位未呈現"),
+    "Kopa_Trophy": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "LaLiga_2034_35_Table_RAW": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "LaLiga_Awards_RAW": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "LaLiga_Coach_of_Year": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "LaLiga_Player_of_Year": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "LaLiga_Team_Season_Raw": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Apps／Rating 等欄位未呈現"),
+    "Legacy_Historical_Evidence": use(IDENTITY, columns="Club_or_Context",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "Ligue1_Golden_Boot": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "Ligue1_Golden_Boot_History": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Goals 等欄位未呈現"),
+    "Ligue1_UNFP_Best_XI": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Appearances／Goals 等欄位未呈現"),
+    "Ligue1_UNFP_MVP": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "Ligue1_UNFP_MVP_History": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "PL_2034_35_Table_RAW": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "PL_Awards_RAW": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "PL_Golden_Boot_History": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Goals 等欄位未呈現"),
+    "PL_PFA_POTY_History": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "PL_PFA_Team_of_Year": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Appearances／Goals 等欄位未呈現"),
+    "PL_PFA_Young_POTY": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Apps／Assists／Goals 等欄位未呈現"),
+    "PL_PFA_Young_POTY_History": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "PL_Season_Records": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Apps 等欄位未呈現"),
+    "Pichichi_Award": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "Player_National_Team_Stats": use(IDENTITY, columns="Context_Club",
+                  output="俱樂部比對索引", note="Apps／Assists／Goals／Rating 等欄位未呈現"),
+    "Premier_League_Golden_Boot": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "Premier_League_PFA_POTY": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "Real_Madrid_Copa_History": use(IDENTITY, columns="Opponent",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "Real_Madrid_UCL_History": use(IDENTITY, columns="Opponent",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "Retirement_Career_History": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "Serie_A_Capocannoniere": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "Serie_A_MVP_Player": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Apps／Assists／Goals 等欄位未呈現"),
+    "Serie_A_MVP_Young": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Apps／Assists／Goals 等欄位未呈現"),
+    "Serie_A_Team_of_Year": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="Appearances／Goals 等欄位未呈現"),
+    "The_Best_FIFA_Mens_Player": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "UCL_2034_35_KO_RAW": use(IDENTITY, columns="Team1_Raw／Team2_Raw",
+                  output="俱樂部比對索引", note="Score_Raw 等欄位未呈現"),
+    "UCL_Awards_RAW": use(IDENTITY, columns="Club_Raw",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "UCL_Golden_Boot": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "UCL_Knockout_Results": use(IDENTITY, columns="Left_Club_Raw／Right_Club_Raw",
+                  output="俱樂部比對索引", note="Score_Raw 等欄位未呈現"),
+    "UCL_Season_Best_Player": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "UCL_Season_Best_Young_Player": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "UCL_Season_Leaders": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="僅比對，無表現欄位"),
+    "World_Player_of_the_Year": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+    "Worlds_Best_Goalkeeper": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances 等欄位未呈現"),
+    "Yashin_Trophy": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances 等欄位未呈現"),
+    "Youth_Awards": use(IDENTITY, columns="Club",
+                  output="俱樂部比對索引", note="Appearances／Assists／Goals 等欄位未呈現"),
+}
+
+
+# Sheets awaiting integration, with the reviewer's priority and constraints.
 PENDING_INTEGRATION: dict[str, tuple[str, str]] = {
     "Award_Fact_Source_Links": ("P0", "獎項詳情的來源證據，依 Fact_Key 關聯，多來源不得變多次得獎"),
     "Award_Index": ("P0", "獎項目錄與涵蓋狀態，需區分得主／前三／最佳陣容粒度"),
-    "Period_Dim": ("P0", "統一賽季識別，不同寫法不得造成重複賽季"),
     "Season_Master_Field_Provenance": ("P0", "逐欄位來源日期與採用狀態，不得以單一季末日期套用整頁"),
-    "Source_Index": ("P0", "查看來源的編號、檔名與說明；不公開本機路徑"),
     "Barcelona_Player_Season_Honours": ("P0", "冠軍數逐季依據，遵守 Attribution_Policy，無世俱盃欄位不得補零"),
     "Barcelona_Player_Season_Stats": ("P0", "巴薩逐季核對來源，不與 Club Season Totals 疊加"),
     "Barcelona_Transfer_Totals": ("P0", "季度官方轉會總額，與淨支出分開交代"),
@@ -67,111 +322,6 @@ PENDING_INTEGRATION: dict[str, tuple[str, str]] = {
     "Retirement_Honours_Claims": ("P2", "未逐季採用的來源敘述，不自動展開年份"),
 }
 
-TABLE_ROLES: dict[str, tuple[str, str]] = {
-    # --- figures the site presents as fact --------------------------------
-    "Barcelona_Season_Master": (ADOPTED, "巴薩逐季主表：名次、積分、六項賽事結果"),
-    "Player_Club_Season_Totals": (ADOPTED, "球員逐季數據，僅採用 ADOPTED 列"),
-    "Barcelona_Player_Career": (ADOPTED, "球員生涯總計與團隊冠軍歸屬"),
-    "Domestic_League_Standings": (ADOPTED, "五大聯賽積分榜，依 Season_Status 選快照"),
-    "Canonical_Award_Facts": (ADOPTED, "獎項事實列，榮譽殿堂與球員獎項來源"),
-    "UCL": (ADOPTED, "歐冠決賽結果，冠軍次數依 Club_ID 合併"),
-    "El_Clasico_Match_History": (ADOPTED, "國家德比逐場結果與勝負判定"),
-    "Barcelona_Transfers": (ADOPTED, "逐季轉入轉出名單"),
-    "Player_Attr_Snap_O": (ADOPTED, "非門將能力值快照與六維概覽"),
-    "Player_Attr_Snap_G": (ADOPTED, "門將能力值快照"),
-    "Ballon_dOr": (ADOPTED, "金球獎前三名與當季數據"),
 
-    # --- displayed to a reader --------------------------------------------
-    "World_Timeline": (SURFACED, "編年史事件清單"),
-    "Intl_Tournament_Results": (SURFACED, "國際賽冠亞季軍與主辦"),
-    "Competition_History": (SURFACED, "歐洲其他錦標歷屆結果"),
-    "National_Tournaments": (SURFACED, "各國盃賽名次"),
-    "Player_League_Career": (SURFACED, "球員名錄的聯賽生涯累計"),
-    "Player_Profile_Snapshots": (SURFACED, "球員國籍、位置、生日"),
-    "Player_Career_Summaries": (SURFACED, "國家隊生涯總計"),
-    "Player_Attribute_Changes": (SURFACED, "認知史的能力值變動"),
-    "Barcelona_Season_Leaders": (SURFACED, "賽季個人領先"),
-    "Barcelona_Squad_History": (SURFACED, "陣容快照，供認知史計算"),
-    "Club_Cup_History": (SURFACED, "盃賽進程，供認知史計算"),
-    "Award_Resolution_Status": (SURFACED, "身分解析控制台的積欠清單"),
-    "Data_Issues": (SURFACED, "完整性報告的問題分佈"),
-    "Workbook_Schema_Metadata": (SURFACED, "結構版本與遷移識別"),
-
-    # --- read for identity or provenance, not displayed --------------------
-    "Player_Dim": (TRACING, "球員受控身分與別名索引"),
-    "Club_Dim": (TRACING, "俱樂部受控身分與別名索引"),
-    "Nation_Dim": (TRACING, "國家隊受控身分"),
-    "Competition_Dim": (TRACING, "賽事受控身分"),
-    "Record_Identity_Map": (TRACING, "已接受的原始名→ID 關聯，比對索引的主要來源"),
-    "Player_Club_Competition_Stats": (TRACING, "俱樂部與聯賽對照，供比對加權"),
-    # Declared as the A1 policy's basis on a first pass; the cross-check showed
-    # the build never reads it — that policy comes from Barcelona_Player_Career.
-
-
-    # Read only so identity matching can see their club and player columns. The
-    # reviewer's point exactly: a sheet being read is not the same as its
-    # figures reaching anyone. Their performance columns are NOT surfaced.
-    "Barcelona_Club_World_Cup": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "Barcelona_UCL_Journey": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "Bundesliga_Elf_des_Jahres": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Goals 等欄位未呈現"),
-    "Bundesliga_Torjagerkanone": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "Bundesliga_Torjagerkanone_History": (TRACING, "僅讀取球會／球員欄供身分比對；Goals 等欄位未呈現"),
-    "Bundesliga_VDV_Newcomer": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals／Rating 等欄位未呈現"),
-    "Bundesliga_VDV_Newcomer_History": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "Canonical_Competition_Results": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "Club_Season_Player_History": (TRACING, "僅讀取球會／球員欄供身分比對；Apps／Goals 等欄位未呈現"),
-    "Domestic_Leagues": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "FIFA_Club_World_Cup_Results": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "FIFA_FIFPro_World_XI": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Goals 等欄位未呈現"),
-    "Goal_50": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "Golden_Shoe": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Goals／Points 等欄位未呈現"),
-    "Historical_Records": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "Kopa_Trophy": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "LaLiga_2034_35_Table_RAW": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "LaLiga_Awards_RAW": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "LaLiga_Coach_of_Year": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "LaLiga_Player_of_Year": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "LaLiga_Team_Season_Raw": (TRACING, "僅讀取球會／球員欄供身分比對；Apps／Rating 等欄位未呈現"),
-    "Legacy_Historical_Evidence": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "Ligue1_Golden_Boot": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "Ligue1_Golden_Boot_History": (TRACING, "僅讀取球會／球員欄供身分比對；Goals 等欄位未呈現"),
-    "Ligue1_UNFP_Best_XI": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Goals 等欄位未呈現"),
-    "Ligue1_UNFP_MVP": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "Ligue1_UNFP_MVP_History": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "PL_2034_35_Table_RAW": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "PL_Awards_RAW": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "PL_Golden_Boot_History": (TRACING, "僅讀取球會／球員欄供身分比對；Goals 等欄位未呈現"),
-    "PL_PFA_POTY_History": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "PL_PFA_Team_of_Year": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Goals 等欄位未呈現"),
-    "PL_PFA_Young_POTY": (TRACING, "僅讀取球會／球員欄供身分比對；Apps／Assists／Goals 等欄位未呈現"),
-    "PL_PFA_Young_POTY_History": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "PL_Season_Records": (TRACING, "僅讀取球會／球員欄供身分比對；Apps 等欄位未呈現"),
-    "Pichichi_Award": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "Player_National_Team_Stats": (TRACING, "僅讀取球會／球員欄供身分比對；Apps／Assists／Goals／Rating 等欄位未呈現"),
-    "Premier_League_Golden_Boot": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "Premier_League_PFA_POTY": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "Real_Madrid_Copa_History": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "Real_Madrid_UCL_History": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "Retirement_Career_History": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "Serie_A_Capocannoniere": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "Serie_A_MVP_Player": (TRACING, "僅讀取球會／球員欄供身分比對；Apps／Assists／Goals 等欄位未呈現"),
-    "Serie_A_MVP_Young": (TRACING, "僅讀取球會／球員欄供身分比對；Apps／Assists／Goals 等欄位未呈現"),
-    "Serie_A_Team_of_Year": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Goals 等欄位未呈現"),
-    "The_Best_FIFA_Mens_Player": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "UCL_2034_35_KO_RAW": (TRACING, "僅讀取球會／球員欄供身分比對；Score_Raw 等欄位未呈現"),
-    "UCL_Awards_RAW": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "UCL_Golden_Boot": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "UCL_Knockout_Results": (TRACING, "僅讀取球會／球員欄供身分比對；Score_Raw 等欄位未呈現"),
-    "UCL_Season_Best_Player": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "UCL_Season_Best_Young_Player": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "UCL_Season_Leaders": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "UEFA_Super_Cup": (TRACING, "僅讀取球會／球員欄供身分比對"),
-    "World_Player_of_the_Year": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-    "Worlds_Best_Goalkeeper": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances 等欄位未呈現"),
-    "Yashin_Trophy": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances 等欄位未呈現"),
-    "Youth_Awards": (TRACING, "僅讀取球會／球員欄供身分比對；Appearances／Assists／Goals 等欄位未呈現"),
-}
-
-
-def role_of(table: str) -> tuple[str, str]:
-    return TABLE_ROLES.get(table, (PRESERVED, ""))
+def use_of(table: str) -> Use:
+    return TABLE_USES.get(table, use(PRESERVED))

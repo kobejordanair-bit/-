@@ -278,29 +278,32 @@ def generate(db_path: Path) -> str:
       "宣告與實作不一致會被抓出來（本次發現 1 處，已修正）。")
     w("")
     try:
-        from table_roles import ADOPTED, PENDING_INTEGRATION, PRESERVED, ROLE_LABELS, SURFACED, TRACING, role_of
+        from table_roles import (ADOPTED, IDENTITY, PENDING_INTEGRATION, PRESERVED, PROVENANCE,
+                                 ROLE_LABELS, ROLE_MEANINGS, SURFACED, use_of)
         from coverage import sheet_tables
         tables = sheet_tables(con)
-        counts = {ADOPTED: [0, 0], SURFACED: [0, 0], TRACING: [0, 0], PRESERVED: [0, 0]}
+        counts = {r: [0, 0] for r in (ADOPTED, SURFACED, IDENTITY, PROVENANCE, PRESERVED)}
         for sheet, table in tables.items():
-            role, _ = role_of(table)
+            u = use_of(table)
             rows = con.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
-            counts[role][0] += 1
-            counts[role][1] += rows
-        w("| 用途 | 張數 | 列數 | 意義 |")
-        w("|---|---:|---:|---|")
-        meanings = {
-            ADOPTED: "數值以事實呈現於站上",
-            SURFACED: "內容顯示給讀者閱讀",
-            TRACING: "僅供身分比對或來源追溯，內容未呈現",
-            PRESERVED: "保存於資料庫，尚未被任何視圖使用",
-        }
-        for role in (ADOPTED, SURFACED, TRACING, PRESERVED):
-            n, rows = counts[role]
-            w(f"| {ROLE_LABELS[role]} | {n} | {rows:,} | {meanings[role]} |")
+            for role in u.roles:
+                counts[role][0] += 1
+                counts[role][1] += rows
+        w("**用途標籤可以重疊**，一張表可以同時是身分索引與讀者頁內容——"
+          "強迫單選會讓宣告本身變成錯的。列數是「這些表共含多少列」，"
+          "**不代表全部已採用**：季中、季末與被取代的觀測本來就不該全進正式統計。")
         w("")
-        w(f"**只有 {counts[ADOPTED][0] + counts[SURFACED][0]} 張表的內容真正到達讀者**，"
-          f"其餘 {counts[TRACING][0]} 張只被身分解析器讀取、{counts[PRESERVED][0]} 張完全未使用。")
+        w("| 用途 | 張數 | 表內列數 | 意義 |")
+        w("|---|---:|---:|---|")
+        for role in (ADOPTED, SURFACED, IDENTITY, PROVENANCE, PRESERVED):
+            n, rows = counts[role]
+            if n:
+                w(f"| {ROLE_LABELS[role]} | {n} | {rows:,} | {ROLE_MEANINGS[role]} |")
+        w("")
+        w("**此檢查的邊界**：交叉比對只驗「有沒有讀到這張表」。把一張表從正式統計"
+          "誤標成身分解析，兩者都算已使用，檢查不會抓到。因此每筆宣告另記"
+          "**取用哪些欄位、輸出到哪個資料欄位或頁面**，供人工核對——"
+          "那才是判斷標籤對錯的依據。")
         w("")
         if PENDING_INTEGRATION:
             by_p: dict[str, list] = {}

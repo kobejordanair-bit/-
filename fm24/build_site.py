@@ -134,6 +134,8 @@ class Archive:
         schema = self.one("SELECT * FROM Workbook_Schema_Metadata") or {}
         return {
             "generated": dt.date.today().isoformat(),
+            "scriptConversion": SCRIPT_CONVERSION_AVAILABLE,
+            "degraded": not SCRIPT_CONVERSION_AVAILABLE,
             "sheet_count": len(sheets),
             "row_count": sum(s["row_count"] for s in sheets),
             "schema_version": schema.get("Workbook_Schema_Version", "—"),
@@ -744,6 +746,69 @@ class Archive:
             "verdicts": [{"verdict": k, "n": v} for k, v in verdicts.most_common()],
         }
 
+    # --------------------------------------------------------------- sources --
+    def sources(self) -> dict:
+        """The source registry, and the period map every sheet's dates fold into.
+
+        Local_Path is deliberately omitted: it names a directory on whoever
+        assembled the workbook, which is of no use to a reader and should not be
+        published.
+        """
+        entries = []
+        by_domain = Counter()
+        for r in self.q("SELECT * FROM Source_Index ORDER BY Source_ID"):
+            domain = clean(r["Domain"]) or "未分類"
+            by_domain[domain] += 1
+            entries.append({
+                "id": r["Source_ID"],
+                "file": clean(r["File_Name"]),
+                "domain": domain,
+                "season": clean(r["Season_Context"]),
+                "note": clean(r["Source_Note"]),
+            })
+
+        # how many facts each source is cited by, so a reader can see its weight
+        cited = Counter()
+        for table in ("Canonical_Award_Facts", "Player_Club_Season_Totals",
+                      "Domestic_League_Standings", "World_Timeline", "El_Clasico_Match_History"):
+            if not self.has(table, "Source_ID"):
+                continue
+            for r in self.q(f'SELECT Source_ID, COUNT(*) n FROM "{table}" '
+                            f'WHERE Source_ID IS NOT NULL GROUP BY 1'):
+                cited[r["Source_ID"]] += as_int(r["n"])
+        for entry in entries:
+            entry["citedBy"] = cited.get(entry["id"], 0)
+
+        periods, variants = [], defaultdict(set)
+        for r in self.q("SELECT * FROM Period_Dim ORDER BY Period_ID"):
+            pid = r["Period_ID"]
+            periods.append({
+                "id": pid,
+                "display": clean(r["Canonical_Period_Display"]) or clean(r["Source_Period_Display"]),
+                "sourceDisplay": clean(r["Source_Period_Display"]),
+                "type": clean(r["Period_Type"]),
+                "start": maybe_int(r["Start_Year"]),
+                "end": maybe_int(r["End_Year"]),
+                "status": clean(r["Verification_Status"]),
+            })
+            for value in (r["Source_Period_Display"], r["Canonical_Period_Display"]):
+                if clean(value):
+                    variants[pid].add(clean(value))
+
+        # one canonical period can be written several ways; that is the whole
+        # point of the table, and a reader should be able to see the mapping
+        merged = [{"id": pid, "spellings": sorted(v)} for pid, v in variants.items() if len(v) > 1]
+
+        orphan_sources = sum(1 for e in entries if not e["citedBy"])
+        return {
+            "sources": entries,
+            "domains": [{"domain": k, "n": v} for k, v in by_domain.most_common()],
+            "periods": periods,
+            "mergedPeriods": sorted(merged, key=lambda m: m["id"]),
+            "orphanSources": orphan_sources,
+            "citedSources": len(entries) - orphan_sources,
+        }
+
     # ------------------------------------------------------------ timetravel --
     def timetravel(self) -> dict:
         """The archive's own knowledge history.
@@ -1175,6 +1240,7 @@ def collect(archive: "Archive") -> dict:
         "resolution": archive.resolution(),
         "clubs": archive.clubs(),
         "competitions": archive.competitions(),
+        "sources": archive.sources(),
         "timetravel": archive.timetravel(),
         "people": archive.people(),
         "seasons": archive.seasons(),

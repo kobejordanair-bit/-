@@ -484,6 +484,7 @@ const VIEWS = [
   { id: "clubs",     group: "管理資料", label: "俱樂部身分", render: renderClubs },
   { id: "comps",     group: "管理資料", label: "賽事身分",   render: renderComps },
   { id: "import",    group: "管理資料", label: "匯入資料",   render: renderImport },
+  { id: "sources",   group: "管理資料", label: "來源與期間", render: renderSources },
   { id: "integrity", group: "管理資料", label: "檔案完整性", render: renderIntegrity },
 ];
 
@@ -492,6 +493,9 @@ const state = {
   league: DATA.world.leagues.includes("LaLiga EA Sports") ? "LaLiga EA Sports" : DATA.world.leagues[0],
   leagueSeason: DATA.world.seasons[DATA.world.seasons.length - 1],
   award: "Ballon d\u2019Or",
+  recordQuery: "",
+  sourceQuery: "",
+  sourceDomain: "",
   personQuery: "",
   personFilter: "awards",
   personLimit: 200,
@@ -1014,6 +1018,39 @@ function renderWorld() {
           el("td", {}, dash(r.runnerUp)),
           el("td", {}, dash(r.third)),
           el("td", { class: "mono" }, dash(r.host)))))))),
+    el("div", { class: "two" },
+      el("section", { class: "panel" },
+        el("h3", {}, "歐洲超級盃"),
+        el("p", { class: "cap" }, `來源：UEFA_Super_Cup　${w.superCup.length} 季`),
+        el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
+          el("thead", {}, el("tr", {}, ["賽季", "冠軍", "亞軍"].map(x => el("th", {}, x)))),
+          el("tbody", {}, w.superCup.map(r => el("tr", {},
+            el("td", { class: "mono" }, dash(r.season)),
+            el("td", { class: "name-cell", style: isBarca(r.winner) ? "color:var(--garnet)" : "" },
+              dash(r.winner)),
+            el("td", {}, dash(r.runnerUp)))))))),
+      el("section", { class: "panel" },
+        el("h3", {}, "世界俱樂部盃"),
+        el("p", { class: "cap" }, `來源：FIFA_Club_World_Cup_Results　${w.cwc.length} 筆`),
+        el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
+          el("thead", {}, el("tr", {}, ["年份", "名次", "球隊"].map(x => el("th", {}, x)))),
+          el("tbody", {}, w.cwc.map(r => el("tr", {},
+            el("td", { class: "mono" }, dash(r.Period)),
+            el("td", {}, dash(r.Rank)),
+            el("td", { class: "name-cell", style: isBarca(r.Club) ? "color:var(--garnet)" : "" },
+              dash(r.Club))))))))),
+    w.cups.length ? el("section", { class: "panel" },
+      el("h3", {}, "各國盃賽"),
+      el("p", { class: "cap" }, `來源：National_Tournaments　只列冠亞軍，共 ${w.cups.length} 筆`),
+      el("div", { class: "tblwrap" }, el("table", { class: "data" },
+        el("thead", {}, el("tr", {}, ["賽季", "賽事", "名次", "球隊"].map(x => el("th", {}, x)))),
+        el("tbody", {}, w.cups.map(r => el("tr", {},
+          el("td", { class: "mono" }, dash(r.season)),
+          el("td", {}, dash(r.competition)),
+          el("td", {}, r.rank === 1 ? el("span", { class: "pill win" }, "冠軍")
+            : el("span", { class: "pill flat" }, "亞軍")),
+          el("td", { class: "name-cell", style: isBarca(r.club) ? "color:var(--garnet)" : "" },
+            dash(r.club)))))))) : null,
     el("section", { class: "panel" },
       el("h3", {}, "歐洲其他錦標"),
       el("p", { class: "cap" }, "來源：Competition_History"),
@@ -1092,6 +1129,30 @@ function renderLeagues() {
 }
 
 /* ---------------------------------------------------------------- honours */
+function recordsTable(records) {
+  const q = state.recordQuery.trim();
+  const rows = q
+    ? records.filter(r => (r.type + r.who + (r.context || "") + (r.season || "")).includes(q))
+    : records;
+  const shown = rows.slice(0, 120);
+  return el("div", {},
+    el("p", { class: "cap" },
+      `符合 ${rows.length.toLocaleString()} 筆${rows.length > shown.length ? `，顯示前 ${shown.length}` : ""}`),
+    el("div", { class: "tblwrap" }, el("table", { class: "data" },
+      el("thead", {}, el("tr", {}, ["紀錄類型", "賽季", "對象", "脈絡", "來源表"].map(x => el("th", {}, x)))),
+      el("tbody", {}, shown.map(r => el("tr", {},
+        el("td", {}, dash(r.type)),
+        el("td", { class: "mono" }, dash(r.season)),
+        el("td", { class: "name-cell" }, dash(r.who)),
+        el("td", {}, dash(r.context)),
+        el("td", { class: "mono" }, dash(r.sheet))))))));
+}
+function repaintRecords() {
+  const panel = document.getElementById("recordPanel");
+  if (!panel) return paint();
+  panel.replaceChildren(recordsTable(DATA.honours.records));
+}
+
 function renderHonours() {
   const hs = DATA.honours;
   const awards = Object.keys(hs.winners).sort();
@@ -1114,6 +1175,16 @@ function renderHonours() {
               el("span", { class: "r" }, p.rank),
               el("span", { class: "nm", title: p.player }, p.player),
               el("span", { class: "cl" }, `${p.goals}球 ${p.assists}助 ${fmt(p.rating, 2)}`)))))))),
+    hs.records && hs.records.length ? el("section", { class: "panel" },
+      el("h3", {}, `歷史紀錄　${hs.records.length.toLocaleString()}`),
+      el("p", { class: "cap" }, "來源：Historical_Records。工作簿逐條記錄的歷史事實，可搜尋。"),
+      el("div", { class: "filters", style: "margin-bottom:14px" },
+        el("input", {
+          id: "recordQ", type: "search", placeholder: "搜尋紀錄類型、人物或球隊…",
+          value: state.recordQuery,
+          onInput: e => { state.recordQuery = e.target.value; repaintRecords(); },
+        })),
+      el("div", { id: "recordPanel" }, recordsTable(hs.records))) : null,
     el("section", { class: "panel" },
       el("h3", {}, "歷屆得主查詢"),
       el("p", { class: "cap" }, "只列出 Rank = 1 的列。團隊型獎項（年度最佳陣容）每季有多名一位，屬正常。"),
@@ -2683,11 +2754,98 @@ function readRoute() {
   return true;
 }
 
+
+/* ===================================================================
+   SOURCES AND PERIODS — the registry every other page cites.
+
+   Source_Index carries a Local_Path naming a directory on whoever assembled
+   the workbook; it is not in the payload and not shown. Period_Dim is here
+   because several spellings of one season fold to one Period_ID, and a reader
+   checking why two tables disagree needs to see that mapping.
+   =================================================================== */
+function renderSources() {
+  const s = DATA.sources;
+  const q = state.sourceQuery.trim();
+  const rows = s.sources.filter(x =>
+    (!state.sourceDomain || x.domain === state.sourceDomain) &&
+    (!q || (x.id + (x.file || "") + (x.note || "") + (x.season || "")).includes(q)));
+  const shown = rows.slice(0, 80);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${s.sources.length} 筆來源　·　${s.periods.length} 個期間`),
+      el("h2", {}, "來源與期間"),
+      el("p", {}, "每項事實都掛著一個 Source_ID，這裡是它們的名冊。"
+        + "期間對照表說明同一個賽季的不同寫法如何收斂成一個識別——"
+        + "兩張表對不起來時，通常先看這裡。")),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, s.sources.length),
+        el("div", { class: "l" }, "來源")),
+      el("div", {}, el("div", { class: "n tnum" }, s.citedSources), el("div", { class: "l" }, "已被事實引用")),
+      el("div", {}, el("div", { class: "n tnum" }, s.orphanSources), el("div", { class: "l" }, "尚未被引用")),
+      el("div", {}, el("div", { class: "n tnum" }, s.periods.length), el("div", { class: "l" }, "期間")),
+      el("div", {}, el("div", { class: "n tnum" }, s.mergedPeriods.length),
+        el("div", { class: "l" }, "有多種寫法")),
+    ),
+    el("div", { class: "hint" },
+      "來源清單不包含 Local_Path。那欄記的是組建工作簿那台機器上的檔案路徑，"
+      + "對讀者沒有用處，也不該公開。"),
+    el("section", { class: "panel" },
+      el("h3", {}, "期間對照"),
+      el("p", { class: "cap" }, "同一個賽季在來源中的不同寫法，與它們收斂到的 Period_ID。"),
+      el("div", { class: "tblwrap" }, el("table", { class: "data" },
+        el("thead", {}, el("tr", {}, ["Period_ID", "正式顯示", "型態", "起迄", "來源寫法"].map(x => el("th", {}, x)))),
+        el("tbody", {}, s.periods.filter(p => p.type === "Season").map(p => {
+          const merged = s.mergedPeriods.find(m => m.id === p.id);
+          return el("tr", {},
+            el("td", { class: "mono" }, p.id),
+            el("td", { class: "name-cell" }, dash(p.display)),
+            el("td", {}, dash(p.type)),
+            el("td", { class: "mono tnum" }, p.start === null ? "—" : `${p.start}–${p.end ?? ""}`),
+            el("td", { class: "mono" }, merged
+              ? el("span", { title: "此期間有多種來源寫法" }, merged.spellings.join("　/　"))
+              : dash(p.sourceDisplay)));
+        }))))),
+    el("section", { class: "panel" },
+      el("h3", {}, "來源名冊"),
+      el("p", { class: "cap" }, "「已被事實引用」是指有資料列以此 Source_ID 記錄出處；"
+        + "尚未被引用者多為尚未接入的原始檔。"),
+      el("div", { class: "filters", style: "margin-bottom:14px" },
+        el("input", {
+          id: "sourceQ", type: "search", placeholder: "搜尋 Source_ID、檔名或說明…",
+          value: state.sourceQuery,
+          onInput: e => { state.sourceQuery = e.target.value; paint(); },
+        }),
+        el("select", { id: "sourceDomain", onChange: e => { state.sourceDomain = e.target.value; paint(); } },
+          el("option", { value: "" }, "全部領域"),
+          s.domains.map(d => el("option", { value: d.domain, selected: d.domain === state.sourceDomain },
+            `${d.domain}（${d.n}）`)))),
+      el("p", { class: "cap" }, `符合 ${rows.length}${rows.length > shown.length ? `，顯示前 ${shown.length}` : ""}`),
+      el("div", { class: "tblwrap" }, el("table", { class: "data" },
+        el("thead", {}, el("tr", {},
+          el("th", {}, "Source_ID"), el("th", {}, "領域"), el("th", {}, "賽季"),
+          el("th", {}, "檔名"), el("th", { class: "num" }, "被引用"), el("th", {}, "說明"))),
+        el("tbody", {}, shown.map(x => el("tr", {},
+          el("td", { class: "mono" }, x.id),
+          el("td", {}, dash(x.domain)),
+          el("td", { class: "mono" }, dash(x.season)),
+          el("td", { class: "mono" }, dash(x.file)),
+          el("td", { class: "num tnum" }, x.citedBy || "—"),
+          el("td", {}, dash(x.note))))))),
+    ),
+  ];
+}
+
 /* ------------------------------------------------------------------ shell */
 function paint() {
   const view = VIEWS.find(v => v.id === state.view);
   const main = document.getElementById("main");
-  main.replaceChildren(el("div", { class: "view" }, view.render()));
+  const banner = DATA.meta.degraded
+    ? el("div", { class: "note", style: "margin-bottom:22px" },
+        "⚠ 本頁在簡繁轉換不可用的環境建置。身分比對、參照欄位偵測與覆蓋率數字都不完整，"
+        + "且無法與完整環境的結果比較。")
+    : null;
+  main.replaceChildren(el("div", { class: "view" }, banner, view.render()));
   document.querySelectorAll("#nav button").forEach(b =>
     b.setAttribute("aria-current", String(b.dataset.view === state.view)));
   writeRoute(true);
