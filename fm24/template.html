@@ -994,9 +994,10 @@ function renderLeagues() {
   const qual = note => {
     const t = note || "";
     if (/冠军|冠軍/.test(t)) return "q-win";
-    if (/欧洲冠军联赛|歐冠|冠军联赛/.test(t)) return "q-ucl";
-    if (/欧联|欧罗巴|协会联赛|歐聯/.test(t)) return "q-uel";
-    if (/降级|降級|保级/.test(t)) return "q-rel";
+    if (/欧洲冠军联赛|歐冠|冠军联赛|UCL/.test(t)) return "q-ucl";
+    if (/欧联|欧罗巴|协会联赛|歐聯|欧协联/.test(t)) return "q-uel";
+    /* the source marks relegation either in words or with a bare '!' */
+    if (/降级|降級|保级|^!$/.test(t)) return "q-rel";
     return "";
   };
 
@@ -1032,7 +1033,7 @@ function renderLeagues() {
             el("td", { class: "num tnum" }, dash(r[6])), el("td", { class: "num tnum" }, dash(r[7])),
             el("td", { class: "num tnum" }, r[8] === null ? "—" : r[8] > 0 ? "+" + r[8] : r[8]),
             el("td", { class: "num tnum", style: "font-weight:600" }, dash(r[9])),
-            el("td", { class: "mono" }, dash(r[10])))))),
+            el("td", { class: "mono" }, r[10] === "!" ? "降級" : dash(r[10])))))),
       ),
       el("div", { class: "legend" },
         el("span", {}, el("i", { style: "background:var(--gold)" }), "冠軍"),

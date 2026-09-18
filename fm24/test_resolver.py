@@ -343,3 +343,31 @@ class TestColumnGuard:
         assert archive.has("UCL_Knockout_Results", "Season")
         assert not archive.has("UCL_Knockout_Results", "Competition_Raw")
         assert not archive.has("No_Such_Table", "Season")
+
+
+@needs_db
+class TestRelegationMarker:
+    """'!' is data, not noise — a bug this pipeline shipped and then found."""
+
+    def test_every_bang_row_is_in_the_relegation_zone(self, con):
+        con.row_factory = sqlite3.Row
+        rows = [dict(r) for r in con.execute(
+            "SELECT Competition_Raw, Season, Snapshot, Rank, Qualification_Raw "
+            "FROM Domestic_League_Standings")]
+        tables = {}
+        for r in rows:
+            tables.setdefault((r["Competition_Raw"], r["Season"], r["Snapshot"]), []).append(r)
+        marked = 0
+        for rs in tables.values():
+            size = len(rs)
+            for r in rs:
+                if r["Qualification_Raw"] == "!":
+                    marked += 1
+                    assert size - int(r["Rank"]) <= 3, f"'!' outside the bottom four: {r}"
+        assert marked > 100, "expected the marker to be widespread"
+
+    def test_clean_keeps_it(self):
+        from build_site import clean
+        assert clean("!") == "!"
+        assert clean("NULL") is None
+        assert clean("") is None

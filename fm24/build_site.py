@@ -72,11 +72,17 @@ def maybe_int(value):
 
 
 def clean(value):
-    """The source transcription writes a literal 'NULL' string for absent cells."""
+    """The source transcription writes a literal 'NULL' string for absent cells.
+
+    '!' is NOT one of them. All 117 rows carrying it sit in the bottom three
+    places of their table and nowhere else, in the same band the source
+    elsewhere spells out as 降级 — it is the relegation marker, and discarding
+    it as noise silently deleted that fact from every one of those rows.
+    """
     if value is None:
         return None
     text = str(value).strip()
-    return None if text in ("", "NULL", "null", "!") else text
+    return None if text in ("", "NULL", "null") else text
 
 
 def norm_name(value: str | None) -> str:
@@ -856,7 +862,23 @@ class Archive:
                 "detail": f"{null_strings} 列的 Qualification_Raw／Info_Raw 內容是四個字元的字串 'NULL'，不是真正的空值。"
                           "任何 IS NULL 判斷都會漏掉這些列。本站顯示時視為空白，來源值未更動。",
                 "where": "Domestic_League_Standings",
-                "sample": ["NULL", "!"],
+                "sample": ["NULL"],
+            })
+
+        bang = as_int(self.one(
+            "SELECT COUNT(*) n FROM Domestic_League_Standings WHERE Qualification_Raw='!'")["n"])
+        spelled = as_int(self.one(
+            "SELECT COUNT(*) n FROM Domestic_League_Standings WHERE Qualification_Raw LIKE '%降级%' "
+            "OR Qualification_Raw LIKE '%降級%'")["n"])
+        if bang:
+            findings.append({
+                "severity": "medium",
+                "title": "降級以兩種記法並存",
+                "detail": f"{bang} 列用單一驚嘆號 '!' 標示降級，另有 {spelled} 列明寫「降级」。"
+                          "'!' 的每一列都落在該賽季墊底三名之內，無一例外，與明寫「降级」者位於同一名次區間。"
+                          "只比對文字「降级」的查詢會漏掉前者。",
+                "where": "Domestic_League_Standings",
+                "sample": ["!", "降级"],
             })
 
         # comparing canonical names alone finds only the exact-duplicate pairs;
