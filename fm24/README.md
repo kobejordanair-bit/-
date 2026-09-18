@@ -30,9 +30,45 @@ python3 build_site.py --standalone \
 用 `file://` 直接開的話沒有那層外殼，瀏覽器會自己猜編碼——**整頁中文會變亂碼**。
 `--standalone` 會補上 `<!doctype>`、`<meta charset="utf-8">` 與 viewport，可直接雙擊開啟。
 
-離線版的限制：`db` 與 `downloads` 是 claude.ai 的執行時能力，本機開啟時取不到，
-所以三個控制台的**決定無法保存也無法匯出**（會顯示「儲存空間不可用」）。
-瀏覽、搜尋、分群、候選比對、完整性報告全部照常運作。
+## 儲存後端：一套 API，兩種實作
+
+`db` 與 `downloads` 是 claude.ai 的執行時能力，在 GitHub Pages 或 `file://` 上都取不到。
+但控制台的價值就在「記下決定」，所以那不能降級。`getDb()` 會偵測環境並回傳對應後端：
+
+| 環境 | 儲存 | 匯出 |
+|---|---|---|
+| claude.ai Artifact | 平台共用文件庫，跨裝置可見 | 平台 download 能力 |
+| GitHub Pages / `file://` | `localStorage`（本機瀏覽器） | Blob 連結下載 |
+| 停用網站資料的瀏覽器 | 無（誠實告知，不假裝有） | 無 |
+
+`createLocalDb()` 實作了呼叫端已在用的那一小塊介面（`collection().orderBy().limit().get()`、
+`doc().set()`、`doc().delete()`），所以上層程式碼一行都沒改。
+
+Blob 下載這點值得說明：**Artifact 檢視器的沙箱會擋掉頁面自己發起的下載**，平台才需要提供
+download 能力。離開那個沙箱後，一般的 `<a download>` 就能用，所以沒有東西需要降級。
+
+頁面會顯示目前用的是哪個後端，不會讓你以為決定存到了別的地方。
+
+## 部署到 GitHub Pages
+
+`fm24/archive.html` 是已建置的完整文件，直接 commit 進版本庫供 Pages 服務。
+
+1. 把 `claude/determined-galileo-ubwy3m` 合併進預設分支
+2. GitHub → Settings → Pages → Source 選 **Deploy from a branch**，分支選預設分支、資料夾選 **/ (root)**
+3. 幾分鐘後開 `https://<帳號>.github.io/<repo>/fm24/archive.html`
+
+根目錄的 `.nojekyll` 是空檔案，作用是讓 Pages 跳過 Jekyll 前處理、原樣提供檔案。
+
+更新內容時重跑：
+
+```bash
+python3 etl.py <你的 xlsx>
+python3 build_site.py --standalone -o archive.html
+git add fm24/archive.html && git commit && git push
+```
+
+`archive.html` 是唯一需要進版控的產出物（約 1 MB）；`dist/` 與 `data/*.sqlite` 仍在 `.gitignore` 裡。
+
 
 `opencc` 只在 build time 需要（身分比對要正規化簡繁）。缺少時 `resolver.py` 會退化成
 不轉換直接比對，站台仍可產出，只是候選命中率會掉。

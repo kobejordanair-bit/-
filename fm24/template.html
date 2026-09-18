@@ -1387,7 +1387,7 @@ async function undecide(item) {
 }
 
 async function exportDecisions() {
-  if (!downloadsHandle) await getDb();
+  await getDb();
   const map = state.decisions;
   if (!downloadsHandle || !map || map === "unavailable") return;
   const list = Object.values(map);
@@ -1442,8 +1442,9 @@ function renderResolve() {
       el("div", { class: "prog" },
         el("i", { style: `width:${(clearedRows / r.totalRows) * 100}%;background:var(--garnet)` }),
         el("i", { style: `width:${(1 - clearedRows / r.totalRows) * 100}%;background:transparent` })),
-      state.decisions === "unavailable" ? el("div", { class: "hint", style: "margin-top:14px" },
-        "儲存空間不可用，決定不會被保存。候選比對與證據仍可正常檢視。") : null,
+      state.decisions === "unavailable"
+        ? el("div", { class: "hint", style: "margin-top:14px" }, STORAGE_NOTE.none)
+        : el("div", { style: "margin-top:14px" }, storageHint()),
       decidedCount ? el("div", { class: "btnrow", style: "margin-top:16px" },
         el("button", { class: "btn", type: "button", onClick: exportDecisions }, "匯出決定 JSON"),
         el("span", { class: "cap" }, "下載後執行　", el("code", {}, "python3 ingest.py <檔案> --identity --commit"))) : null),
@@ -1567,7 +1568,7 @@ async function undecideClub(raw) {
 }
 
 async function exportClubDecisions() {
-  if (!downloadsHandle) await getDb();
+  await getDb();
   const map = state.clubDecisions;
   if (!downloadsHandle || !map || map === "unavailable") return;
   const list = Object.values(map);
@@ -1611,8 +1612,7 @@ function renderClubs() {
         el("div", { class: "l" }, "重複身分")),
     ),
     state.clubError ? el("div", { class: "note" }, state.clubError) : null,
-    state.clubDecisions === "unavailable" ? el("div", { class: "hint" },
-      "儲存空間不可用，決定不會被保存。候選比對仍可正常檢視。") : null,
+    state.clubDecisions === "unavailable" ? el("div", { class: "hint" }, STORAGE_NOTE.none) : storageHint(),
     Object.keys(decided).length ? el("div", { class: "btnrow" },
       el("button", { class: "btn", type: "button", onClick: exportClubDecisions },
         `匯出決定 JSON　${Object.keys(decided).length} 筆`),
@@ -1797,7 +1797,7 @@ async function undecideComp(raw) {
 }
 
 async function exportCompDecisions() {
-  if (!downloadsHandle) await getDb();
+  await getDb();
   const map = state.compDecisions;
   if (!downloadsHandle || !map || map === "unavailable") return;
   const list = Object.values(map);
@@ -1841,8 +1841,7 @@ function renderComps() {
         el("div", { class: "l" }, "分類列（非賽事）")),
     ),
     state.compError ? el("div", { class: "note" }, state.compError) : null,
-    state.compDecisions === "unavailable" ? el("div", { class: "hint" },
-      "儲存空間不可用，決定不會被保存。分群與比對仍可正常檢視。") : null,
+    state.compDecisions === "unavailable" ? el("div", { class: "hint" }, STORAGE_NOTE.none) : storageHint(),
     Object.keys(decided).length ? el("div", { class: "btnrow" },
       el("button", { class: "btn", type: "button", onClick: exportCompDecisions },
         `匯出決定 JSON　${Object.keys(decided).length} 筆`),
@@ -2244,15 +2243,134 @@ function buildRecords() {
   });
 }
 
-/* --- db plumbing --------------------------------------------------------- */
-let dbHandle = null, dbTried = false, downloadsHandle = null;
+/* ===================================================================
+   STORAGE — one API, two backends.
+
+   On claude.ai the page is granted a shared document store and a download
+   verb. Anywhere else (GitHub Pages, a file:// copy) neither exists, but the
+   consoles must not lose the ability to record a decision: the whole point of
+   them is the decision. So the same small surface the callers already use is
+   implemented over localStorage and a blob link, and getDb() hands back
+   whichever backend this page actually has.
+
+   The blob link matters: the Artifact viewer's sandbox blocks a page-initiated
+   download, which is why the platform provides a download verb at all. Outside
+   that sandbox an ordinary anchor works, so there is nothing to degrade.
+   =================================================================== */
+
+const LOCAL_PREFIX = "fm24:";
+
+function readLocal(collection) {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_PREFIX + collection) || "{}");
+  } catch (e) {
+    return {};   // private window, blocked site data, or corrupted value
+  }
+}
+function writeLocal(collection, map) {
+  try {
+    localStorage.setItem(LOCAL_PREFIX + collection, JSON.stringify(map));
+    return true;
+  } catch (e) {
+    return false;  // quota exceeded or storage disabled
+  }
+}
+
+/* the subset of the platform's document-store shape that the consoles call */
+function createLocalDb() {
+  const query = (collection, order, direction, cap) => ({
+    orderBy(field, dir) { return query(collection, field, dir, cap); },
+    limit(n) { return query(collection, order, direction, n); },
+    async get() {
+      const map = readLocal(collection);
+      let rows = Object.entries(map).map(([id, data]) => ({ id, data }));
+      if (order) {
+        const sign = direction === "desc" ? -1 : 1;
+        rows.sort((a, b) => String(a.data?.[order] ?? "").localeCompare(String(b.data?.[order] ?? "")) * sign);
+      }
+      return cap ? rows.slice(0, cap) : rows;
+    },
+  });
+  return {
+    backend: "local",
+    collection(name) { return query(name, null, null, null); },
+    doc(path) {
+      const cut = path.indexOf("/");
+      const collection = path.slice(0, cut);
+      const id = path.slice(cut + 1);
+      return {
+        async set(value) {
+          const map = readLocal(collection);
+          map[id] = value;
+          if (!writeLocal(collection, map)) {
+            const err = new Error("localStorage 無法寫入");
+            err.code = "storage_failed";
+            throw err;
+          }
+        },
+        async delete() {
+          const map = readLocal(collection);
+          delete map[id];
+          writeLocal(collection, map);
+        },
+      };
+    },
+  };
+}
+
+function createLocalDownloads() {
+  return {
+    backend: "local",
+    async save({ filename, data }) {
+      const url = URL.createObjectURL(new Blob([data], { type: "application/json;charset=utf-8" }));
+      const anchor = Object.assign(document.createElement("a"), { href: url, download: filename });
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    },
+  };
+}
+
+let dbHandle = null, dbTried = false, downloadsHandle = null, storageBackend = null;
+
 async function getDb() {
-  if (!dbTried) {
-    dbTried = true;
-    try { dbHandle = await claude.use("db"); } catch (e) { dbHandle = null; }
-    try { downloadsHandle = await claude.use("downloads"); } catch (e) { downloadsHandle = null; }
+  if (dbTried) return dbHandle;
+  dbTried = true;
+
+  let platformDb = null, platformDownloads = null;
+  if (typeof claude !== "undefined" && claude?.use) {
+    try { platformDb = await claude.use("db"); } catch (e) { platformDb = null; }
+    try { platformDownloads = await claude.use("downloads"); } catch (e) { platformDownloads = null; }
+  }
+
+  dbHandle = platformDb || createLocalDb();
+  downloadsHandle = platformDownloads || createLocalDownloads();
+  storageBackend = platformDb ? "platform" : "local";
+
+  /* a browser with storage blocked entirely still has to say so honestly */
+  if (storageBackend === "local") {
+    const probe = LOCAL_PREFIX + "__probe";
+    try {
+      localStorage.setItem(probe, "1");
+      localStorage.removeItem(probe);
+    } catch (e) {
+      storageBackend = "none";
+      dbHandle = null;
+    }
   }
   return dbHandle;
+}
+
+const STORAGE_NOTE = {
+  platform: "決定儲存在這份 Artifact 的共用空間，換裝置開啟也看得到。",
+  local: "決定儲存在這台瀏覽器（localStorage），不會同步到其他裝置。匯出的 JSON 才是搬運與併檔的依據。",
+  none: "這個瀏覽器停用了本機儲存（無痕視窗或封鎖了網站資料），決定無法保存。比對與證據仍可正常檢視。",
+};
+
+function storageHint() {
+  if (!storageBackend) return null;
+  return el("div", { class: "hint" }, STORAGE_NOTE[storageBackend]);
 }
 async function loadBatches() {
   const db = await getDb();
@@ -2315,7 +2433,7 @@ async function deleteBatch(id) {
 }
 
 async function exportBatches() {
-  if (!downloadsHandle) await getDb();
+  await getDb();
   if (!downloadsHandle || !Array.isArray(state.batches)) return;
   const payload = {
     exportedAt: new Date().toISOString(),
@@ -2435,10 +2553,9 @@ function renderImport() {
       el("p", { class: "cap" }, batches === "unavailable"
         ? "此檢視無法使用儲存功能。"
         : `${pending.length} 批　${totalRows} 列，尚未併入工作簿。`),
+      batches !== "unavailable" && batches !== null ? storageHint() : null,
       batches === null ? el("div", { class: "empty" }, "載入中…")
-        : batches === "unavailable" ? el("div", { class: "hint" },
-            "儲存空間目前不可用 —— 可能是這份檔案以唯讀方式分享給你，或瀏覽器尚未授權。"
-            + "解析與比對功能仍可正常使用，只是結果不會被保存。")
+        : batches === "unavailable" ? el("div", { class: "hint" }, STORAGE_NOTE.none)
         : pending.length === 0 ? el("div", { class: "empty" }, "還沒有任何待併入批次。")
         : el("div", {},
             pending.map(b => el("div", { class: "batch" },
