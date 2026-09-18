@@ -1003,7 +1003,32 @@ class Archive:
         }
 
 
-def build(db_path: Path, out_path: Path, template_path: Path) -> None:
+# The Artifact platform wraps the published fragment in its own document
+# skeleton. A file opened from file:// gets no such wrapper, and without an
+# explicit charset the browser guesses — which turns every Chinese character in
+# the page into mojibake — so a standalone build supplies the skeleton itself.
+STANDALONE_SKELETON = """<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  :root {{ color-scheme: light dark; padding-top: env(safe-area-inset-top, 0px);
+           padding-bottom: env(safe-area-inset-bottom, 0px); }}
+  html, body {{ margin: 0; }}
+  body {{ font: 14px system-ui, sans-serif; }}
+  img {{ max-width: 100%; }}
+  [hidden] {{ display: none !important; }}
+</style>
+</head>
+<body>
+{body}
+</body>
+</html>
+"""
+
+
+def build(db_path: Path, out_path: Path, template_path: Path, standalone: bool = False) -> None:
     archive = Archive(db_path)
     payload = {
         "meta": archive.meta(),
@@ -1022,9 +1047,12 @@ def build(db_path: Path, out_path: Path, template_path: Path) -> None:
     }
     data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     html = template_path.read_text(encoding="utf-8").replace('"__ARCHIVE_DATA__"', data)
+    if standalone:
+        html = STANDALONE_SKELETON.format(body=html)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html, encoding="utf-8")
-    print(f"wrote {out_path} ({len(html) / 1024:.0f} KB, payload {len(data) / 1024:.0f} KB)")
+    kind = "standalone" if standalone else "artifact fragment"
+    print(f"wrote {out_path} ({len(html) / 1024:.0f} KB, payload {len(data) / 1024:.0f} KB, {kind})")
     for key, value in payload.items():
         if isinstance(value, list):
             print(f"  {key:<12} {len(value)}")
@@ -1036,8 +1064,11 @@ def main() -> None:
     ap.add_argument("-d", "--database", type=Path, default=here / "data" / "fm24.sqlite")
     ap.add_argument("-o", "--output", type=Path, default=here / "dist" / "index.html")
     ap.add_argument("-t", "--template", type=Path, default=here / "template.html")
+    ap.add_argument("-s", "--standalone", action="store_true",
+                    help="emit a complete HTML document that opens from file:// "
+                         "(the default output is a fragment for the Artifact platform)")
     args = ap.parse_args()
-    build(args.database, args.output, args.template)
+    build(args.database, args.output, args.template, standalone=args.standalone)
 
 
 if __name__ == "__main__":

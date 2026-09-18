@@ -21,8 +21,18 @@ Excel 能存這些，但不能查。這個管線讓 Excel 降級成「輸入格�
 ```bash
 pip install openpyxl opencc-python-reimplemented
 python3 etl.py path/to/FM24_World_Master_v6.4.0.xlsx    # -> data/fm24.sqlite
-python3 build_site.py                                    # -> dist/index.html
+python3 build_site.py                                    # -> dist/index.html（Artifact 用）
+python3 build_site.py --standalone \
+    -o dist/blaugrana-archive.html                       # -> 可離線開啟的完整文件
 ```
+
+**兩種產出的差別**：預設輸出是**片段**，交給 Artifact 平台包上它自己的文件外殼。
+用 `file://` 直接開的話沒有那層外殼，瀏覽器會自己猜編碼——**整頁中文會變亂碼**。
+`--standalone` 會補上 `<!doctype>`、`<meta charset="utf-8">` 與 viewport，可直接雙擊開啟。
+
+離線版的限制：`db` 與 `downloads` 是 claude.ai 的執行時能力，本機開啟時取不到，
+所以三個控制台的**決定無法保存也無法匯出**（會顯示「儲存空間不可用」）。
+瀏覽、搜尋、分群、候選比對、完整性報告全部照常運作。
 
 `opencc` 只在 build time 需要（身分比對要正規化簡繁）。缺少時 `resolver.py` 會退化成
 不轉換直接比對，站台仍可產出，只是候選命中率會掉。
