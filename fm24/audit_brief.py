@@ -18,8 +18,9 @@ import sqlite3
 from pathlib import Path
 
 from build_site import Archive
-from resolver import (CLUB_REFERENCE_COLUMNS, COMPETITION_REFERENCE_COLUMNS, SURNAME_GATE,
-                      ClubResolver, CompetitionResolver, IdentityResolver)
+from resolver import (COMPETITION_REFERENCE_COLUMNS, SURNAME_GATE, ClubResolver,
+                      CompetitionResolver, IdentityResolver, discover_club_columns,
+                      discover_competition_columns)
 
 
 def generate(db_path: Path) -> str:
@@ -124,21 +125,26 @@ def generate(db_path: Path) -> str:
     # --------------------------------------------------------------- scope
     w("## 3. 範圍判斷（最容易出錯的地方）")
     w("")
-    w("本管線用**人工列舉**的方式決定「哪些欄位裝的是俱樂部／賽事」，因為用欄位名稱")
-    w("樣式比對會誤抓——`Intl_Tournament_Results.Winner` 裝的是國家（葡萄牙、法國），")
-    w("不是俱樂部。第一版就是這樣把積欠從 65 灌水成 299。")
+    w("參照欄位改由**量測**決定：一個欄位算不算俱樂部參照，看它的值實際能不能對應到")
+    w("`Club_Dim`。這個測試正好能區分真正的俱樂部欄與 `Intl_Tournament_Results.Winner`")
+    w("——後者裝的是國家，對應不到任何俱樂部。")
     w("")
-    w("**請對照工作簿確認下面兩張清單有沒有漏列或多列。**")
+    w("**上一版用人工清單，經量測後發現漏了 54 個欄位**（幾乎所有聯賽獎項表都在內），")
+    w("所以改成自動偵測。維度表本身與已知的自由文字欄另以排除清單處理。")
     w("")
-    w(f"### 視為俱樂部參照的欄位（{len(CLUB_REFERENCE_COLUMNS)} 個）")
+    w("**請對照工作簿確認下面兩張清單有沒有誤判。**")
     w("")
-    for table, column in CLUB_REFERENCE_COLUMNS:
+    club_columns = discover_club_columns(con)
+    w(f"### 視為俱樂部參照的欄位（{len(club_columns)} 個，自動偵測）")
+    w("")
+    for table, column in club_columns:
         present = "" if archive.has(table, column) else "  ⚠ 此欄位在目前工作簿中不存在"
         w(f"- `{table}.{column}`{present}")
     w("")
-    w(f"### 視為賽事參照的欄位（{len(COMPETITION_REFERENCE_COLUMNS)} 個）")
+    comp_columns = discover_competition_columns(con)
+    w(f"### 視為賽事參照的欄位（{len(comp_columns)} 個）")
     w("")
-    for table, column in COMPETITION_REFERENCE_COLUMNS:
+    for table, column in comp_columns:
         present = "" if archive.has(table, column) else "  ⚠ 此欄位在目前工作簿中不存在"
         w(f"- `{table}.{column}`{present}")
     w("")
@@ -259,7 +265,36 @@ def generate(db_path: Path) -> str:
     w("字串常值而不報錯，導致掃描結果憑空生出 268 列假資料。若你的工具也是 SQL，請注意。")
     w("")
 
-    w("## 8. 想請你回答的問題")
+    w("## 8. 資料覆蓋率（自我量測）")
+    w("")
+    w("以下由 `coverage.py` 量測，不是人工盤點。")
+    w("")
+    try:
+        from coverage import scan, untouched_sheets
+        idle = untouched_sheets(db_path)
+        result = scan(db_path)
+        club_cols = len(discover_club_columns(con))
+        comp_cols = len(discover_competition_columns(con))
+        w(f"- **俱樂部參照欄 {club_cols} 個、賽事參照欄 {comp_cols} 個**，由值是否真能對應到維度表"
+          "自動判定，非人工列舉。（前一版用人工清單，漏了 54 個欄位。）")
+        leftover = [r for r in result["clubs"]
+                    if r["table"] not in ("Club_Dim", "Competition_Dim", "Player_Dim", "Nation_Dim")]
+        w(f"- 自動偵測之外仍疑似漏列者：{len(leftover)} 個"
+          + ("（" + "、".join(f"{r['table']}.{r['column']}" for r in leftover[:4]) + "）" if leftover else "（無）"))
+        if idle:
+            total = sum(x["rows"] for x in idle)
+            w(f"- **有 {len(idle)} 張工作表、{total:,} 列從未被任何視圖讀取。**"
+              "這是量測結果：建置過程中沒有任何查詢碰到它們。列出如下，請判斷哪些應該接進來：")
+            w("")
+            for x in idle:
+                w(f"  - `{x['sheet']}`　{x['rows']:,} 列")
+        else:
+            w("- 每張工作表都至少被一個查詢讀取。")
+    except Exception as exc:                      # pragma: no cover - diagnostics only
+        w(f"（覆蓋率量測未能執行：{exc}）")
+    w("")
+
+    w("## 9. 想請你回答的問題")
     w("")
     w("1. 第 3 節的欄位清單，有沒有**漏掉**任何裝俱樂部或賽事名稱的欄位？")
     w("2. 第 2 節的缺陷，有沒有哪一條其實是**來源刻意為之**、不該被當成錯誤？")

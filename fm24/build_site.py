@@ -20,9 +20,10 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from resolver import (CATEGORY_LABELS, CLUB_REFERENCE_COLUMNS, COMPETITION_REFERENCE_COLUMNS,
+from resolver import (CATEGORY_LABELS, COMPETITION_REFERENCE_COLUMNS,
                       LEAGUE_LABELS, ClubResolver, CompetitionResolver, IdentityResolver,
                       club_key, competition_category, is_truncated, league_key, normalise,
+                      discover_club_columns, discover_competition_columns,
                       sheet_league, start_year, strip_stage, tier_signature)
 
 BARCELONA_CLUB_ID = "C-0030"
@@ -584,9 +585,12 @@ class Archive:
         """Club references that carry no Club_ID, and identities recorded twice."""
         resolver = ClubResolver(self.con)
 
+        # Discovered rather than hand-listed: a curated allowlist missed 54 of the
+        # columns actually holding club names, every league award sheet included.
+        reference_columns = discover_club_columns(self.con)
         refs = defaultdict(lambda: {"rows": 0, "tables": Counter(), "leagues": Counter(),
                                     "seasons": set()})
-        for table, column in CLUB_REFERENCE_COLUMNS:
+        for table, column in reference_columns:
             if not self.has(table, column):
                 continue
             has_season = self.has(table, "Season")
@@ -634,7 +638,7 @@ class Archive:
             members = []
             for cid in dupe["ids"]:
                 used = Counter()
-                for table, column in CLUB_REFERENCE_COLUMNS:
+                for table, column in reference_columns:
                     if not self.has(table, "Club_ID"):
                         continue
                     n = as_int(self.one(f'SELECT COUNT(*) n FROM "{table}" WHERE Club_ID=?', cid)["n"])
@@ -664,6 +668,7 @@ class Archive:
             "unresolvedRows": sum(u["rows"] for u in unresolved),
             "resolvedRows": resolved_rows,
             "controlled": len(resolver.canonical),
+            "referenceColumns": len(reference_columns),
             "verdicts": [{"verdict": k, "n": v} for k, v in verdicts.most_common()],
         }
 
@@ -674,7 +679,7 @@ class Archive:
 
         refs = defaultdict(lambda: {"rows": 0, "tables": Counter()})
         categories = defaultdict(lambda: {"rows": 0, "tables": Counter()})
-        for table, column in COMPETITION_REFERENCE_COLUMNS:
+        for table, column in discover_competition_columns(self.con):
             if not self.has(table, column):
                 continue
             for r in self.q(f'SELECT "{column}" v, COUNT(*) n FROM "{table}" WHERE "{column}" IS NOT NULL GROUP BY 1'):

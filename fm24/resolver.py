@@ -488,11 +488,19 @@ def club_key(name: str | None) -> str:
     return normalise(text)
 
 
-# Columns that genuinely name a CLUB. Kept as an explicit list rather than a
-# pattern because a regex over column names also catches nation columns —
-# Intl_Tournament_Results.Winner holds 葡萄牙, not a club — which inflates the
-# backlog with entities that were never meant to have a Club_ID.
-CLUB_REFERENCE_COLUMNS = [
+# Columns that genuinely name a CLUB.
+#
+# This began as a hand-written allowlist, which a coverage scan then showed was
+# missing 55 of the columns actually holding club names — every league award
+# sheet among them. A curated list cannot keep up with a workbook that grows.
+#
+# discover_club_columns() replaces it by MEASURING: a column counts when enough
+# of its distinct values resolve against Club_Dim. That test is what separates a
+# club column from Intl_Tournament_Results.Winner, whose values are nations and
+# therefore resolve against nothing — the same distinction the old comment
+# claimed a name pattern could not make. This list remains as the floor, so a
+# column stays in scope even if a future workbook thins its values out.
+CLUB_REFERENCE_SEED = [
     ("Domestic_League_Standings", "Club_Raw"), ("Barcelona_Transfers", "Counterparty_Club"),
     ("Player_League_Career", "Club_Raw"), ("Player_Club_Competition_Stats", "Club_Raw"),
     ("Player_Club_Season_Totals", "Club_Raw"), ("Canonical_Award_Facts", "Club_Raw"),
@@ -506,7 +514,6 @@ CLUB_REFERENCE_COLUMNS = [
     ("Ballon_dOr", "Club"), ("LaLiga_2034_35_Table_RAW", "Club_Raw"),
     ("PL_2034_35_Table_RAW", "Club_Raw"),
 ]
-
 
 class ClubResolver:
     """Resolves club references and finds club identities that were split in two."""
@@ -840,3 +847,88 @@ class CompetitionResolver:
         for name in ordered:
             groups[find(name)].append(name)
         return [sorted(v) for v in groups.values()]
+
+
+# Columns naming something other than an entity, however much they look alike.
+REFERENCE_DENY_COLUMNS = {
+    "Source_ID", "Verification_Status", "Source_Note", "Notes", "Reason", "Adoption_Note",
+    "Derivation_Sources", "Derivation_Status", "Source_Sheets", "Source_Reference",
+    "Header_Contract", "Raw_Line", "Source_File", "Source_Block", "Authority_Lineage",
+    "Historical_Note", "Attribution_Policy", "Season_Status", "Info_Raw", "Progress_Raw",
+    "Outcome_Raw", "Objective_Fact", "Crosscheck_Status", "Identity_Status",
+    "Statistical_Adoption_Status", "Resolution_Status",
+}
+# Tables whose values are nations or free text even where a column name matches.
+# The dimension tables define the entities; counting them as references would
+# make every entity trivially resolved and hide the real backlog.
+REFERENCE_DENY_TABLES = {"Nation_Dim", "Club_Dim", "Player_Dim", "Competition_Dim",
+                         "Intl_Tournament_Results", "Historical_Records",
+                         "Record_Identity_Map"}
+
+# Denied table-and-column pairs, for a table that is mostly about something else
+# but still carries one genuine reference column.
+REFERENCE_ALLOW_PAIRS = {("Player_National_Team_Stats", "Context_Club")}
+
+DISCOVERY_FLOOR = 0.60
+DISCOVERY_MIN_VALUES = 3
+
+
+def _discover(con: sqlite3.Connection, seed, resolves) -> list[tuple[str, str]]:
+    """Every column whose values actually resolve, seeded by the known ones."""
+    found = {tuple(x) for x in seed}
+    try:
+        tables = [r[0] for r in con.execute("SELECT table_name FROM _sheets")]
+    except sqlite3.OperationalError:
+        return sorted(found)
+
+    for table in tables:
+        if table in REFERENCE_DENY_TABLES and not any(
+                t == table for t, _ in REFERENCE_ALLOW_PAIRS):
+            continue
+        try:
+            columns = [r[1] for r in con.execute(f'PRAGMA table_info("{table}")')]
+        except sqlite3.OperationalError:
+            continue
+        for column in columns:
+            if column.startswith("_") or column in REFERENCE_DENY_COLUMNS:
+                continue
+            if table in REFERENCE_DENY_TABLES and (table, column) not in REFERENCE_ALLOW_PAIRS:
+                continue
+            if (table, column) in found:
+                continue
+            values = [str(r[0]).strip() for r in con.execute(
+                f'SELECT DISTINCT "{column}" FROM "{table}" WHERE "{column}" IS NOT NULL')
+                if str(r[0]).strip() and str(r[0]).strip() != "NULL"]
+            if len(values) < DISCOVERY_MIN_VALUES:
+                continue
+            hits = sum(1 for v in values if resolves(v))
+            if hits / len(values) >= DISCOVERY_FLOOR:
+                found.add((table, column))
+    return sorted(found)
+
+
+# Discovery reads every table once. Memoising it keeps a build from repeating
+# that scan, and lets a caller warm it before measuring which sheets a build
+# actually consumes — otherwise the scan alone makes every sheet look used.
+_DISCOVERY_CACHE: dict[tuple[int, str], list[tuple[str, str]]] = {}
+
+
+def discover_club_columns(con: sqlite3.Connection) -> list[tuple[str, str]]:
+    key = (id(con), "club")
+    if key not in _DISCOVERY_CACHE:
+        clubs = ClubResolver(con)
+        _DISCOVERY_CACHE[key] = _discover(
+            con, CLUB_REFERENCE_SEED,
+            lambda v: bool(clubs.resolve(v) or clubs.stripped.get(club_key(v))))
+    return _DISCOVERY_CACHE[key]
+
+
+def discover_competition_columns(con: sqlite3.Connection) -> list[tuple[str, str]]:
+    key = (id(con), "competition")
+    if key not in _DISCOVERY_CACHE:
+        comps = CompetitionResolver(con)
+        _DISCOVERY_CACHE[key] = _discover(
+            con, COMPETITION_REFERENCE_COLUMNS,
+            lambda v: bool(competition_category(v) or comps.resolve(v)
+                           or any(k in comps.index for k in competition_keys(v))))
+    return _DISCOVERY_CACHE[key]
