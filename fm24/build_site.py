@@ -1028,9 +1028,42 @@ STANDALONE_SKELETON = """<!doctype html>
 """
 
 
-def build(db_path: Path, out_path: Path, template_path: Path, standalone: bool = False) -> None:
-    archive = Archive(db_path)
-    payload = {
+def export_json(db_path: Path, out_path: Path) -> None:
+    """Dump the payload on its own, for handing to something that reads data.
+
+    The site embeds this same structure inside a megabyte of page, which is the
+    wrong shape for another program (or another model) to read: it has to get
+    through the viewer to reach the archive. This writes the archive alone.
+    """
+    payload = collect(Archive(db_path))
+    payload["_readme"] = {
+        "source": "FM24 World Master workbook, mirrored to SQLite then derived",
+        "generated": payload["meta"]["generated"],
+        "note": "所有數值保留來源原形；來源未提供者為 null，不以 0 代替。"
+                "identity/club/competition 區塊是待解析的積欠，不是已確認事實。",
+        "sections": {
+            "meta": "工作簿規模與結構版本",
+            "world": "五大聯賽積分榜、歐冠與國際賽冠軍",
+            "people": "332 個受控球員身分與其獎項",
+            "seasons": "巴塞隆納 12 季主表",
+            "players": "巴塞隆納球員生涯與能力值",
+            "chronicle": "1,334 筆已確認事件",
+            "honours": "金球獎與各獎項歷屆得主",
+            "resolution": "球員身分積欠與候選",
+            "clubs": "俱樂部身分積欠與重複身分",
+            "competitions": "賽事身分積欠與同賽事異寫",
+            "timetravel": "檔案認知史：哪一天知道了什麼",
+            "integrity": "ETL 自動偵測的資料缺陷",
+        },
+    }
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(payload, ensure_ascii=False, indent=1)
+    out_path.write_text(text, encoding="utf-8")
+    print(f"wrote {out_path} ({len(text) / 1024 / 1024:.1f} MB)")
+
+
+def collect(archive: "Archive") -> dict:
+    return {
         "meta": archive.meta(),
         "world": archive.world(),
         "resolution": archive.resolution(),
@@ -1045,6 +1078,10 @@ def build(db_path: Path, out_path: Path, template_path: Path, standalone: bool =
         "integrity": archive.integrity(),
         "honours": archive.honours(),
     }
+
+
+def build(db_path: Path, out_path: Path, template_path: Path, standalone: bool = False) -> None:
+    payload = collect(Archive(db_path))
     data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     html = template_path.read_text(encoding="utf-8").replace('"__ARCHIVE_DATA__"', data)
     if standalone:
@@ -1064,10 +1101,16 @@ def main() -> None:
     ap.add_argument("-d", "--database", type=Path, default=here / "data" / "fm24.sqlite")
     ap.add_argument("-o", "--output", type=Path, default=here / "dist" / "index.html")
     ap.add_argument("-t", "--template", type=Path, default=here / "template.html")
+    ap.add_argument("-j", "--json", type=Path, metavar="PATH",
+                    help="write the payload as a standalone JSON file and exit "
+                         "(for feeding to another tool or model, not a browser)")
     ap.add_argument("-s", "--standalone", action="store_true",
                     help="emit a complete HTML document that opens from file:// "
                          "(the default output is a fragment for the Artifact platform)")
     args = ap.parse_args()
+    if args.json:
+        export_json(args.database, args.json)
+        return
     build(args.database, args.output, args.template, standalone=args.standalone)
 
 

@@ -26,9 +26,17 @@ python3 build_site.py --standalone \
     -o dist/blaugrana-archive.html                       # -> 可離線開啟的完整文件
 ```
 
-**兩種產出的差別**：預設輸出是**片段**，交給 Artifact 平台包上它自己的文件外殼。
+給程式或模型讀的純資料：
+
+```bash
+python3 build_site.py --json dist/fm24-data.json      # 1.5 MB，無網頁外殼
+```
+
+**三種產出的差別**：預設輸出是**片段**，交給 Artifact 平台包上它自己的文件外殼。
 用 `file://` 直接開的話沒有那層外殼，瀏覽器會自己猜編碼——**整頁中文會變亂碼**。
 `--standalone` 會補上 `<!doctype>`、`<meta charset="utf-8">` 與 viewport，可直接雙擊開啟。
+`--json` 則完全不產生網頁，只輸出資料本身（開頭附 `_readme` 說明各區塊），
+適合餵給另一個工具或模型——它們不需要穿過一整個檢視器才讀得到檔案。
 
 ## 儲存後端：一套 API，兩種實作
 
