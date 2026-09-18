@@ -1,0 +1,2624 @@
+<title>藍紅檔案館</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+:root{
+  --ground:#EDEEF3; --panel:#F7F8FB; --panel-2:#E3E5EE; --sunk:#DCDEE9;
+  --line:#C9CCDB; --line-soft:#DCDEE9;
+  --text:#171A26; --text-2:#4B5068; --text-3:#767C96;
+  --garnet:#9E1B3E; --garnet-soft:#C4577310; --azul:#2C4A94; --gold:#B08428;
+  --ok:#256F51; --warn:#9A6410; --bad:#A43229;
+  --ok-bg:#256F5118; --warn-bg:#9A641018; --bad-bg:#A4322918;
+  --display:"Bricolage Grotesque","Noto Sans TC",system-ui,sans-serif;
+  --body:"Noto Sans TC",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --rail:248px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0D0F18; --panel:#141726; --panel-2:#1C2033; --sunk:#0A0C14;
+    --line:#2A2F45; --line-soft:#1F2437;
+    --text:#E8E9F0; --text-2:#A2A7BE; --text-3:#6E7490;
+    --garnet:#E2536F; --garnet-soft:#E2536F1A; --azul:#7B9AE8; --gold:#D8AC4A;
+    --ok:#4FBF90; --warn:#D9A03F; --bad:#E2706A;
+    --ok-bg:#4FBF9018; --warn-bg:#D9A03F18; --bad-bg:#E2706A18;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0D0F18; --panel:#141726; --panel-2:#1C2033; --sunk:#0A0C14;
+  --line:#2A2F45; --line-soft:#1F2437;
+  --text:#E8E9F0; --text-2:#A2A7BE; --text-3:#6E7490;
+  --garnet:#E2536F; --garnet-soft:#E2536F1A; --azul:#7B9AE8; --gold:#D8AC4A;
+  --ok:#4FBF90; --warn:#D9A03F; --bad:#E2706A;
+  --ok-bg:#4FBF9018; --warn-bg:#D9A03F18; --bad-bg:#E2706A18;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--text);font-family:var(--body);
+  font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--display);font-weight:800;margin:0;text-wrap:balance;letter-spacing:-.015em}
+a{color:var(--azul)}
+button{font:inherit;color:inherit}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:var(--rail) minmax(0,1fr);min-height:100%}
+.rail{background:var(--panel);border-right:1px solid var(--line);
+  position:sticky;top:env(safe-area-inset-top,0px);align-self:start;height:100vh;
+  display:flex;flex-direction:column;padding:22px 16px;gap:22px;overflow-y:auto}
+.stamp{display:flex;flex-direction:column;gap:4px}
+.stamp .crest{display:flex;gap:3px;margin-bottom:8px}
+.stamp .crest i{width:7px;height:22px;border-radius:1px;display:block}
+.stamp h1{font-size:19px;line-height:1.15}
+.stamp .sub{font-family:var(--mono);font-size:10px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--text-3)}
+nav{display:flex;flex-direction:column;gap:2px}
+nav button{display:flex;align-items:baseline;gap:9px;background:none;border:0;cursor:pointer;
+  text-align:left;padding:8px 10px;border-radius:5px;color:var(--text-2);width:100%}
+nav button:hover{background:var(--panel-2);color:var(--text)}
+nav button[aria-current="true"]{background:var(--garnet);color:#fff}
+nav button[aria-current="true"] .k{color:#ffffffaa}
+nav .k{font-family:var(--mono);font-size:10px;color:var(--text-3);min-width:16px}
+nav .t{font-weight:500;font-size:13.5px}
+.rail-foot{margin-top:auto;border-top:1px solid var(--line-soft);padding-top:14px;
+  font-family:var(--mono);font-size:10.5px;color:var(--text-3);line-height:1.8}
+.rail-foot b{color:var(--text-2);font-weight:500}
+.themer{margin-top:10px;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:5px;padding:5px 9px;cursor:pointer;font-family:var(--mono);font-size:10.5px;
+  color:var(--text-2);width:100%;text-align:left}
+.themer:hover{border-color:var(--garnet);color:var(--text)}
+
+main{padding:34px 40px 80px;max-width:1180px}
+.view{display:flex;flex-direction:column;gap:30px}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--garnet);font-weight:600}
+.view-head{display:flex;flex-direction:column;gap:6px;max-width:66ch}
+.view-head h2{font-size:29px}
+.view-head p{margin:0;color:var(--text-2);font-size:13.5px}
+
+/* ---------- panels ---------- */
+.panel{background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:20px 22px}
+.panel>h3{font-size:15px;margin-bottom:3px}
+.panel>.cap{font-size:12px;color:var(--text-3);margin:0 0 16px}
+
+/* ---------- stat strip ---------- */
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));
+  border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.strip div{padding:15px 17px;border-right:1px solid var(--line-soft)}
+.strip div:last-child{border-right:0}
+.strip .n{font-family:var(--display);font-size:29px;font-weight:800;line-height:1;
+  font-variant-numeric:tabular-nums}
+.strip .l{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-3);margin-top:7px}
+.strip .garnet .n{color:var(--garnet)}
+
+/* ---------- season ribbon ---------- */
+.ribbon{display:flex;gap:5px;align-items:flex-end;overflow-x:auto;padding-bottom:4px}
+.rib{flex:1 0 62px;background:none;border:0;padding:0;cursor:pointer;display:flex;
+  flex-direction:column;align-items:center;gap:6px;border-radius:5px}
+.rib:hover .bar{filter:brightness(1.12)}
+.rib .pips{display:flex;gap:2px;height:9px;align-items:center}
+.rib .pips i{width:5px;height:5px;border-radius:50%;background:var(--gold);display:block}
+.bar{width:100%;border-radius:3px 3px 0 0;position:relative;display:flex;
+  align-items:flex-start;justify-content:center;padding-top:6px;transition:filter .15s}
+.bar span{font-family:var(--mono);font-size:10.5px;font-weight:600;color:#fff}
+.rib .pos{font-family:var(--display);font-size:15px;font-weight:800;line-height:1}
+.rib .yr{font-family:var(--mono);font-size:9.5px;color:var(--text-3);letter-spacing:.02em}
+.rib[aria-current="true"] .yr{color:var(--garnet);font-weight:600}
+
+/* ---------- honours ledger ---------- */
+.ledger{overflow-x:auto}
+.ledger table{border-collapse:collapse;font-size:12px;min-width:640px}
+.ledger th{font-family:var(--mono);font-size:9.5px;font-weight:500;color:var(--text-3);
+  padding:0 0 9px;text-align:center;letter-spacing:.02em}
+.ledger th.rowh{text-align:left;padding-right:14px;font-family:var(--body);font-size:12px;
+  color:var(--text-2);font-weight:500;white-space:nowrap}
+.ledger td{text-align:center;padding:3px 2px}
+.cell{width:26px;height:26px;border-radius:4px;display:inline-flex;align-items:center;
+  justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600}
+.cell.win{background:var(--garnet);color:#fff}
+.cell.near{background:var(--sunk);border:1px solid var(--line);color:var(--text-2)}
+.cell.none{color:var(--text-3);opacity:.45}
+
+/* ---------- generic table ---------- */
+.tblwrap{overflow-x:auto}
+table.data{border-collapse:collapse;width:100%;min-width:620px;font-size:13px}
+table.data th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--text-3);font-weight:500;padding:0 12px 9px 0;
+  border-bottom:1px solid var(--line);white-space:nowrap}
+table.data th.num,table.data td.num{text-align:right;font-variant-numeric:tabular-nums}
+table.data th.sortable{cursor:pointer;user-select:none}
+table.data th.sortable:hover{color:var(--garnet)}
+table.data th[data-active="true"]{color:var(--garnet)}
+table.data td{padding:8px 12px 8px 0;border-bottom:1px solid var(--line-soft);vertical-align:top}
+table.data tbody tr:hover td{background:var(--panel-2)}
+table.data tbody tr.click{cursor:pointer}
+.name-cell{font-weight:500}
+.mono{font-family:var(--mono);font-size:11.5px;color:var(--text-3)}
+
+/* ---------- pills ---------- */
+.pill{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10px;
+  padding:2px 7px;border-radius:99px;letter-spacing:.03em;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.flat{background:var(--panel-2);color:var(--text-2)}
+.pill.win{background:var(--garnet);color:#fff}
+
+/* ---------- season detail ---------- */
+.two{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:13px}
+.kv dt{font-family:var(--mono);font-size:10.5px;color:var(--text-3);letter-spacing:.04em;
+  text-transform:uppercase;padding-top:3px}
+.kv dd{margin:0;color:var(--text)}
+.leaders{display:flex;flex-direction:column;gap:11px}
+.leader{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  padding-bottom:10px;border-bottom:1px solid var(--line-soft)}
+.leader:last-child{border-bottom:0;padding-bottom:0}
+.leader .who{display:flex;flex-direction:column}
+.leader .role{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-3)}
+.leader .nm{font-weight:500}
+.leader .v{font-family:var(--display);font-size:21px;font-weight:800;color:var(--garnet);
+  font-variant-numeric:tabular-nums}
+.xfer{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--line-soft);font-size:12.5px}
+.xfer:last-child{border-bottom:0}
+.xfer .dir{font-family:var(--mono);font-size:10px;width:22px;flex:none;padding-top:2px}
+.xfer .dir.in{color:var(--ok)} .xfer .dir.out{color:var(--bad)}
+.xfer .who{flex:1;min-width:0}
+.xfer .nm{font-weight:500;display:block}
+.xfer .cl{color:var(--text-3);font-size:11.5px}
+.xfer .fee{font-family:var(--mono);font-size:11.5px;color:var(--text-2);white-space:nowrap;padding-top:2px}
+.note{background:var(--sunk);border-left:2px solid var(--garnet);padding:11px 14px;
+  border-radius:0 5px 5px 0;font-size:12.5px;color:var(--text-2)}
+
+/* ---------- player detail ---------- */
+.p-head{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between}
+.p-id h2{font-size:31px;line-height:1.1}
+.p-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.radar-wrap{display:grid;grid-template-columns:270px minmax(0,1fr);gap:20px;align-items:start}
+.attr-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:20px}
+.attr-col h4{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-3);font-weight:500;margin-bottom:9px}
+.attr{display:flex;align-items:center;gap:8px;padding:2.5px 0;font-size:12.5px}
+.attr .an{flex:1;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.attr .track{width:44px;height:4px;background:var(--sunk);border-radius:2px;overflow:hidden;flex:none}
+.attr .track i{display:block;height:100%;border-radius:2px}
+.attr .av{font-family:var(--mono);font-size:11.5px;width:17px;text-align:right;
+  font-variant-numeric:tabular-nums;flex:none}
+.trophy-row{display:flex;gap:7px;flex-wrap:wrap}
+.trophy{display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--sunk);
+  border-radius:6px;padding:9px 13px;min-width:56px}
+.trophy .n{font-family:var(--display);font-size:20px;font-weight:800;line-height:1;
+  font-variant-numeric:tabular-nums}
+.trophy .l{font-size:10.5px;color:var(--text-3)}
+.trophy.has{background:var(--garnet-soft);box-shadow:inset 0 0 0 1px var(--garnet)}
+.trophy.has .n{color:var(--garnet)}
+.awards{display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto}
+.awards div{font-size:12.5px;color:var(--text-2);padding-left:13px;position:relative}
+.awards div::before{content:"";position:absolute;left:0;top:9px;width:5px;height:5px;
+  border-radius:50%;background:var(--gold)}
+.back{background:none;border:0;cursor:pointer;font-family:var(--mono);font-size:11px;
+  color:var(--text-3);padding:0;letter-spacing:.04em}
+.back:hover{color:var(--garnet)}
+
+/* ---------- chronicle ---------- */
+.filters{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.filters input,.filters select{font:inherit;font-size:12.5px;background:var(--panel);
+  color:var(--text);border:1px solid var(--line);border-radius:5px;padding:6px 10px;min-width:0}
+.filters input{flex:1;min-width:150px}
+.filters input:focus,.filters select:focus{outline:2px solid var(--garnet);outline-offset:1px}
+.chron{display:flex;flex-direction:column}
+.ev{display:grid;grid-template-columns:78px 1fr;gap:16px;padding:11px 0;
+  border-bottom:1px solid var(--line-soft)}
+.ev .when{font-family:var(--mono);font-size:11px;color:var(--garnet);font-weight:500;padding-top:2px}
+.ev .what{min-width:0}
+.ev .f{font-size:13px;margin-bottom:3px}
+.ev .src{font-family:var(--mono);font-size:10px;color:var(--text-3)}
+
+/* ---------- integrity ---------- */
+.finding{border:1px solid var(--line);border-radius:8px;padding:16px 18px;background:var(--panel);
+  display:flex;flex-direction:column;gap:7px}
+.finding.high{border-left:3px solid var(--bad)}
+.finding.medium{border-left:3px solid var(--warn)}
+.finding.low{border-left:3px solid var(--text-3)}
+.finding h4{font-size:14.5px;font-family:var(--display);font-weight:800}
+.finding p{margin:0;font-size:12.5px;color:var(--text-2)}
+.finding .meta{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.bars{display:flex;flex-direction:column;gap:7px}
+.brow{display:grid;grid-template-columns:1fr 46px;gap:10px;align-items:center;font-size:12.5px}
+.brow .lb{display:flex;align-items:center;gap:8px;min-width:0}
+.brow .lb span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .tr{flex:1;height:5px;background:var(--sunk);border-radius:3px;overflow:hidden;min-width:24px}
+.brow .tr i{display:block;height:100%;background:var(--azul);border-radius:3px}
+.brow .vv{font-family:var(--mono);font-size:11.5px;text-align:right;color:var(--text-2);
+  font-variant-numeric:tabular-nums}
+.clasico{display:flex;gap:3px;flex-wrap:wrap}
+.cl-m{width:23px;height:23px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;font-weight:600;color:#fff}
+.cl-m.W{background:var(--ok)} .cl-m.L{background:var(--bad)} .cl-m.D{background:var(--text-3)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;
+  color:var(--text-3);margin-top:12px}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:9px;height:9px;border-radius:2px;display:block}
+
+
+/* ---------- nav groups ---------- */
+nav .grp{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-3);padding:12px 10px 5px;opacity:.75}
+nav .grp:first-child{padding-top:0}
+
+/* ---------- champions grid ---------- */
+.grid-wrap{overflow-x:auto}
+table.champs{border-collapse:collapse;font-size:11.5px;min-width:820px}
+table.champs th{font-family:var(--mono);font-size:9.5px;font-weight:500;color:var(--text-3);
+  padding:0 6px 9px;text-align:center;white-space:nowrap}
+table.champs th.rowh{text-align:left;font-family:var(--body);font-size:12px;color:var(--text-2);
+  padding-right:14px;position:sticky;left:0;background:var(--panel)}
+table.champs td{padding:3px 4px;text-align:center}
+table.champs td span{display:block;padding:5px 7px;border-radius:4px;background:var(--sunk);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:104px;font-size:11px}
+table.champs td span.barca{background:var(--garnet);color:#fff;font-weight:500}
+
+/* ---------- standings ---------- */
+tr.q-ucl td:first-child{box-shadow:inset 3px 0 0 var(--azul)}
+tr.q-uel td:first-child{box-shadow:inset 3px 0 0 var(--ok)}
+tr.q-rel td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+tr.q-win td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+
+/* ---------- podium ---------- */
+.podiums{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.podium{border:1px solid var(--line-soft);border-radius:8px;padding:14px 16px;background:var(--panel)}
+.podium h4{font-family:var(--mono);font-size:11px;color:var(--garnet);letter-spacing:.05em;
+  font-weight:600;margin-bottom:10px}
+.podium ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.podium li{display:grid;grid-template-columns:16px 1fr auto;gap:9px;align-items:baseline;font-size:12.5px}
+.podium .r{font-family:var(--mono);font-size:10px;color:var(--text-3)}
+.podium .nm{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.podium .cl{font-size:11px;color:var(--text-3);white-space:nowrap}
+.podium li:first-child .nm{color:var(--garnet)}
+
+/* ---------- resolution console ---------- */
+.queue{display:flex;flex-direction:column;gap:12px}
+.card{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:16px 18px;
+  display:flex;flex-direction:column;gap:12px}
+.card.done{opacity:.62}
+.card.v-exact{border-left:3px solid var(--ok)}
+.card.v-strong{border-left:3px solid var(--azul)}
+.card.v-weak{border-left:3px solid var(--warn)}
+.card.v-no_candidate{border-left:3px solid var(--text-3)}
+.card-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.card-name{font-family:var(--display);font-size:19px;font-weight:800;letter-spacing:-.01em}
+.card-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.ctx{font-size:12px;color:var(--text-3);line-height:1.9}
+.ctx b{color:var(--text-2);font-weight:500}
+.cand{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;
+  border:1px solid var(--line-soft);border-radius:6px;padding:10px 12px;background:var(--sunk)}
+.cand + .cand{margin-top:7px}
+.cand .who{min-width:0}
+.cand .cn{font-weight:500;font-size:13.5px}
+.cand .cid{font-family:var(--mono);font-size:10.5px;color:var(--text-3);margin-left:7px}
+.cand .why{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.score{display:flex;align-items:center;gap:8px}
+.score .bar{width:52px;height:5px;background:var(--panel-2);border-radius:3px;overflow:hidden}
+.score .bar i{display:block;height:100%;border-radius:3px}
+.score .pc{font-family:var(--mono);font-size:11px;width:32px;text-align:right;
+  font-variant-numeric:tabular-nums;color:var(--text-2)}
+.prog{height:7px;background:var(--sunk);border-radius:4px;overflow:hidden;display:flex}
+.prog i{display:block;height:100%}
+.decided{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text-2);
+  background:var(--ok-bg);border-radius:6px;padding:9px 12px}
+.decided.skip{background:var(--panel-2)}
+.decided.new{background:var(--warn-bg)}
+
+/* ---------- club merge ---------- */
+.merge{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:stretch}
+.side{border:1px solid var(--line-soft);border-radius:6px;padding:11px 13px;background:var(--sunk);
+  display:flex;flex-direction:column;gap:6px}
+.side.keep{box-shadow:inset 0 0 0 1px var(--ok);background:var(--ok-bg)}
+.side .sn{font-weight:500;font-size:13.5px}
+.side .si{font-family:var(--mono);font-size:10.5px;color:var(--text-3)}
+.side .sr{font-family:var(--mono);font-size:11.5px;color:var(--text-2)}
+.mergearrow{display:flex;align-items:center;justify-content:center;color:var(--text-3);
+  font-family:var(--mono);font-size:16px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;cursor:pointer;
+  padding:9px 15px;color:var(--text-3);font-size:13.5px;margin-bottom:-1px}
+.tabs button:hover{color:var(--text)}
+.tabs button[aria-selected="true"]{color:var(--garnet);border-bottom-color:var(--garnet);font-weight:500}
+@media (max-width:640px){.merge{grid-template-columns:1fr}.mergearrow{transform:rotate(90deg)}}
+
+/* ---------- time travel ---------- */
+.daterail{display:flex;gap:4px;overflow-x:auto;padding-bottom:6px;align-items:flex-end}
+.day{flex:1 1 42px;min-width:30px;background:none;border:0;padding:0;cursor:pointer;display:flex;
+  flex-direction:column;align-items:center;gap:5px}
+.day .stalk{width:100%;border-radius:3px 3px 0 0;background:var(--azul);opacity:.5;transition:opacity .15s}
+.day:hover .stalk,.day[aria-current="true"] .stalk{opacity:1;background:var(--garnet)}
+.day .dl{font-family:var(--mono);font-size:9px;color:var(--text-3);writing-mode:vertical-rl;
+  transform:rotate(180deg);letter-spacing:.02em;height:52px}
+.day[aria-current="true"] .dl{color:var(--garnet);font-weight:600}
+.learned{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.learned div{background:var(--sunk);border-radius:6px;padding:11px 13px}
+.learned .ln{font-family:var(--display);font-size:21px;font-weight:800;line-height:1;
+  font-variant-numeric:tabular-nums;color:var(--garnet)}
+.learned .ll{font-size:11.5px;color:var(--text-3);margin-top:5px}
+.move{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;
+  padding:6px 0;border-bottom:1px solid var(--line-soft);font-size:12.5px}
+.move:last-child{border-bottom:0}
+.move .mv{font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--text-3)}
+.move .md{font-family:var(--mono);font-size:11.5px;font-weight:600;width:28px;text-align:right}
+.move .md.up{color:var(--ok)} .move .md.down{color:var(--bad)}
+
+/* ---------- import ---------- */
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--panel-2);border:1px solid var(--line);border-radius:99px;padding:5px 13px;
+  cursor:pointer;font-size:12.5px;color:var(--text-2)}
+.chip:hover{border-color:var(--garnet)}
+.chip[aria-pressed="true"]{background:var(--garnet);border-color:var(--garnet);color:#fff}
+textarea.paste{width:100%;min-height:180px;font-family:var(--mono);font-size:12px;line-height:1.7;
+  background:var(--sunk);color:var(--text);border:1px solid var(--line);border-radius:6px;
+  padding:12px 14px;resize:vertical}
+textarea.paste:focus{outline:2px solid var(--garnet);outline-offset:1px}
+.btn{background:var(--garnet);color:#fff;border:0;border-radius:6px;padding:9px 18px;cursor:pointer;
+  font-size:13px;font-weight:500}
+.btn:hover{filter:brightness(1.1)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn.ghost{background:none;border:1px solid var(--line);color:var(--text-2)}
+.btn.ghost:hover{border-color:var(--garnet);color:var(--text);filter:none}
+.btn.danger{background:none;border:1px solid var(--line);color:var(--bad);padding:5px 11px;font-size:11.5px}
+.btnrow{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.maprow{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;padding:6px 0;
+  border-bottom:1px solid var(--line-soft);font-size:12.5px}
+.maprow:last-child{border-bottom:0}
+.maprow .src{font-family:var(--mono);font-size:11.5px;color:var(--text-2);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.maprow .arw{color:var(--text-3);font-family:var(--mono);font-size:11px}
+.maprow select{font:inherit;font-size:12.5px;background:var(--panel-2);color:var(--text);
+  border:1px solid var(--line);border-radius:5px;padding:5px 8px;width:100%}
+.batch{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 0;
+  border-bottom:1px solid var(--line-soft)}
+.batch:last-child{border-bottom:0}
+.batch .bm{font-family:var(--mono);font-size:10.5px;color:var(--text-3);margin-top:3px}
+.hint{font-size:12px;color:var(--text-3);background:var(--sunk);border-radius:6px;padding:11px 14px;
+  line-height:1.75}
+.hint code{font-family:var(--mono);font-size:11px;color:var(--text-2)}
+.empty{text-align:center;padding:34px 20px;color:var(--text-3);font-size:12.5px}
+
+@media (max-width:900px){
+  :root{--rail:0px}
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;height:auto;flex-direction:column;border-right:0;
+    border-bottom:1px solid var(--line);padding:18px 16px}
+  nav{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:2px}
+  nav button{width:auto;white-space:nowrap;padding:7px 12px}
+  nav .k{display:none}
+  /* the horizontal scroller has no room for group headers */
+  nav .grp{display:none}
+  .strip div{padding:13px 15px}
+  .strip .n{font-size:25px}
+  .rail-foot{margin-top:0}
+  main{padding:26px 16px 70px}
+  .two,.radar-wrap{grid-template-columns:minmax(0,1fr)}
+  .view-head h2{font-size:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="stamp">
+      <div class="crest"><i style="background:var(--garnet)"></i><i style="background:var(--azul)"></i><i style="background:var(--garnet)"></i><i style="background:var(--azul)"></i></div>
+      <h1>藍紅檔案館</h1>
+      <div class="sub" id="stampSub">FM24 · v6.4.0</div>
+    </div>
+    <nav id="nav"></nav>
+    <div class="rail-foot" id="railFoot"></div>
+    <button class="themer" id="themer" type="button">切換主題</button>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<script>
+const DATA = "__ARCHIVE_DATA__";
+
+/* ------------------------------------------------------------------ utils */
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") n.className = v;
+    else if (k === "html") n.innerHTML = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2).toLowerCase(), v);
+    else n.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    n.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return n;
+};
+const svg = (tag, attrs = {}, ...kids) => {
+  const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) if (v !== null && v !== undefined) n.setAttribute(k, v);
+  for (const kid of kids.flat()) if (kid) n.append(kid);
+  return n;
+};
+const fmt = (n, d = 0) => (n === null || n === undefined || Number.isNaN(n)) ? "—" : Number(n).toFixed(d);
+const dash = v => (v === null || v === undefined || v === "") ? "—" : v;
+
+/* status strings in the workbook are long sentences; classify by prefix */
+const statusPill = s => {
+  if (!s) return el("span", { class: "pill flat" }, "無狀態");
+  const t = String(s);
+  const short = t.length > 16 ? t.slice(0, 14) + "…" : t;
+  const kind = t.startsWith("已確認") || t.startsWith("VERIFIED") ? "ok"
+    : (t.includes("未解析") || t.includes("UNRESOLVED") || t.includes("PRESERVED")) ? "warn" : "flat";
+  return el("span", { class: "pill " + kind, title: t }, short);
+};
+
+/* ------------------------------------------------------------------ views */
+const VIEWS = [
+  { id: "world",     group: "世界", label: "世界總覽",   render: renderWorld },
+  { id: "leagues",   group: "世界", label: "聯賽積分榜", render: renderLeagues },
+  { id: "honours",   group: "世界", label: "榮譽殿堂",   render: renderHonours },
+  { id: "chronicle", group: "世界", label: "編年史",     render: renderChronicle },
+  { id: "timetravel", group: "世界", label: "認知史",    render: renderTimeTravel },
+  { id: "people",    group: "檔案", label: "球員名錄",   render: renderPeople },
+  { id: "dynasty",   group: "檔案", label: "巴薩王朝",   render: renderDynasty },
+  { id: "seasons",   group: "檔案", label: "巴薩賽季",   render: renderSeasons },
+  { id: "squad",     group: "檔案", label: "巴薩陣容",   render: renderSquad },
+  { id: "resolve",   group: "工具", label: "球員身分",   render: renderResolve },
+  { id: "clubs",     group: "工具", label: "俱樂部身分", render: renderClubs },
+  { id: "comps",     group: "工具", label: "賽事身分",   render: renderComps },
+  { id: "import",    group: "工具", label: "匯入資料",   render: renderImport },
+  { id: "integrity", group: "工具", label: "檔案完整性", render: renderIntegrity },
+];
+
+const state = {
+  view: "world",
+  league: DATA.world.leagues.includes("LaLiga EA Sports") ? "LaLiga EA Sports" : DATA.world.leagues[0],
+  leagueSeason: DATA.world.seasons[DATA.world.seasons.length - 1],
+  award: "Ballon d\u2019Or",
+  personQuery: "",
+  personFilter: "awards",
+  person: null,
+  importKind: "season",
+  resolveFilter: "todo",
+  clubTab: "dupes",
+  clubFilter: "todo",
+  clubQuery: "",
+  clubDecisions: null,
+  compTab: "clusters",
+  compDecisions: null,
+  resolveQuery: "",
+  decisions: null,
+  ttDate: null,
+  importParsed: null,
+  importMap: {},
+  batches: null,
+  season: DATA.seasons[DATA.seasons.length - 1].id,
+  player: null,
+  sort: { key: "apps", dir: -1 },
+  chronQuery: "",
+  chronType: "",
+  snapshot: null,
+};
+
+/* ------------------------------------------------------- dynasty overview */
+function renderDynasty() {
+  const s = DATA.seasons;
+  const titles = s.reduce((a, x) => a + x.titles.length, 0);
+  const ligaWins = s.filter(x => x.position === "1").length;
+  const uclWins = s.filter(x => x.ucl === "冠軍").length;
+  const points = s.reduce((a, x) => a + x.points, 0);
+
+  const maxPoints = Math.max(...s.map(x => x.points), 1);
+  const ribbon = el("div", { class: "ribbon" }, s.map(x => {
+    const h = 34 + Math.round((x.points / maxPoints) * 96);
+    const champion = x.position === "1";
+    return el("button", {
+      class: "rib", type: "button", "aria-current": String(x.id === state.season),
+      title: `${x.season}　西甲第 ${dash(x.position)} 名・${x.points} 分・${x.titles.length} 冠`,
+      onClick: () => { state.season = x.id; go("seasons"); },
+    },
+      el("div", { class: "pips" }, x.titles.map(() => el("i"))),
+      el("div", {
+        class: "bar",
+        style: `height:${h}px;background:${champion ? "var(--garnet)" : "var(--azul)"};opacity:${champion ? 1 : .55}`,
+      }, el("span", {}, x.points)),
+      el("div", { class: "pos" }, dash(x.position)),
+      el("div", { class: "yr" }, x.season.replace("20", "").replace("/", "/")));
+  }));
+
+  const comps = [
+    ["西甲", x => x.position === "1" ? ["win", "1"] : x.position ? ["near", x.position] : ["none", "—"]],
+    ["歐冠", x => badge(x.ucl)],
+    ["國王盃", x => badge(x.copa)],
+    ["西超盃", x => badge(x.supercopa)],
+    ["歐超盃", x => badge(x.superCup)],
+    ["世俱盃", x => badge(x.cwc)],
+  ];
+  function badge(v) {
+    if (!v) return ["none", "—"];
+    if (v === "冠軍") return ["win", "★"];
+    const map = { "亞軍": "2", "四強": "SF", "八強": "QF", "十六強": "R16", "小組賽": "GS" };
+    return ["near", map[v] || (v.startsWith("排名") ? v.replace("排名 ", "") : v.slice(0, 2))];
+  }
+
+  const ledger = el("div", { class: "ledger" },
+    el("table", {},
+      el("thead", {}, el("tr", {}, el("th", { class: "rowh" }, "賽事"),
+        s.map(x => el("th", {}, x.season.slice(2))))),
+      el("tbody", {}, comps.map(([name, fn]) =>
+        el("tr", {}, el("th", { class: "rowh" }, name),
+          s.map(x => {
+            const [cls, txt] = fn(x);
+            return el("td", {}, el("span", { class: "cell " + cls, title: `${x.season} ${name}` }, txt));
+          }))))));
+
+  const cl = DATA.clasico;
+  const w = cl.filter(m => m.verdict === "W").length;
+  const d = cl.filter(m => m.verdict === "D").length;
+  const l = cl.filter(m => m.verdict === "L").length;
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, "2023/24 – 2034/35　十二季"),
+      el("h2", {}, "巴塞隆納王朝總覽"),
+      el("p", {}, "每個數字都能回推到一列來源紀錄。點擊任一賽季柱狀可進入該季檔案。")),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, titles), el("div", { class: "l" }, "總冠軍數")),
+      el("div", {}, el("div", { class: "n tnum" }, ligaWins), el("div", { class: "l" }, "西甲冠軍")),
+      el("div", {}, el("div", { class: "n tnum" }, uclWins), el("div", { class: "l" }, "歐冠冠軍")),
+      el("div", {}, el("div", { class: "n tnum" }, Math.round(points / s.length)), el("div", { class: "l" }, "每季平均積分")),
+      el("div", {}, el("div", { class: "n tnum" }, DATA.players.length), el("div", { class: "l" }, "在檔球員")),
+    ),
+    el("section", { class: "panel" },
+      el("h3", {}, "聯賽積分與冠軍軌跡"),
+      el("p", { class: "cap" }, "柱高為西甲積分，柱內數字為積分，柱下為最終名次；上方金點為該季冠軍數。"),
+      ribbon),
+    el("section", { class: "panel" },
+      el("h3", {}, "六項賽事榮譽總表"),
+      el("p", { class: "cap" }, "★ 冠軍　數字／縮寫 為當季最終成績　— 表示來源未提供。"),
+      ledger,
+      el("div", { class: "legend" },
+        el("span", {}, el("i", { style: "background:var(--garnet)" }), "冠軍"),
+        el("span", {}, el("i", { style: "background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)" }), "有成績紀錄"),
+        el("span", {}, el("i", { style: "background:var(--gold);border-radius:50%" }), "冠軍計點"))),
+    el("section", { class: "panel" },
+      el("h3", {}, "國家德比戰績"),
+      el("p", { class: "cap" }, `${cl.length} 場有紀錄的對戰　${w} 勝 ${d} 和 ${l} 負，依日期排列。`),
+      el("div", { class: "clasico" }, cl.map(m =>
+        el("div", {
+          class: "cl-m " + (m.verdict || "D"),
+          title: `${m.date}　${m.competition}　${m.home} ${m.result} ${m.away}`,
+        }, m.verdict || "?"))),
+      el("div", { class: "legend" },
+        el("span", {}, el("i", { style: "background:var(--ok)" }), "勝"),
+        el("span", {}, el("i", { style: "background:var(--text-3)" }), "和"),
+        el("span", {}, el("i", { style: "background:var(--bad)" }), "負"))),
+  ];
+}
+
+/* ---------------------------------------------------------- season detail */
+function renderSeasons() {
+  const s = DATA.seasons.find(x => x.id === state.season) || DATA.seasons[0];
+  const picker = el("div", { class: "filters" },
+    el("select", { id: "seasonPick", onChange: e => { state.season = e.target.value; paint(); } },
+      DATA.seasons.slice().reverse().map(x =>
+        el("option", { value: x.id, selected: x.id === s.id }, `${x.season}　${x.titles.length} 冠`))));
+
+  const record = `${s.w}勝 ${s.d}和 ${s.l}負`;
+  const gd = (s.gf !== null && s.ga !== null) ? `${s.gf} : ${s.ga}` : "來源未提供";
+
+  const leaders = [
+    ["最佳射手", s.topScorer, s.topScorerGoals],
+    ["助攻王", s.topAssist, s.topAssistCount],
+    ["最高評分", s.bestRatingPlayer, s.bestRating],
+    ["最多 MOTM", s.mostMotmPlayer, s.mostMotm],
+  ].filter(([, who]) => who);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, "賽季檔案"),
+      el("h2", {}, `${s.season} 賽季`),
+      el("p", {}, s.titles.length
+        ? `本季奪得 ${s.titles.join("、")}，共 ${s.titles.length} 冠。`
+        : "本季無冠軍紀錄。")),
+    picker,
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, dash(s.position)), el("div", { class: "l" }, "西甲名次")),
+      el("div", {}, el("div", { class: "n tnum" }, s.points), el("div", { class: "l" }, "積分")),
+      el("div", {}, el("div", { class: "n tnum" }, s.titles.length), el("div", { class: "l" }, "冠軍數")),
+      el("div", {}, el("div", { class: "n tnum", style: "font-size:17px" }, dash(s.ucl)), el("div", { class: "l" }, "歐冠成績")),
+      el("div", {}, el("div", { class: "n tnum", style: "font-size:17px" }, dash(s.copa)), el("div", { class: "l" }, "國王盃")),
+    ),
+    el("div", { class: "two" },
+      el("section", { class: "panel" },
+        el("h3", {}, "球季概況"),
+        el("p", { class: "cap" }, "欄位由來源表程式化衍生，非公式快取。"),
+        el("dl", { class: "kv" },
+          el("dt", {}, "聯賽戰績"), el("dd", { class: "tnum" }, record),
+          el("dt", {}, "進球 / 失球"), el("dd", { class: "tnum" }, gd),
+          el("dt", {}, "西超盃"), el("dd", {}, dash(s.supercopa)),
+          el("dt", {}, "歐超盃"), el("dd", {}, dash(s.superCup)),
+          el("dt", {}, "世俱盃"), el("dd", {}, dash(s.cwc)),
+          el("dt", {}, "球迷年度"), el("dd", {}, dash(s.fanPlayer)),
+          el("dt", {}, "最高身價轉入"), el("dd", {}, dash(s.arrival)),
+          el("dt", {}, "最高身價轉出"), el("dd", {}, dash(s.departure)),
+          el("dt", {}, "淨支出"), el("dd", { class: "mono" }, dash(s.netSpend)),
+          s.ballonDor ? el("dt", {}, "本季金球") : null,
+          s.ballonDor ? el("dd", {}, `${s.ballonDor.player}（${s.ballonDor.club}）`) : null),
+        s.note ? el("div", { class: "note", style: "margin-top:16px" }, s.note) : null),
+      el("section", { class: "panel" },
+        el("h3", {}, "球季個人領先"),
+        el("p", { class: "cap" }, "取自 Barcelona_Season_Master 衍生欄位。"),
+        el("div", { class: "leaders" }, leaders.map(([role, who, val]) =>
+          el("div", { class: "leader" },
+            el("div", { class: "who" }, el("div", { class: "role" }, role), el("div", { class: "nm" }, who)),
+            el("div", { class: "v" }, dash(val))))))),
+    el("div", { class: "two" },
+      el("section", { class: "panel" },
+        el("h3", {}, `轉入　${s.transfersIn.length}`),
+        el("p", { class: "cap" }, "來源：Barcelona_Transfers"),
+        s.transfersIn.length
+          ? el("div", {}, s.transfersIn.map(t => xferRow(t, "in")))
+          : el("p", { class: "cap" }, "本季無轉入紀錄。")),
+      el("section", { class: "panel" },
+        el("h3", {}, `轉出　${s.transfersOut.length}`),
+        el("p", { class: "cap" }, "來源：Barcelona_Transfers"),
+        s.transfersOut.length
+          ? el("div", {}, s.transfersOut.map(t => xferRow(t, "out")))
+          : el("p", { class: "cap" }, "本季無轉出紀錄。"))),
+  ];
+}
+const xferRow = (t, dir) => el("div", { class: "xfer" },
+  el("div", { class: "dir " + dir }, dir === "in" ? "IN" : "OUT"),
+  el("div", { class: "who" }, el("span", { class: "nm" }, t.player), el("span", { class: "cl" }, dash(t.club))),
+  el("div", { class: "fee" }, dash(t.fee)));
+
+/* ------------------------------------------------------------------ squad */
+const SQUAD_COLS = [
+  { key: "name", label: "球員", num: false },
+  { key: "position", label: "位置", num: false },
+  { key: "seasons", label: "季", num: true },
+  { key: "apps", label: "出場", num: true },
+  { key: "goals", label: "進球", num: true },
+  { key: "assists", label: "助攻", num: true },
+  { key: "motm", label: "MOTM", num: true },
+  { key: "rating", label: "評分", num: true },
+  { key: "trophyTotal", label: "團隊冠軍", num: true },
+];
+
+function renderSquad() {
+  if (state.player) return renderPlayer();
+  const rows = DATA.players.map(p => ({
+    ...p, trophyTotal: Object.values(p.titles).reduce((a, b) => a + b, 0),
+  }));
+  const { key, dir } = state.sort;
+  rows.sort((a, b) => {
+    const x = a[key], y = b[key];
+    if (typeof x === "string" || typeof y === "string") return String(x ?? "").localeCompare(String(y ?? "")) * dir;
+    return ((x ?? -1) - (y ?? -1)) * dir;
+  });
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${DATA.players.length} 名在檔球員`),
+      el("h2", {}, "王朝陣容名冊"),
+      el("p", {}, "巴塞隆納生涯累計數據，團隊冠軍依 A1 歸屬政策計算（該季在隊即計入）。點欄位標題排序，點列查看球員檔案。")),
+    el("section", { class: "panel" },
+      el("div", { class: "tblwrap" },
+        el("table", { class: "data" },
+          el("thead", {}, el("tr", {}, SQUAD_COLS.map(c =>
+            el("th", {
+              class: "sortable" + (c.num ? " num" : ""), "data-active": String(key === c.key),
+              onClick: () => {
+                state.sort = { key: c.key, dir: key === c.key ? -dir : (c.num ? -1 : 1) };
+                paint();
+              },
+            }, c.label + (key === c.key ? (dir < 0 ? " ↓" : " ↑") : ""))))),
+          el("tbody", {}, rows.map(p =>
+            el("tr", { class: "click", onClick: () => { state.player = p.id; paint(); } },
+              el("td", { class: "name-cell" }, p.name,
+                p.ballonTop3 ? el("span", { class: "pill win", style: "margin-left:7px" }, `金球前三 ×${p.ballonTop3}`) : null),
+              el("td", { class: "mono" }, dash(p.position)),
+              el("td", { class: "num tnum" }, p.seasons),
+              el("td", { class: "num tnum" }, p.apps),
+              el("td", { class: "num tnum" }, p.goals),
+              el("td", { class: "num tnum" }, p.assists),
+              el("td", { class: "num tnum" }, p.motm),
+              el("td", { class: "num tnum" }, fmt(p.rating, 2)),
+              el("td", { class: "num tnum" }, p.trophyTotal))))))),
+  ];
+}
+
+function renderPlayer() {
+  const p = DATA.players.find(x => x.id === state.player);
+  if (!p) { state.player = null; return renderSquad(); }
+  const per90 = p.apps ? ((p.goals + p.assists) / p.apps) : null;
+
+  const statLine = el("div", { class: "strip" },
+    el("div", { class: "garnet" }, el("div", { class: "n tnum" }, p.apps), el("div", { class: "l" }, "出場")),
+    el("div", {}, el("div", { class: "n tnum" }, p.goals), el("div", { class: "l" }, "進球")),
+    el("div", {}, el("div", { class: "n tnum" }, p.assists), el("div", { class: "l" }, "助攻")),
+    el("div", {}, el("div", { class: "n tnum" }, fmt(p.rating, 2)), el("div", { class: "l" }, "平均評分")),
+    el("div", {}, el("div", { class: "n tnum" }, fmt(per90, 2)), el("div", { class: "l" }, "每場攻擊參與")),
+  );
+
+  return [
+    el("button", { class: "back", type: "button", onClick: () => { state.player = null; paint(); } }, "← 返回名冊"),
+    el("div", { class: "p-head" },
+      el("div", { class: "p-id" },
+        el("div", { class: "eyebrow" }, p.id),
+        el("h2", {}, p.name),
+        el("div", { class: "p-meta" },
+          p.position ? el("span", { class: "pill flat" }, p.position) : null,
+          p.nationality ? el("span", { class: "pill flat" }, p.nationality) : null,
+          p.dob ? el("span", { class: "pill flat" }, "生於 " + p.dob) : null,
+          el("span", { class: "pill flat" }, `巴薩 ${p.seasons} 季`),
+          p.fifpro ? el("span", { class: "pill win" }, `FIFPro 最佳陣容 ×${p.fifpro}`) : null))),
+    statLine,
+    el("section", { class: "panel" },
+      el("h3", {}, "團隊冠軍歸屬"),
+      el("p", { class: "cap" }, "A1 政策：該賽季具巴塞隆納出場紀錄即計入該季球隊冠軍。"),
+      el("div", { class: "trophy-row" }, Object.entries(p.titles).map(([k, v]) =>
+        el("div", { class: "trophy" + (v > 0 ? " has" : "") },
+          el("div", { class: "n" }, v), el("div", { class: "l" }, k))))),
+    p.seasonStats.length ? el("section", { class: "panel" },
+      el("h3", {}, "逐季表現"),
+      el("p", { class: "cap" }, "來源：Player_Club_Season_Totals（僅 Club_ID = C-0030 的列）。"),
+      dupWarning(p.seasonStats),
+      seasonChart(p.seasonStats),
+      el("div", { class: "tblwrap", style: "margin-top:18px" },
+        el("table", { class: "data" },
+          el("thead", {}, el("tr", {},
+            ["賽季", "出場", "進球", "助攻", "MOTM", "評分", "驗證狀態"].map((h, i) =>
+              el("th", { class: i > 0 && i < 6 ? "num" : "" }, h)))),
+          el("tbody", {}, p.seasonStats.map(r =>
+            el("tr", {},
+              el("td", { class: "mono" }, r.season),
+              el("td", { class: "num tnum" }, r.apps),
+              el("td", { class: "num tnum" }, r.goals),
+              el("td", { class: "num tnum" }, r.assists),
+              el("td", { class: "num tnum" }, r.motm),
+              el("td", { class: "num tnum" }, fmt(r.rating, 2)),
+              el("td", {}, statusPill(r.status))))))),
+    ) : null,
+    p.attrs ? el("section", { class: "panel" },
+      el("h3", {}, "能力值快照"),
+      el("p", { class: "cap" }, `${p.attrs.date}　${p.attrs.schema === "GOALKEEPER" ? "門將" : "非門將"}屬性組　來源 ${p.attrs.source}`),
+      el("div", { class: "radar-wrap" },
+        p.attrs.radar.length ? radarChart(p.attrs.radar) : el("div"),
+        el("div", { class: "attr-cols" }, Object.entries(p.attrs.groups)
+          .filter(([, list]) => list.length)
+          .map(([group, list]) => el("div", { class: "attr-col" },
+            el("h4", {}, group),
+            list.map(([name, v]) => el("div", { class: "attr" },
+              el("span", { class: "an" }, name),
+              el("span", { class: "track" }, el("i", {
+                style: `width:${(v / 20) * 100}%;background:${v >= 16 ? "var(--garnet)" : v >= 12 ? "var(--azul)" : "var(--text-3)"}`,
+              })),
+              el("span", { class: "av" }, v)))))))) : null,
+    p.national.length ? el("section", { class: "panel" },
+      el("h3", {}, "國家隊"),
+      el("p", { class: "cap" }, "來源：Player_Career_Summaries"),
+      el("dl", { class: "kv" }, p.national.flatMap(n => [
+        el("dt", {}, n.scope.includes("Senior") ? "成年隊" : n.scope.includes("U20") ? "U20" : "U21"),
+        el("dd", { class: "tnum" }, `${dash(n.country)}　${n.apps} 場 / ${n.goals} 球 / ${n.assists} 助`),
+      ]))) : null,
+    p.awards.length ? el("section", { class: "panel" },
+      el("h3", {}, `個人榮譽　${p.awards.length}`),
+      el("p", { class: "cap" }, "來源：Barcelona_Player_Career.Major_Awards"),
+      el("div", { class: "awards" }, p.awards.map(a => el("div", {}, a)))) : null,
+  ];
+}
+
+/* the 2034/35 double-entry is a real defect; flag it where it would inflate a sum */
+function dupWarning(stats) {
+  const seen = new Map();
+  for (const s of stats) {
+    const key = s.season.replace(/[^0-9]/g, "");
+    seen.set(key, (seen.get(key) || 0) + 1);
+  }
+  const dupes = [...seen].filter(([, n]) => n > 1);
+  if (!dupes.length) return null;
+  return el("div", { class: "note", style: "margin-bottom:16px" },
+    `注意：${dupes.map(([k]) => k.slice(0, 4) + "/" + k.slice(4)).join("、")} 在來源中有兩筆賽季總計（Season_Display 寫法不一致），`
+    + "下方圖表與表格照實呈現，未合併。詳見「檔案完整性」。");
+}
+
+/* goals / assists per season, drawn to one shared scale */
+function seasonChart(stats) {
+  const W = 700, H = 160, PAD_L = 30, PAD_B = 26, PAD_T = 12;
+  const max = Math.max(...stats.map(s => Math.max(s.goals, s.assists)), 5);
+  const step = (W - PAD_L - 12) / stats.length;
+  const bw = Math.min(16, step / 2.6);
+  const y = v => PAD_T + (1 - v / max) * (H - PAD_T - PAD_B);
+  const ticks = [0, Math.round(max / 2), max];
+
+  return el("div", { style: "overflow-x:auto" },
+    svg("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img",
+      "aria-label": "逐季進球與助攻", style: "min-width:520px;display:block" },
+      ticks.map(t => svg("g", {},
+        svg("line", { x1: PAD_L, x2: W - 6, y1: y(t), y2: y(t), stroke: "currentColor", "stroke-opacity": t === 0 ? .28 : .1 }),
+        svg("text", { x: PAD_L - 7, y: y(t) + 4, "text-anchor": "end", fill: "currentColor",
+          "fill-opacity": .5, "font-size": 10, "font-family": "IBM Plex Mono, monospace" }, t))),
+      stats.map((s, i) => {
+        const cx = PAD_L + step * i + step / 2;
+        return svg("g", {},
+          svg("rect", { x: cx - bw - 1, y: y(s.goals), width: bw, height: Math.max(1, y(0) - y(s.goals)),
+            fill: "var(--garnet)", rx: 2 }, svg("title", {}, `${s.season} 進球 ${s.goals}`)),
+          svg("rect", { x: cx + 1, y: y(s.assists), width: bw, height: Math.max(1, y(0) - y(s.assists)),
+            fill: "var(--azul)", "fill-opacity": .75, rx: 2 }, svg("title", {}, `${s.season} 助攻 ${s.assists}`)),
+          svg("text", { x: cx, y: H - 9, "text-anchor": "middle", fill: "currentColor", "fill-opacity": .5,
+            "font-size": 9.5, "font-family": "IBM Plex Mono, monospace" }, s.season.slice(2)));
+      })),
+    el("div", { class: "legend" },
+      el("span", {}, el("i", { style: "background:var(--garnet)" }), "進球"),
+      el("span", {}, el("i", { style: "background:var(--azul);opacity:.75" }), "助攻")));
+}
+
+/* six-axis summary of the 36 raw FM attributes */
+function radarChart(axes) {
+  const W = 300, H = 250, C = W / 2, CY = H / 2, R = 72;
+  const pt = (i, r) => {
+    const a = (Math.PI * 2 * i) / axes.length - Math.PI / 2;
+    return [C + Math.cos(a) * r, CY + Math.sin(a) * r];
+  };
+  const poly = axes.map((d, i) => pt(i, (d.value / 20) * R).join(",")).join(" ");
+  return el("div", {},
+    svg("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": "六維能力概覽",
+      style: "max-width:270px;display:block" },
+      [5, 10, 15, 20].map(ring => svg("polygon", {
+        points: axes.map((_, i) => pt(i, (ring / 20) * R).join(",")).join(" "),
+        fill: "none", stroke: "currentColor", "stroke-opacity": ring === 20 ? .25 : .1,
+      })),
+      axes.map((_, i) => svg("line", {
+        x1: C, y1: CY, x2: pt(i, R)[0], y2: pt(i, R)[1], stroke: "currentColor", "stroke-opacity": .12,
+      })),
+      svg("polygon", { points: poly, fill: "var(--garnet)", "fill-opacity": .22,
+        stroke: "var(--garnet)", "stroke-width": 1.8, "stroke-linejoin": "round" }),
+      axes.map((d, i) => {
+        const [x, y] = pt(i, (d.value / 20) * R);
+        return svg("circle", { cx: x, cy: y, r: 2.6, fill: "var(--garnet)" });
+      }),
+      axes.map((d, i) => {
+        const [x, y] = pt(i, R + 22);
+        const anchor = x > C + 6 ? "start" : x < C - 6 ? "end" : "middle";
+        return svg("text", {
+          x: Math.min(Math.max(x, 4), W - 4), y: y + 3.5, "text-anchor": anchor,
+          fill: "currentColor", "fill-opacity": .68, "font-size": 11,
+          "font-family": "IBM Plex Mono, monospace",
+        }, `${d.axis} ${d.value}`);
+      })));
+}
+
+
+/* ------------------------------------------------------------------ world */
+const isBarca = name => /巴塞|巴薩|Barcelona/i.test(name || "");
+
+function renderWorld() {
+  const w = DATA.world;
+  const seasonLabel = s => s.slice(2);
+
+  const grid = el("div", { class: "grid-wrap" },
+    el("table", { class: "champs" },
+      el("thead", {}, el("tr", {}, el("th", { class: "rowh" }, "聯賽"),
+        w.seasons.map(s => el("th", {}, seasonLabel(s))))),
+      el("tbody", {}, w.leagues.map(lg =>
+        el("tr", {}, el("th", { class: "rowh" }, lg),
+          w.seasons.map(s => {
+            const champ = w.champions[`${lg}|${s}`];
+            return el("td", {}, el("span", {
+              class: isBarca(champ) ? "barca" : "", title: champ ? `${s} ${lg}：${champ}` : "來源未提供",
+            }, champ || "—"));
+          }))))));
+
+  const uclRows = w.ucl.filter(r => r.winner);
+  const uclCount = {};
+  uclRows.forEach(r => { uclCount[r.winner] = (uclCount[r.winner] || 0) + 1; });
+  const uclTop = Object.entries(uclCount).sort((a, b) => b[1] - a[1]);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${w.seasons[0]} – ${w.seasons[w.seasons.length - 1]}　十二季世界紀錄`),
+      el("h2", {}, "世界總覽"),
+      el("p", {}, "五大聯賽、歐洲賽事與國際賽的冠軍歸屬。紅底為巴塞隆納，— 表示來源未提供該季資料。")),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, w.leagues.length), el("div", { class: "l" }, "聯賽")),
+      el("div", {}, el("div", { class: "n tnum" }, DATA.people.players.length), el("div", { class: "l" }, "球員身分")),
+      el("div", {}, el("div", { class: "n tnum" }, DATA.people.clubs.length), el("div", { class: "l" }, "俱樂部")),
+      el("div", {}, el("div", { class: "n tnum" }, w.intl.length), el("div", { class: "l" }, "國際賽紀錄")),
+      el("div", {}, el("div", { class: "n tnum" }, DATA.chronicle.length.toLocaleString()), el("div", { class: "l" }, "編年史事件"))),
+    el("section", { class: "panel" },
+      el("h3", {}, "五大聯賽冠軍版圖"),
+      el("p", { class: "cap" }, "取自 Domestic_League_Standings 中 Rank = 1 的列。點欄位無作用；如需完整名次請至「聯賽積分榜」。"),
+      grid),
+    el("div", { class: "two" },
+      el("section", { class: "panel" },
+        el("h3", {}, "歐洲冠軍聯賽決賽"),
+        el("p", { class: "cap" }, `來源：UCL　${uclRows.length} 季有紀錄`),
+        el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
+          el("thead", {}, el("tr", {}, el("th", {}, "賽季"), el("th", {}, "冠軍"), el("th", {}, "亞軍"))),
+          el("tbody", {}, w.ucl.map(r => el("tr", {},
+            el("td", { class: "mono" }, r.season),
+            el("td", { class: "name-cell", style: isBarca(r.winner) ? "color:var(--garnet)" : "" }, dash(r.winner)),
+            el("td", {}, dash(r.runnerUp)))))))),
+      el("section", { class: "panel" },
+        el("h3", {}, "歐冠奪冠次數"),
+        el("p", { class: "cap" }, "同期間內累計。"),
+        el("div", { class: "bars" }, uclTop.map(([club, n]) =>
+          el("div", { class: "brow" },
+            el("div", { class: "lb" },
+              el("span", {}, club),
+              el("span", { class: "tr" }, el("i", {
+                style: `width:${(n / uclTop[0][1]) * 100}%;background:${isBarca(club) ? "var(--garnet)" : "var(--azul)"}`,
+              }))),
+            el("div", { class: "vv" }, n)))))),
+    el("section", { class: "panel" },
+      el("h3", {}, "國際賽事"),
+      el("p", { class: "cap" }, "來源：Intl_Tournament_Results"),
+      el("div", { class: "tblwrap" }, el("table", { class: "data" },
+        el("thead", {}, el("tr", {}, ["賽事", "年份", "冠軍", "亞軍", "季軍", "主辦"].map(x => el("th", {}, x)))),
+        el("tbody", {}, w.intl.map(r => el("tr", {},
+          el("td", {}, dash(r.tournament)),
+          el("td", { class: "mono" }, dash(r.period)),
+          el("td", { class: "name-cell" }, dash(r.winner)),
+          el("td", {}, dash(r.runnerUp)),
+          el("td", {}, dash(r.third)),
+          el("td", { class: "mono" }, dash(r.host)))))))),
+    el("section", { class: "panel" },
+      el("h3", {}, "歐洲其他錦標"),
+      el("p", { class: "cap" }, "來源：Competition_History"),
+      el("div", { class: "tblwrap" }, el("table", { class: "data" },
+        el("thead", {}, el("tr", {}, ["賽季", "賽事", "冠軍", "亞軍", "決賽場地"].map(x => el("th", {}, x)))),
+        el("tbody", {}, w.euroCups.map(r => el("tr", {},
+          el("td", { class: "mono" }, dash(r.season)),
+          el("td", {}, dash(r.competition)),
+          el("td", { class: "name-cell" }, dash(r.winner)),
+          el("td", {}, dash(r.runnerUp)),
+          el("td", { class: "mono" }, dash(r.venue)))))))),
+  ];
+}
+
+/* ---------------------------------------------------------------- leagues */
+function renderLeagues() {
+  const w = DATA.world;
+  const group = w.snapshots[`${state.league}|${state.leagueSeason}`] || [];
+  /* default to the adopted final table; a provisional one is opt-in and labelled */
+  const chosen = group.find(g => g.key === state.snapshot) || group.find(g => g.final) || group[group.length - 1];
+  const rows = chosen ? (w.standings[chosen.key] || []) : [];
+
+  /* Qualification_Raw is free text; classify by keyword so the rail colour means something */
+  const qual = note => {
+    const t = note || "";
+    if (/冠军|冠軍/.test(t)) return "q-win";
+    if (/欧洲冠军联赛|歐冠|冠军联赛|UCL/.test(t)) return "q-ucl";
+    if (/欧联|欧罗巴|协会联赛|歐聯|欧协联/.test(t)) return "q-uel";
+    /* the source marks relegation either in words or with a bare '!' */
+    if (/降级|降級|保级|^!$/.test(t)) return "q-rel";
+    return "";
+  };
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, "Domestic_League_Standings　1,303 列"),
+      el("h2", {}, "聯賽積分榜"),
+      el("p", {}, "五大聯賽 × 十二季的完整最終名次。左側色條依來源的資格說明文字分類。")),
+    el("div", { class: "filters" },
+      el("select", { id: "lgPick", onChange: e => { state.league = e.target.value; paint(); } },
+        w.leagues.map(lg => el("option", { value: lg, selected: lg === state.league }, lg))),
+      el("select", { id: "lgSeason", onChange: e => { state.leagueSeason = e.target.value; state.snapshot = null; paint(); } },
+        w.seasons.slice().reverse().map(s => el("option", { value: s, selected: s === state.leagueSeason }, s))),
+      group.length > 1 ? el("select", {
+        id: "lgSnap", onChange: e => { state.snapshot = e.target.value; paint(); },
+      }, group.map(g => el("option", { value: g.key, selected: chosen && g.key === chosen.key },
+        `${g.snapshot}　${g.final ? "最終" : "賽季中"}`))) : null),
+    rows.length ? el("section", { class: "panel" },
+      el("h3", {}, `${state.league}　${state.leagueSeason}`),
+      el("p", { class: "cap" }, `${rows.length} 隊　·　快照 ${chosen.snapshot}　·　${chosen.status || "狀態未標註"}`),
+      chosen.final ? null : el("div", { class: "note", style: "margin-bottom:14px" },
+        "這是賽季進行中的暫定積分榜，來源尚未提供最終名次。"
+        + (group.some(g => g.final) ? "可用上方選單切換到最終版。" : "")),
+      el("div", { class: "tblwrap" }, el("table", { class: "data" },
+        el("thead", {}, el("tr", {}, w.standingsCols.map((c, i) =>
+          el("th", { class: i >= 2 && i <= 9 ? "num" : "" }, c)))),
+        el("tbody", {}, rows.map(r =>
+          el("tr", { class: qual(r[10]) },
+            el("td", { class: "mono" }, r[0]),
+            el("td", { class: "name-cell", style: isBarca(r[1]) ? "color:var(--garnet)" : "" }, r[1]),
+            el("td", { class: "num tnum" }, dash(r[2])), el("td", { class: "num tnum" }, dash(r[3])),
+            el("td", { class: "num tnum" }, dash(r[4])), el("td", { class: "num tnum" }, dash(r[5])),
+            el("td", { class: "num tnum" }, dash(r[6])), el("td", { class: "num tnum" }, dash(r[7])),
+            el("td", { class: "num tnum" }, r[8] === null ? "—" : r[8] > 0 ? "+" + r[8] : r[8]),
+            el("td", { class: "num tnum", style: "font-weight:600" }, dash(r[9])),
+            el("td", { class: "mono" }, r[10] === "!" ? "降級" : dash(r[10])))))),
+      ),
+      el("div", { class: "legend" },
+        el("span", {}, el("i", { style: "background:var(--gold)" }), "冠軍"),
+        el("span", {}, el("i", { style: "background:var(--azul)" }), "歐冠資格"),
+        el("span", {}, el("i", { style: "background:var(--ok)" }), "歐聯／協會聯賽"),
+        el("span", {}, el("i", { style: "background:var(--bad)" }), "降級")))
+      : el("section", { class: "panel" }, el("div", { class: "empty" }, "此聯賽該季無積分榜紀錄。")),
+  ];
+}
+
+/* ---------------------------------------------------------------- honours */
+function renderHonours() {
+  const hs = DATA.honours;
+  const awards = Object.keys(hs.winners).sort();
+  const winners = hs.winners[state.award] || [];
+  const unresolved = winners.filter(x => !x.resolved).length;
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${hs.awardCatalogue.length} 種獎項　${DATA.integrity.totalAwards.toLocaleString()} 筆事實列`),
+      el("h2", {}, "榮譽殿堂"),
+      el("p", {}, "金球獎完整前三名，以及每個獎項的歷屆得主。未綁定 Player_ID 的得主會標示出來。")),
+    el("section", {},
+      el("h3", { style: "font-size:15px;margin-bottom:4px" }, "金球獎"),
+      el("p", { class: "cap", style: "margin-bottom:14px" }, "來源：Ballon_dOr　每季前三名與當季數據。"),
+      el("div", { class: "podiums" }, hs.ballonDor.map(b =>
+        el("div", { class: "podium" },
+          el("h4", {}, b.season),
+          el("ol", {}, b.podium.slice(0, 3).map(p =>
+            el("li", {},
+              el("span", { class: "r" }, p.rank),
+              el("span", { class: "nm", title: p.player }, p.player),
+              el("span", { class: "cl" }, `${p.goals}球 ${p.assists}助 ${fmt(p.rating, 2)}`)))))))),
+    el("section", { class: "panel" },
+      el("h3", {}, "歷屆得主查詢"),
+      el("p", { class: "cap" }, "只列出 Rank = 1 的列。團隊型獎項（年度最佳陣容）每季有多名一位，屬正常。"),
+      el("div", { class: "filters", style: "margin-bottom:16px" },
+        el("select", { id: "awardPick", onChange: e => { state.award = e.target.value; paint(); } },
+          awards.map(a => el("option", { value: a, selected: a === state.award }, a)))),
+      unresolved ? el("div", { class: "note", style: "margin-bottom:14px" },
+        `本獎項有 ${unresolved} 筆得主尚未綁定 Player_ID，以原始姓名呈現。`) : null,
+      el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
+        el("thead", {}, el("tr", {}, ["賽季", "得主", "俱樂部", "身分"].map(x => el("th", {}, x)))),
+        el("tbody", {}, winners.map(x => el("tr", {},
+          el("td", { class: "mono" }, dash(x.season)),
+          el("td", { class: "name-cell" }, dash(x.player)),
+          el("td", {}, dash(x.club)),
+          el("td", {}, x.resolved
+            ? el("span", { class: "pill ok" }, x.id)
+            : el("span", { class: "pill warn" }, "未解析")))))))),
+  ];
+}
+
+/* ----------------------------------------------------------------- people */
+const PERSON_FILTERS = [
+  { id: "awards", label: "有獎項紀錄", test: p => p.awards.length },
+  { id: "stats", label: "有生涯數據", test: p => p.apps > 0 },
+  { id: "barca", label: "巴薩球員", test: p => p.barca },
+  { id: "all", label: "全部身分", test: () => true },
+];
+
+function renderPeople() {
+  if (state.person) return renderPerson();
+  const f = PERSON_FILTERS.find(x => x.id === state.personFilter) || PERSON_FILTERS[0];
+  const q = state.personQuery.trim();
+  const rows = DATA.people.players.filter(p =>
+    f.test(p) && (!q || p.name.includes(q) || p.aliases.some(a => a.includes(q)) ||
+      p.clubs.some(c => c.includes(q)) || p.id.includes(q.toUpperCase())));
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" },
+        `${DATA.people.players.length} 個受控身分　${DATA.people.withAwards} 有獎項　${DATA.people.withStats} 有數據`),
+      el("h2", {}, "球員名錄"),
+      el("p", {}, "Player_Dim 的全部受控身分。多數只在獎項表中出現過姓名，沒有數據列——這是來源的實況，不是缺漏。")),
+    el("div", { class: "filters" },
+      el("input", {
+        id: "personQ", type: "search", placeholder: "搜尋姓名、別名、俱樂部或 Player_ID…",
+        value: state.personQuery, onInput: e => { state.personQuery = e.target.value; repaintPeople(); },
+      }),
+      el("div", { class: "chips" }, PERSON_FILTERS.map(x =>
+        el("button", {
+          class: "chip", type: "button", "aria-pressed": String(x.id === state.personFilter),
+          onClick: () => { state.personFilter = x.id; paint(); },
+        }, x.label)))),
+    el("section", { class: "panel", id: "peoplePanel" }, peopleTable(rows)),
+  ];
+}
+function peopleTable(rows) {
+  const shown = rows.slice(0, 200);
+  return el("div", {},
+    el("p", { class: "cap" }, `符合 ${rows.length} 人${rows.length > shown.length ? `，顯示前 ${shown.length}` : ""}`),
+    el("div", { class: "tblwrap" }, el("table", { class: "data" },
+      el("thead", {}, el("tr", {},
+        el("th", {}, "球員"), el("th", {}, "國籍"), el("th", {}, "俱樂部"),
+        el("th", { class: "num" }, "出場"), el("th", { class: "num" }, "進球"),
+        el("th", { class: "num" }, "助攻"), el("th", { class: "num" }, "獎項"))),
+      el("tbody", {}, shown.map(p =>
+        el("tr", { class: "click", onClick: () => { state.person = p.id; paint(); } },
+          el("td", { class: "name-cell" }, p.name,
+            p.barca ? el("span", { class: "pill win", style: "margin-left:7px" }, "巴薩") : null),
+          el("td", {}, dash(p.nationality)),
+          el("td", { class: "mono" }, p.clubs.length ? p.clubs.join("、") : "—"),
+          el("td", { class: "num tnum" }, p.apps || "—"),
+          el("td", { class: "num tnum" }, p.goals || "—"),
+          el("td", { class: "num tnum" }, p.assists || "—"),
+          el("td", { class: "num tnum" }, p.awards.length || "—")))))));
+}
+function repaintPeople() {
+  const panel = document.getElementById("peoplePanel");
+  if (!panel) return paint();
+  const f = PERSON_FILTERS.find(x => x.id === state.personFilter) || PERSON_FILTERS[0];
+  const q = state.personQuery.trim();
+  panel.replaceChildren(peopleTable(DATA.people.players.filter(p =>
+    f.test(p) && (!q || p.name.includes(q) || p.aliases.some(a => a.includes(q)) ||
+      p.clubs.some(c => c.includes(q)) || p.id.includes(q.toUpperCase())))));
+}
+
+function renderPerson() {
+  const p = DATA.people.players.find(x => x.id === state.person);
+  if (!p) { state.person = null; return renderPeople(); }
+  const byAward = {};
+  p.awards.forEach(a => { (byAward[a.award] ||= []).push(a); });
+
+  return [
+    el("button", { class: "back", type: "button", onClick: () => { state.person = null; paint(); } }, "← 返回名錄"),
+    el("div", { class: "p-head" },
+      el("div", { class: "p-id" },
+        el("div", { class: "eyebrow" }, p.id),
+        el("h2", {}, p.name),
+        el("div", { class: "p-meta" },
+          p.nationality ? el("span", { class: "pill flat" }, p.nationality) : null,
+          p.aliases.map(a => el("span", { class: "pill flat", title: "別名" }, a)),
+          p.barca ? el("span", { class: "pill win" }, "巴薩生涯在檔") : null))),
+    p.apps ? el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, p.apps), el("div", { class: "l" }, "聯賽出場")),
+      el("div", {}, el("div", { class: "n tnum" }, p.goals), el("div", { class: "l" }, "進球")),
+      el("div", {}, el("div", { class: "n tnum" }, p.assists), el("div", { class: "l" }, "助攻")),
+      el("div", {}, el("div", { class: "n tnum" }, p.seasonCount), el("div", { class: "l" }, "在檔賽季")),
+      el("div", {}, el("div", { class: "n tnum" }, p.awards.length), el("div", { class: "l" }, "獎項紀錄")),
+    ) : el("div", { class: "hint" },
+      "這個身分在檔案中只出現於獎項紀錄，沒有任何出場數據列。來源未提供即保持未知，不補值。"),
+    p.clubs.length ? el("section", { class: "panel" },
+      el("h3", {}, "效力俱樂部"),
+      el("p", { class: "cap" }, "來源：Player_League_Career"),
+      el("div", { class: "chips" }, p.clubs.map(c => el("span", { class: "chip" }, c)))) : null,
+    p.barca ? el("section", { class: "panel" },
+      el("h3", {}, "巴薩生涯檔案"),
+      el("p", { class: "cap" }, "此球員另有完整的巴塞隆納逐季數據與能力值快照。"),
+      el("button", {
+        class: "btn", type: "button",
+        onClick: () => { state.player = p.id; state.person = null; go("squad"); state.player = p.id; paint(); },
+      }, "開啟巴薩生涯檔案 →")) : null,
+    Object.keys(byAward).length ? el("section", { class: "panel" },
+      el("h3", {}, `獎項紀錄　${p.awards.length}`),
+      el("p", { class: "cap" }, "來源：Canonical_Award_Facts（已綁定此 Player_ID 的列）"),
+      el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
+        el("thead", {}, el("tr", {}, ["獎項", "賽季", "名次", "俱樂部"].map(x => el("th", {}, x)))),
+        el("tbody", {}, p.awards.slice().sort((a, b) => String(b.season).localeCompare(String(a.season)))
+          .map(a => el("tr", {},
+            el("td", {}, a.award),
+            el("td", { class: "mono" }, dash(a.season)),
+            el("td", {}, a.rank === 1
+              ? el("span", { class: "pill win" }, "冠軍")
+              : el("span", { class: "pill flat" }, a.rank || "入選")),
+            el("td", {}, dash(a.club)))))))) : null,
+  ];
+}
+
+/* -------------------------------------------------------------- chronicle */
+function renderChronicle() {
+  const types = [...new Set(DATA.chronicle.map(e => e.type))].sort();
+  const q = state.chronQuery.trim();
+  const rows = DATA.chronicle.filter(e =>
+    (!state.chronType || e.type === state.chronType) &&
+    (!q || (e.fact + e.subject + e.season).includes(q)));
+  const shown = rows.slice(0, 300);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${DATA.chronicle.length} 筆已確認事件`),
+      el("h2", {}, "王朝編年史"),
+      el("p", {}, "World_Timeline 中與巴塞隆納或重大獎項相關的事件，依賽季倒序。每筆均標註來源工作表。")),
+    el("div", { class: "filters" },
+      el("input", {
+        id: "chronQ", type: "search", placeholder: "搜尋球員、球隊或事件敘述…", value: state.chronQuery,
+        onInput: e => { state.chronQuery = e.target.value; repaintChronicle(); },
+      }),
+      el("select", {
+        id: "chronT", onChange: e => { state.chronType = e.target.value; repaintChronicle(); },
+      },
+        el("option", { value: "" }, "全部類型"),
+        types.map(t => el("option", { value: t, selected: t === state.chronType }, t)))),
+    el("section", { class: "panel", id: "chronPanel" },
+      el("p", { class: "cap" }, `符合 ${rows.length} 筆${rows.length > shown.length ? `，顯示前 ${shown.length} 筆` : ""}`),
+      el("div", { class: "chron" }, shown.map(e =>
+        el("div", { class: "ev" },
+          el("div", { class: "when" }, dash(e.season)),
+          el("div", { class: "what" },
+            el("div", { class: "f" }, e.fact),
+            el("div", { class: "src" }, `${e.type}　·　${e.sheet}　·　${e.id}`)))))),
+  ];
+}
+/* keep focus in the search box instead of repainting the whole view */
+function repaintChronicle() {
+  const panel = document.getElementById("chronPanel");
+  if (!panel) return paint();
+  const q = state.chronQuery.trim();
+  const rows = DATA.chronicle.filter(e =>
+    (!state.chronType || e.type === state.chronType) &&
+    (!q || (e.fact + e.subject + e.season).includes(q)));
+  const shown = rows.slice(0, 300);
+  panel.replaceChildren(
+    el("p", { class: "cap" }, `符合 ${rows.length} 筆${rows.length > shown.length ? `，顯示前 ${shown.length} 筆` : ""}`),
+    el("div", { class: "chron" }, shown.map(e =>
+      el("div", { class: "ev" },
+        el("div", { class: "when" }, dash(e.season)),
+        el("div", { class: "what" },
+          el("div", { class: "f" }, e.fact),
+          el("div", { class: "src" }, `${e.type}　·　${e.sheet}　·　${e.id}`))))));
+}
+
+/* -------------------------------------------------------------- integrity */
+function renderIntegrity() {
+  const g = DATA.integrity;
+  const resolvedPct = Math.round(((g.totalAwards - g.unresolvedAwards) / g.totalAwards) * 100);
+  const maxDomain = Math.max(...g.domains.map(d => d.count), 1);
+  const maxName = Math.max(...g.topUnresolved.map(d => d.count), 1);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, "Append-only 觀測／事實模型"),
+      el("h2", {}, "檔案完整性報告"),
+      el("p", {}, "這份工作簿的政策是保留來源、不補值、不覆寫。以下是 ETL 直接從資料本身驗證出的結果，不是人工維護的清單。")),
+    el("div", { class: "strip" },
+      el("div", {}, el("div", { class: "n tnum" }, g.totalAwards.toLocaleString()), el("div", { class: "l" }, "獎項事實列")),
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, g.unresolvedAwards), el("div", { class: "l" }, "身分未解析")),
+      el("div", {}, el("div", { class: "n tnum" }, resolvedPct + "%"), el("div", { class: "l" }, "已綁定 Player_ID")),
+      el("div", {}, el("div", { class: "n tnum" }, g.issueTotal), el("div", { class: "l" }, "Data_Issues 列")),
+      el("div", {}, el("div", { class: "n tnum" }, DATA.meta.identity_links.toLocaleString()), el("div", { class: "l" }, "身分對照連結")),
+    ),
+    el("section", { style: "display:flex;flex-direction:column;gap:12px" },
+      el("h3", { style: "font-size:15px" }, `ETL 自動偵測　${g.findings.length} 項`),
+      g.findings.map(f => el("div", { class: "finding " + f.severity },
+        el("div", { class: "meta" },
+          el("span", { class: "pill " + (f.severity === "high" ? "bad" : f.severity === "medium" ? "warn" : "flat") },
+            f.severity === "high" ? "高" : f.severity === "medium" ? "中" : "低"),
+          el("span", { class: "mono" }, f.where)),
+        el("h4", {}, f.title),
+        el("p", {}, f.detail),
+        f.sample.length ? el("div", { class: "mono" }, "樣本：" + f.sample.join("、")) : null))),
+    el("div", { class: "two" },
+      el("section", { class: "panel" },
+        el("h3", {}, "待解析身分排行"),
+        el("p", { class: "cap" }, "同一原始姓名在多張獎項表重複出現，優先處理可一次消掉最多列。"),
+        el("div", { class: "bars" }, g.topUnresolved.slice(0, 14).map(d =>
+          el("div", { class: "brow" },
+            el("div", { class: "lb" },
+              el("span", { title: d.sheets }, d.name),
+              el("span", { class: "tr" }, el("i", { style: `width:${(d.count / maxName) * 100}%;background:var(--garnet)` }))),
+            el("div", { class: "vv" }, d.count))))),
+      el("section", { class: "panel" },
+        el("h3", {}, "Data_Issues 分佈"),
+        el("p", { class: "cap" }, "依 Domain 統計，全數為「已保存、未修正」的來源限制紀錄。"),
+        el("div", { class: "bars" }, g.domains.slice(0, 14).map(d =>
+          el("div", { class: "brow" },
+            el("div", { class: "lb" },
+              el("span", { class: "mono" }, d.domain),
+              el("span", { class: "tr" }, el("i", { style: `width:${(d.count / maxDomain) * 100}%` }))),
+            el("div", { class: "vv" }, d.count)))))),
+    el("section", { class: "panel" },
+      el("h3", {}, "工作簿來源規模"),
+      el("p", { class: "cap" }, `結構版本 ${DATA.meta.schema_version}　·　遷移 ${DATA.meta.migration_id}`),
+      el("div", { class: "tblwrap" },
+        el("table", { class: "data" },
+          el("thead", {}, el("tr", {}, el("th", {}, "工作表"), el("th", { class: "num" }, "資料列"))),
+          el("tbody", {}, DATA.meta.biggest_sheets.map(s =>
+            el("tr", {}, el("td", { class: "mono" }, s.sheet_name),
+              el("td", { class: "num tnum" }, s.row_count.toLocaleString()))))))),
+  ];
+}
+
+
+
+/* ===================================================================
+   IDENTITY RESOLUTION CONSOLE
+   445 award rows across 212 raw names carry no Player_ID. Candidates are
+   computed at build time (OpenCC + the full accepted-association index);
+   this view presents them with their evidence and records the decision.
+   =================================================================== */
+
+const VERDICT_META = {
+  exact:        { label: "正規化後完全相同", cls: "ok" },
+  strong:       { label: "高可信候選",       cls: "ok" },
+  weak:         { label: "需人工判斷",       cls: "warn" },
+  no_candidate: { label: "查無候選",         cls: "flat" },
+};
+
+const RESOLVE_FILTERS = [
+  { id: "todo", label: "待處理", test: (i, d) => !d[i.raw] },
+  { id: "cand", label: "有候選", test: (i, d) => !d[i.raw] && i.candidates.length },
+  { id: "none", label: "無候選（需建新身分）", test: (i, d) => !d[i.raw] && !i.candidates.length },
+  { id: "done", label: "已決定", test: (i, d) => !!d[i.raw] },
+  { id: "all", label: "全部", test: () => true },
+];
+
+async function loadDecisions() {
+  const db = await getDb();
+  if (!db) { state.decisions = "unavailable"; return; }
+  try {
+    const docs = await db.collection("identity_decisions").limit(500).get();
+    const map = {};
+    docs.forEach(d => { map[d.data.raw] = d.data; });
+    state.decisions = map;
+  } catch (e) { state.decisions = "unavailable"; }
+}
+
+async function decide(item, action, playerId) {
+  const db = await getDb();
+  if (!db) return;
+  const doc = {
+    raw: item.raw,
+    action,                       // confirm | new | reject
+    playerId: playerId || null,
+    playerName: playerId ? (item.candidates.find(c => c.id === playerId)?.name ?? null) : null,
+    rows: item.rows,
+    verdict: item.verdict,
+    topScore: item.candidates[0]?.score ?? null,
+    decidedAt: new Date().toISOString(),
+  };
+  /* doc id must be stable and path-safe; the raw name is neither */
+  const key = "d" + [...item.raw].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7).toString(36)
+    + "-" + item.rows;
+  try {
+    await db.doc("identity_decisions/" + key).set(doc);
+    if (state.decisions && state.decisions !== "unavailable") state.decisions[item.raw] = doc;
+  } catch (e) {
+    state.resolveError = e?.code === "not_granted"
+      ? "沒有寫入權限，決定無法保存。" : "寫入失敗：" + (e?.message || e?.code);
+  }
+  paint();
+}
+
+async function undecide(item) {
+  const db = await getDb();
+  if (!db) return;
+  const key = "d" + [...item.raw].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7).toString(36)
+    + "-" + item.rows;
+  try { await db.doc("identity_decisions/" + key).delete(); } catch (e) { /* already gone */ }
+  if (state.decisions && state.decisions !== "unavailable") delete state.decisions[item.raw];
+  paint();
+}
+
+async function exportDecisions() {
+  await getDb();
+  const map = state.decisions;
+  if (!downloadsHandle || !map || map === "unavailable") return;
+  const list = Object.values(map);
+  if (!list.length) return;
+  try {
+    await downloadsHandle.save({
+      filename: `fm24-identity-decisions-${new Date().toISOString().slice(0, 10)}.json`,
+      data: JSON.stringify({
+        exportedAt: new Date().toISOString(),
+        schema: "FM24_IDENTITY_DECISIONS_V1",
+        note: "餵給 fm24/ingest.py --identity，會寫入 Ingest_Identity_Decisions 表。",
+        decisions: list,
+      }, null, 2),
+    });
+  } catch (e) { /* viewer declined */ }
+}
+
+function renderResolve() {
+  if (state.decisions === null) loadDecisions().then(paint);
+  const r = DATA.resolution;
+  const decided = (state.decisions && state.decisions !== "unavailable") ? state.decisions : {};
+  const decidedCount = Object.keys(decided).length;
+  const clearedRows = Object.values(decided).reduce((a, d) => a + (d.rows || 0), 0);
+
+  const f = RESOLVE_FILTERS.find(x => x.id === state.resolveFilter) || RESOLVE_FILTERS[0];
+  const q = state.resolveQuery.trim();
+  const items = r.items.filter(i => f.test(i, decided) &&
+    (!q || i.raw.includes(q) || i.candidates.some(c => c.name.includes(q))));
+  const shown = items.slice(0, 40);
+
+  const byVerdict = Object.fromEntries(r.verdicts.map(v => [v.verdict, v.n]));
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${r.totalNames} 個未解析姓名　·　${r.totalRows} 列受影響`),
+      el("h2", {}, "身分解析控制台"),
+      el("p", {}, "候選人在 build 時計算：OpenCC 正規化簡繁，比對檔案已接受的每一筆原始名→ID 關聯"
+        + `（共 ${r.indexKeys} 組索引鍵），再以獎項所屬聯賽與賽季加權。`
+        + "評分為姓 × 0.7 ＋ 名 × 0.3，姓氏相似度過低者直接否決——中文譯名的「名」重複率太高，撐不起配對。")),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, r.totalRows), el("div", { class: "l" }, "待解析列")),
+      el("div", {}, el("div", { class: "n tnum" }, (byVerdict.exact || 0) + (byVerdict.strong || 0)), el("div", { class: "l" }, "高可信候選")),
+      el("div", {}, el("div", { class: "n tnum" }, byVerdict.weak || 0), el("div", { class: "l" }, "需人工判斷")),
+      el("div", {}, el("div", { class: "n tnum" }, byVerdict.no_candidate || 0), el("div", { class: "l" }, "需建新身分")),
+      el("div", {}, el("div", { class: "n tnum" }, decidedCount), el("div", { class: "l" }, "已決定")),
+    ),
+    el("section", { class: "panel" },
+      el("h3", {}, "進度"),
+      el("p", { class: "cap" }, decidedCount
+        ? `已決定 ${decidedCount} 個姓名，可清掉 ${clearedRows} 列（${Math.round(clearedRows / r.totalRows * 100)}%）。`
+        : "尚未做出任何決定。由上而下處理，最上面的姓名一次能清掉最多列。"),
+      el("div", { class: "prog" },
+        el("i", { style: `width:${(clearedRows / r.totalRows) * 100}%;background:var(--garnet)` }),
+        el("i", { style: `width:${(1 - clearedRows / r.totalRows) * 100}%;background:transparent` })),
+      state.decisions === "unavailable"
+        ? el("div", { class: "hint", style: "margin-top:14px" }, STORAGE_NOTE.none)
+        : el("div", { style: "margin-top:14px" }, storageHint()),
+      decidedCount ? el("div", { class: "btnrow", style: "margin-top:16px" },
+        el("button", { class: "btn", type: "button", onClick: exportDecisions }, "匯出決定 JSON"),
+        el("span", { class: "cap" }, "下載後執行　", el("code", {}, "python3 ingest.py <檔案> --identity --commit"))) : null),
+    r.merges.length ? el("section", { class: "panel" },
+      el("h3", {}, `積欠名單內部疑似重複　${r.merges.length} 組`),
+      el("p", { class: "cap" }, "這些未解析姓名彼此高度相似，很可能是同一個尚未建檔的球員。先合併再建 ID，避免同一人拿到多個 Player_ID。"),
+      el("div", {}, r.merges.map(g => el("div", { class: "ctx" }, g.join("　⟷　"))))) : null,
+    state.resolveError ? el("div", { class: "note" }, state.resolveError) : null,
+    el("div", { class: "filters" },
+      el("input", {
+        id: "resolveQ", type: "search", placeholder: "搜尋原始姓名或候選人…", value: state.resolveQuery,
+        onInput: e => { state.resolveQuery = e.target.value; paint(); },
+      }),
+      el("div", { class: "chips" }, RESOLVE_FILTERS.map(x =>
+        el("button", {
+          class: "chip", type: "button", "aria-pressed": String(x.id === state.resolveFilter),
+          onClick: () => { state.resolveFilter = x.id; paint(); },
+        }, x.label)))),
+    el("p", { class: "cap" }, `符合 ${items.length}${items.length > shown.length ? `，顯示前 ${shown.length}` : ""}`),
+    el("div", { class: "queue" }, shown.map(i => resolveCard(i, decided[i.raw]))),
+  ];
+}
+
+function resolveCard(item, decision) {
+  const meta = VERDICT_META[item.verdict] || VERDICT_META.no_candidate;
+  return el("div", { class: "card v-" + item.verdict + (decision ? " done" : "") },
+    el("div", { class: "card-top" },
+      el("div", {},
+        el("div", { class: "card-name" }, item.raw),
+        el("div", { class: "card-meta" },
+          el("span", { class: "pill " + meta.cls }, meta.label),
+          el("span", { class: "pill flat" }, `${item.rows} 列`),
+          item.league ? el("span", { class: "pill flat", title: "用於加權的聯賽上下文" }, item.league) : null,
+          item.seasonYear ? el("span", { class: "pill flat" }, item.seasonYear + " 季") : null,
+          item.clubs.map(c => el("span", { class: "pill flat" }, c)))),
+      el("div", { class: "ctx", style: "text-align:right" },
+        item.seasons.length ? el("div", {}, el("b", {}, item.seasons.length), " 個賽季　",
+          item.seasons.slice(0, 3).join("、"), item.seasons.length > 3 ? "…" : "") : null,
+        item.awards.length ? el("div", {}, item.awards.slice(0, 2).map(a => a.award).join("、")) : null,
+        el("div", { class: "mono" }, item.sheets.map(s => s.sheet).slice(0, 2).join("、")))),
+    item.siblings.length ? el("div", { class: "hint" },
+      "疑似同一人的其他寫法：", item.siblings.join("、")) : null,
+    decision
+      ? el("div", { class: "decided " + (decision.action === "confirm" ? "" : decision.action === "new" ? "new" : "skip") },
+          el("span", {}, decision.action === "confirm" ? `已確認為 ${decision.playerId}　${decision.playerName || ""}`
+            : decision.action === "new" ? "已標記為新身分，待建立 Player_ID"
+            : "已標記為無法判定，保留原始值"),
+          el("button", { class: "btn danger", type: "button", style: "margin-left:auto",
+            onClick: () => undecide(item) }, "撤銷"))
+      : el("div", {},
+          item.candidates.length
+            ? el("div", {}, item.candidates.map(c =>
+                el("div", { class: "cand" },
+                  el("div", { class: "who" },
+                    el("div", {}, el("span", { class: "cn" }, c.name), el("span", { class: "cid" }, c.id),
+                      (c.leagues && c.leagues.length)
+                        ? el("span", { class: "cid", title: "檔案已知此球員效力的聯賽" }, c.leagues.join("、"))
+                        : null),
+                    el("div", { class: "why" },
+                      c.reasons.map(x => el("span", { class: "pill flat" }, x)),
+                      Object.entries(c.evidence).map(([k, v]) =>
+                        el("span", { class: "pill flat", title: "此候選在該表出現次數" }, `${k} ×${v}`)))),
+                  el("div", { class: "score" },
+                    el("span", { class: "bar" }, el("i", {
+                      style: `width:${c.score * 100}%;background:${c.score >= 0.9 ? "var(--ok)" : c.score >= 0.75 ? "var(--azul)" : "var(--warn)"}`,
+                    })),
+                    el("span", { class: "pc" }, Math.round(c.score * 100) + "%"),
+                    el("button", { class: "btn", type: "button", style: "padding:6px 12px;font-size:12px",
+                      onClick: () => decide(item, "confirm", c.id) }, "確認")))))
+            : el("div", { class: "ctx" }, "索引中沒有姓氏相符的受控身分。這個球員檔案從未收錄過，需要建立新的 Player_ID。"),
+          el("div", { class: "btnrow", style: "margin-top:12px" },
+            el("button", { class: "btn ghost", type: "button", onClick: () => decide(item, "new") }, "建立新身分"),
+            el("button", { class: "btn ghost", type: "button", onClick: () => decide(item, "reject") }, "無法判定，跳過"))));
+}
+
+
+/* ===================================================================
+   CLUB IDENTITY — two different problems under one roof:
+   references with no Club_ID, and one club recorded under two Club_IDs.
+   =================================================================== */
+
+const CLUB_FILTERS = [
+  { id: "todo", label: "待處理", test: (i, d) => !d[i.raw] },
+  { id: "cand", label: "有候選", test: (i, d) => !d[i.raw] && i.candidates.length },
+  { id: "none", label: "無候選（需建新身分）", test: (i, d) => !d[i.raw] && !i.candidates.length },
+  { id: "done", label: "已決定", test: (i, d) => !!d[i.raw] },
+];
+
+const clubDocKey = raw => "c" + [...raw].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7).toString(36);
+
+async function loadClubDecisions() {
+  const db = await getDb();
+  if (!db) { state.clubDecisions = "unavailable"; return; }
+  try {
+    const docs = await db.collection("club_decisions").limit(500).get();
+    const map = {};
+    docs.forEach(d => { map[d.data.raw] = d.data; });
+    state.clubDecisions = map;
+  } catch (e) { state.clubDecisions = "unavailable"; }
+}
+
+async function decideClub(raw, action, payload) {
+  const db = await getDb();
+  if (!db) return;
+  const doc = { raw, action, decidedAt: new Date().toISOString(), ...payload };
+  try {
+    await db.doc("club_decisions/" + clubDocKey(raw)).set(doc);
+    if (state.clubDecisions && state.clubDecisions !== "unavailable") state.clubDecisions[raw] = doc;
+  } catch (e) {
+    state.clubError = e?.code === "not_granted" ? "沒有寫入權限，決定無法保存。" : "寫入失敗：" + (e?.message || e?.code);
+  }
+  paint();
+}
+
+async function undecideClub(raw) {
+  const db = await getDb();
+  if (!db) return;
+  try { await db.doc("club_decisions/" + clubDocKey(raw)).delete(); } catch (e) { /* gone */ }
+  if (state.clubDecisions && state.clubDecisions !== "unavailable") delete state.clubDecisions[raw];
+  paint();
+}
+
+async function exportClubDecisions() {
+  await getDb();
+  const map = state.clubDecisions;
+  if (!downloadsHandle || !map || map === "unavailable") return;
+  const list = Object.values(map);
+  if (!list.length) return;
+  try {
+    await downloadsHandle.save({
+      filename: `fm24-club-decisions-${new Date().toISOString().slice(0, 10)}.json`,
+      data: JSON.stringify({
+        exportedAt: new Date().toISOString(),
+        schema: "FM24_CLUB_DECISIONS_V1",
+        note: "餵給 fm24/ingest.py --clubs，會寫入 Ingest_Club_Decisions 表。",
+        decisions: list,
+      }, null, 2),
+    });
+  } catch (e) { /* declined */ }
+}
+
+function renderClubs() {
+  if (state.clubDecisions === null) loadClubDecisions().then(paint);
+  const c = DATA.clubs;
+  const decided = (state.clubDecisions && state.clubDecisions !== "unavailable") ? state.clubDecisions : {};
+  const byVerdict = Object.fromEntries(c.verdicts.map(v => [v.verdict, v.n]));
+  const risky = c.duplicates.filter(d => d.bothCarryData);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" },
+        `${c.totalRefs} 個俱樂部字串　·　已解析 ${c.resolvedRefs}　·　${c.controlled} 個受控身分`),
+      el("h2", {}, "俱樂部身分"),
+      el("p", {}, "兩件不同的事：有些字串對不到任何 Club_ID，有些俱樂部則被記成了兩個 Club_ID。"
+        + "俱樂部名的差異來自綴詞而非音譯——「里爾」與「里爾足球俱樂部」是同一隊——所以比對前先去掉綴詞。")),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, c.unresolved.length),
+        el("div", { class: "l" }, "未解析字串")),
+      el("div", {}, el("div", { class: "n tnum" }, c.unresolvedRows), el("div", { class: "l" }, "受影響列")),
+      el("div", {}, el("div", { class: "n tnum" }, (byVerdict.strong || 0) + (byVerdict.exact || 0)),
+        el("div", { class: "l" }, "高可信候選")),
+      el("div", {}, el("div", { class: "n tnum" }, byVerdict.no_candidate || 0),
+        el("div", { class: "l" }, "需建新身分")),
+      el("div", { class: risky.length ? "garnet" : "" }, el("div", { class: "n tnum" }, c.duplicates.length),
+        el("div", { class: "l" }, "重複身分")),
+    ),
+    state.clubError ? el("div", { class: "note" }, state.clubError) : null,
+    state.clubDecisions === "unavailable" ? el("div", { class: "hint" }, STORAGE_NOTE.none) : storageHint(),
+    Object.keys(decided).length ? el("div", { class: "btnrow" },
+      el("button", { class: "btn", type: "button", onClick: exportClubDecisions },
+        `匯出決定 JSON　${Object.keys(decided).length} 筆`),
+      el("span", { class: "cap" }, "下載後執行　", el("code", {}, "python3 ingest.py <檔案> --clubs --commit"))) : null,
+    el("div", { class: "tabs" },
+      el("button", {
+        type: "button", "aria-selected": String(state.clubTab === "dupes"),
+        onClick: () => { state.clubTab = "dupes"; paint(); },
+      }, `重複身分　${c.duplicates.length}`),
+      el("button", {
+        type: "button", "aria-selected": String(state.clubTab === "refs"),
+        onClick: () => { state.clubTab = "refs"; paint(); },
+      }, `未解析引用　${c.unresolved.length}`)),
+    ...(state.clubTab === "dupes" ? renderClubDupes(c, decided, risky) : renderClubRefs(c, decided)),
+  ];
+}
+
+function renderClubDupes(c, decided, risky) {
+  return [
+    el("p", { class: "cap" }, risky.length
+      ? `${risky.length} 組的兩個 ID 都有資料列——依 Club_ID 分組會把同一間俱樂部算成兩間，這幾組排在最前面。`
+      : "沒有任何一組的兩個 ID 同時持有資料列。"),
+    el("div", { class: "queue" }, c.duplicates.map(d => {
+      const key = "dupe:" + d.key;
+      const decision = decided[key];
+      const keep = decision?.keepId ?? d.members[0].id;
+      return el("div", { class: "card " + (d.bothCarryData ? "v-weak" : "v-no_candidate") + (decision ? " done" : "") },
+        el("div", { class: "card-top" },
+          el("div", {},
+            el("div", { class: "card-name" }, d.members[0].name),
+            el("div", { class: "card-meta" },
+              el("span", { class: "pill " + (d.bothCarryData ? "warn" : "flat") },
+                d.bothCarryData ? "兩邊都有資料" : "僅一邊有資料"),
+              el("span", { class: "pill flat" }, `合計 ${d.members.reduce((a, m) => a + m.rows, 0)} 列`)))),
+        el("div", { class: "merge" },
+          el("div", { class: "side" + (keep === d.members[0].id ? " keep" : "") },
+            el("div", { class: "sn" }, d.members[0].name),
+            el("div", { class: "si" }, d.members[0].id,
+              d.members[0].leagues.length ? "　" + d.members[0].leagues.join("、") : ""),
+            el("div", { class: "sr" }, `${d.members[0].rows} 列`),
+            el("div", { class: "si" }, d.members[0].tables.map(x => `${x.table} ×${x.n}`).join("　") || "無引用")),
+          el("div", { class: "mergearrow" }, "⇄"),
+          el("div", { class: "side" + (keep === d.members[1].id ? " keep" : "") },
+            el("div", { class: "sn" }, d.members[1].name),
+            el("div", { class: "si" }, d.members[1].id,
+              d.members[1].leagues.length ? "　" + d.members[1].leagues.join("、") : ""),
+            el("div", { class: "sr" }, `${d.members[1].rows} 列`),
+            el("div", { class: "si" }, d.members[1].tables.map(x => `${x.table} ×${x.n}`).join("　") || "無引用"))),
+        decision
+          ? el("div", { class: "decided" + (decision.action === "merge" ? "" : " skip") },
+              el("span", {}, decision.action === "merge"
+                ? `已決定合併至 ${decision.keepId}（${decision.keepName}）`
+                : "已標記為不同俱樂部，保持分開"),
+              el("button", { class: "btn danger", type: "button", style: "margin-left:auto",
+                onClick: () => undecideClub(key) }, "撤銷"))
+          : el("div", { class: "btnrow" },
+              d.members.map(m => el("button", {
+                class: "btn", type: "button",
+                onClick: () => decideClub(key, "merge", {
+                  keepId: m.id, keepName: m.name,
+                  mergeIds: d.members.filter(x => x.id !== m.id).map(x => x.id),
+                  rows: d.members.reduce((a, x) => a + x.rows, 0),
+                }),
+              }, `保留 ${m.id}`)),
+              el("button", {
+                class: "btn ghost", type: "button",
+                onClick: () => decideClub(key, "distinct", { ids: d.members.map(m => m.id) }),
+              }, "其實是不同俱樂部")));
+    })),
+  ];
+}
+
+function renderClubRefs(c, decided) {
+  const f = CLUB_FILTERS.find(x => x.id === state.clubFilter) || CLUB_FILTERS[0];
+  const q = state.clubQuery.trim();
+  const items = c.unresolved.filter(i => f.test(i, decided) &&
+    (!q || i.raw.includes(q) || i.candidates.some(x => x.name.includes(q))));
+  const shown = items.slice(0, 40);
+
+  return [
+    el("div", { class: "filters" },
+      el("input", {
+        id: "clubQ", type: "search", placeholder: "搜尋俱樂部字串或候選…", value: state.clubQuery,
+        onInput: e => { state.clubQuery = e.target.value; paint(); },
+      }),
+      el("div", { class: "chips" }, CLUB_FILTERS.map(x =>
+        el("button", {
+          class: "chip", type: "button", "aria-pressed": String(x.id === state.clubFilter),
+          onClick: () => { state.clubFilter = x.id; paint(); },
+        }, x.label)))),
+    el("p", { class: "cap" }, `符合 ${items.length}${items.length > shown.length ? `，顯示前 ${shown.length}` : ""}`),
+    el("div", { class: "queue" }, shown.map(i => {
+      const meta = VERDICT_META[i.verdict] || VERDICT_META.no_candidate;
+      const decision = decided[i.raw];
+      return el("div", { class: "card v-" + i.verdict + (decision ? " done" : "") },
+        el("div", { class: "card-top" },
+          el("div", {},
+            el("div", { class: "card-name" }, i.raw),
+            el("div", { class: "card-meta" },
+              el("span", { class: "pill " + meta.cls }, meta.label),
+              el("span", { class: "pill flat" }, `${i.rows} 列`),
+              i.league ? el("span", { class: "pill flat" }, i.league) : null,
+              i.truncated ? el("span", { class: "pill warn", title: "來源字串以刪節號結尾" }, "來源截斷") : null)),
+          el("div", { class: "ctx", style: "text-align:right" },
+            el("div", { class: "mono" }, i.tables.slice(0, 2).map(x => `${x.table} ×${x.n}`).join("　")),
+            i.seasons.length ? el("div", {}, i.seasons.join("、")) : null)),
+        decision
+          ? el("div", { class: "decided " + (decision.action === "confirm" ? "" : decision.action === "new" ? "new" : "skip") },
+              el("span", {}, decision.action === "confirm" ? `已確認為 ${decision.clubId}　${decision.clubName || ""}`
+                : decision.action === "new" ? "已標記為新俱樂部，待建立 Club_ID"
+                : "已標記為無法判定"),
+              el("button", { class: "btn danger", type: "button", style: "margin-left:auto",
+                onClick: () => undecideClub(i.raw) }, "撤銷"))
+          : el("div", {},
+              i.candidates.length
+                ? el("div", {}, i.candidates.map(x =>
+                    el("div", { class: "cand" },
+                      el("div", { class: "who" },
+                        el("div", {}, el("span", { class: "cn" }, x.name), el("span", { class: "cid" }, x.id),
+                          x.leagues.length ? el("span", { class: "cid" }, x.leagues.join("、")) : null),
+                        el("div", { class: "why" }, x.reasons.map(rr => el("span", { class: "pill flat" }, rr)))),
+                      el("div", { class: "score" },
+                        el("span", { class: "bar" }, el("i", {
+                          style: `width:${x.score * 100}%;background:${x.score >= 0.9 ? "var(--ok)" : "var(--azul)"}`,
+                        })),
+                        el("span", { class: "pc" }, Math.round(x.score * 100) + "%"),
+                        el("button", {
+                          class: "btn", type: "button", style: "padding:6px 12px;font-size:12px",
+                          onClick: () => decideClub(i.raw, "confirm", {
+                            clubId: x.id, clubName: x.name, rows: i.rows, score: x.score,
+                          }),
+                        }, "確認")))))
+                : el("div", { class: "ctx" }, "受控名錄中沒有相近的俱樂部，需要建立新的 Club_ID。"),
+              el("div", { class: "btnrow", style: "margin-top:12px" },
+                el("button", { class: "btn ghost", type: "button",
+                  onClick: () => decideClub(i.raw, "new", { rows: i.rows }) }, "建立新俱樂部"),
+                el("button", { class: "btn ghost", type: "button",
+                  onClick: () => decideClub(i.raw, "reject", { rows: i.rows }) }, "無法判定，跳過"))));
+    })),
+  ];
+}
+
+
+/* ===================================================================
+   COMPETITION IDENTITY
+   The same competition is written three ways — sponsored, bilingual, or with
+   a knockout round attached — and none of them are in Competition_Dim.
+   =================================================================== */
+
+async function loadCompDecisions() {
+  const db = await getDb();
+  if (!db) { state.compDecisions = "unavailable"; return; }
+  try {
+    const docs = await db.collection("competition_decisions").limit(300).get();
+    const map = {};
+    docs.forEach(d => { map[d.data.raw] = d.data; });
+    state.compDecisions = map;
+  } catch (e) { state.compDecisions = "unavailable"; }
+}
+
+async function decideComp(raw, action, payload) {
+  const db = await getDb();
+  if (!db) return;
+  const doc = { raw, action, decidedAt: new Date().toISOString(), ...payload };
+  const key = "p" + [...raw].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7).toString(36);
+  try {
+    await db.doc("competition_decisions/" + key).set(doc);
+    if (state.compDecisions && state.compDecisions !== "unavailable") state.compDecisions[raw] = doc;
+  } catch (e) {
+    state.compError = e?.code === "not_granted" ? "沒有寫入權限，決定無法保存。" : "寫入失敗：" + (e?.message || e?.code);
+  }
+  paint();
+}
+
+async function undecideComp(raw) {
+  const db = await getDb();
+  if (!db) return;
+  const key = "p" + [...raw].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7).toString(36);
+  try { await db.doc("competition_decisions/" + key).delete(); } catch (e) { /* gone */ }
+  if (state.compDecisions && state.compDecisions !== "unavailable") delete state.compDecisions[raw];
+  paint();
+}
+
+async function exportCompDecisions() {
+  await getDb();
+  const map = state.compDecisions;
+  if (!downloadsHandle || !map || map === "unavailable") return;
+  const list = Object.values(map);
+  if (!list.length) return;
+  try {
+    await downloadsHandle.save({
+      filename: `fm24-competition-decisions-${new Date().toISOString().slice(0, 10)}.json`,
+      data: JSON.stringify({
+        exportedAt: new Date().toISOString(),
+        schema: "FM24_COMPETITION_DECISIONS_V1",
+        note: "餵給 fm24/ingest.py --competitions，會寫入 Ingest_Competition_Decisions 表。",
+        decisions: list,
+      }, null, 2),
+    });
+  } catch (e) { /* declined */ }
+}
+
+function renderComps() {
+  if (state.compDecisions === null) loadCompDecisions().then(paint);
+  const c = DATA.competitions;
+  const decided = (state.compDecisions && state.compDecisions !== "unavailable") ? state.compDecisions : {};
+  const clustered = c.clusters.reduce((a, x) => a + x.rows, 0);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" },
+        `${c.totalRefs} 個賽事名稱　·　Competition_Dim 收錄 ${c.controlled} 個`),
+      el("h2", {}, "賽事身分"),
+      el("p", {}, "賽事名稱的變異有三種：贊助商（LaLiga EA Sports）、中英並列（西甲 LaLiga）、"
+        + "以及後面掛著淘汰賽輪次（Copa del Rey決賽）。比對前把這三種都剝掉——"
+        + "但層級數字不能剝，LaLiga 2 是西乙，跟 LaLiga 是兩回事。")),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, c.unresolved.length),
+        el("div", { class: "l" }, "未受控名稱")),
+      el("div", {}, el("div", { class: "n tnum" }, c.unresolvedRows.toLocaleString()),
+        el("div", { class: "l" }, "受影響列")),
+      el("div", {}, el("div", { class: "n tnum" }, c.clusters.length), el("div", { class: "l" }, "同賽事異寫組")),
+      el("div", {}, el("div", { class: "n tnum" }, clustered.toLocaleString()),
+        el("div", { class: "l" }, "可一次收斂的列")),
+      el("div", {}, el("div", { class: "n tnum" }, c.categoryRows.toLocaleString()),
+        el("div", { class: "l" }, "分類列（非賽事）")),
+    ),
+    state.compError ? el("div", { class: "note" }, state.compError) : null,
+    state.compDecisions === "unavailable" ? el("div", { class: "hint" }, STORAGE_NOTE.none) : storageHint(),
+    Object.keys(decided).length ? el("div", { class: "btnrow" },
+      el("button", { class: "btn", type: "button", onClick: exportCompDecisions },
+        `匯出決定 JSON　${Object.keys(decided).length} 筆`),
+      el("span", { class: "cap" }, "下載後執行　", el("code", {}, "python3 ingest.py <檔案> --competitions --commit"))) : null,
+    el("div", { class: "tabs" },
+      el("button", {
+        type: "button", "aria-selected": String(state.compTab === "clusters"),
+        onClick: () => { state.compTab = "clusters"; paint(); },
+      }, `同賽事異寫　${c.clusters.length}`),
+      el("button", {
+        type: "button", "aria-selected": String(state.compTab === "all"),
+        onClick: () => { state.compTab = "all"; paint(); },
+      }, `全部未受控　${c.unresolved.length}`),
+      el("button", {
+        type: "button", "aria-selected": String(state.compTab === "cats"),
+        onClick: () => { state.compTab = "cats"; paint(); },
+      }, `出賽分類　${c.categories.length}`)),
+    ...(state.compTab === "clusters" ? renderCompClusters(c, decided)
+      : state.compTab === "cats" ? renderCompCats(c)
+      : renderCompAll(c, decided)),
+  ];
+}
+
+function renderCompClusters(c, decided) {
+  return [
+    el("p", { class: "cap" }, "每組是同一個賽事的不同寫法。選一個當正式名稱，其餘記為別名——"
+      + "一次決定就能收斂整組的所有列。"),
+    el("div", { class: "queue" }, c.clusters.map(group => {
+      const key = "cluster:" + group.suggested;
+      const decision = decided[key];
+      return el("div", { class: "card v-strong" + (decision ? " done" : "") },
+        el("div", { class: "card-top" },
+          el("div", {},
+            el("div", { class: "card-name" }, group.suggested),
+            el("div", { class: "card-meta" },
+              el("span", { class: "pill flat" }, `${group.members.length} 種寫法`),
+              el("span", { class: "pill warn" }, `${group.rows} 列`)))),
+        el("div", {}, group.members.map(m =>
+          el("div", { class: "cand" },
+            el("div", { class: "who" }, el("span", { class: "cn" }, m.raw)),
+            el("div", { class: "score" },
+              el("span", { class: "pc" }, m.rows),
+              decision ? null : el("button", {
+                class: "btn", type: "button", style: "padding:6px 12px;font-size:12px",
+                onClick: () => decideComp(key, "canonical", {
+                  canonical: m.raw,
+                  aliases: group.members.filter(x => x.raw !== m.raw).map(x => x.raw),
+                  rows: group.rows,
+                }),
+              }, "設為正式名稱"))))),
+        decision
+          ? el("div", { class: "decided" + (decision.action === "canonical" ? "" : " skip") },
+              el("span", {}, decision.action === "canonical"
+                ? `正式名稱：${decision.canonical}　別名 ${(decision.aliases || []).length} 個`
+                : "已標記為不同賽事"),
+              el("button", { class: "btn danger", type: "button", style: "margin-left:auto",
+                onClick: () => undecideComp(key) }, "撤銷"))
+          : el("div", { class: "btnrow" },
+              el("button", { class: "btn ghost", type: "button",
+                onClick: () => decideComp(key, "distinct", { members: group.members.map(m => m.raw) }),
+              }, "其實是不同賽事")));
+    })),
+  ];
+}
+
+function renderCompAll(c, decided) {
+  const shown = c.unresolved.slice(0, 60);
+  return [
+    el("p", { class: "cap" }, `${c.unresolved.length} 個名稱對不到 Competition_Dim。`
+      + "多數是從未建檔的賽事——工作簿只收錄了國際賽與歐洲賽事。"),
+    el("div", { class: "tblwrap" }, el("table", { class: "data" },
+      el("thead", {}, el("tr", {},
+        el("th", {}, "賽事名稱"), el("th", { class: "num" }, "列數"),
+        el("th", {}, "層級"), el("th", {}, "出現於"), el("th", {}, "決定"))),
+      el("tbody", {}, shown.map(u => el("tr", {},
+        el("td", { class: "name-cell" }, u.raw),
+        el("td", { class: "num tnum" }, u.rows),
+        el("td", { class: "mono" }, u.tier.length ? u.tier.join("/") : "—"),
+        el("td", { class: "mono" }, u.tables.slice(0, 2).map(x => x.table).join("　")),
+        el("td", {}, decided[u.raw]
+          ? el("span", { class: "pill ok" }, "已建檔")
+          : el("button", {
+              class: "btn ghost", type: "button", style: "padding:4px 10px;font-size:11.5px",
+              onClick: () => decideComp(u.raw, "new", { rows: u.rows }),
+            }, "建立賽事"))))))),
+    c.unresolved.length > shown.length
+      ? el("p", { class: "cap", style: "margin-top:10px" }, `另有 ${c.unresolved.length - shown.length} 個未顯示。`) : null,
+  ];
+}
+
+function renderCompCats(c) {
+  return [
+    el("div", { class: "hint" },
+      "這些不是賽事名稱，是 Player_Club_Competition_Stats 的出賽分類。"
+      + "它們與真正的賽事名稱共用同一個欄位，而且中英兩套寫法並存——"
+      + "依此欄分組會把每個分類拆成兩半。這裡是建議的收斂對照。"),
+    el("div", { class: "queue", style: "margin-top:14px" }, c.categories.map(cat =>
+      el("div", { class: "card v-" + (cat.spellings.length > 1 ? "weak" : "no_candidate") },
+        el("div", { class: "card-top" },
+          el("div", {},
+            el("div", { class: "card-name" }, cat.label),
+            el("div", { class: "card-meta" },
+              el("span", { class: "pill flat" }, cat.category),
+              el("span", { class: cat.spellings.length > 1 ? "pill warn" : "pill flat" },
+                `${cat.spellings.length} 種寫法`),
+              el("span", { class: "pill flat" }, `${cat.rows} 列`)))),
+        el("div", {}, cat.spellings.map(sp =>
+          el("div", { class: "cand" },
+            el("div", { class: "who" }, el("span", { class: "cn" }, sp.raw)),
+            el("div", { class: "score" }, el("span", { class: "pc" }, sp.rows))))))),
+    ),
+  ];
+}
+
+/* ===================================================================
+   TIME TRAVEL — the archive's knowledge history
+   Append-only means every past state of knowledge is still reconstructible.
+   These dates are when the ARCHIVE learned things, not when they happened.
+   =================================================================== */
+function renderTimeTravel() {
+  const tt = DATA.timetravel;
+  if (!tt.timeline.length) return [el("div", { class: "empty" }, "沒有可用的快照日期。")];
+  const current = tt.timeline.find(d => d.date === state.ttDate) || tt.timeline[tt.timeline.length - 1];
+  const maxLearned = Math.max(...tt.timeline.map(d => d.total), 1);
+  const idx = tt.timeline.indexOf(current);
+  const cumulative = tt.timeline.slice(0, idx + 1).reduce((a, d) => a + d.total, 0);
+  const grandTotal = tt.timeline.reduce((a, d) => a + d.total, 0);
+
+  const rail = el("div", { class: "daterail" }, tt.timeline.map(d =>
+    el("button", {
+      class: "day", type: "button", "aria-current": String(d.date === current.date),
+      title: `${d.date}　新增 ${d.total} 筆觀測`,
+      onClick: () => { state.ttDate = d.date; paint(); },
+    },
+      el("div", { class: "stalk", style: `height:${12 + Math.round(Math.sqrt(d.total / maxLearned) * 92)}px` }),
+      el("div", { class: "dl" }, d.date.slice(5)))));
+
+  const moves = tt.changes.filter(c => c.span.endsWith(current.date));
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, `${tt.first} – ${tt.last}　${tt.timeline.length} 個觀測日`),
+      el("h2", {}, "檔案認知史"),
+      el("p", {}, "這條時間軸不是世界發生了什麼，而是「檔案在哪一天知道了什麼」。"
+        + "因為模型是 append-only、從不覆寫，每一個過去的認知狀態都還原得回來——這是不補值政策換來的東西。")),
+    el("section", { class: "panel" },
+      el("h3", {}, "觀測量"),
+      el("p", { class: "cap" }, "柱高為該日新增的觀測筆數（平方根尺度，否則大批匯入會壓平其他日子）。點選任一日期。"),
+      rail),
+    el("div", { class: "strip" },
+      el("div", { class: "garnet" },
+        el("div", { class: "n tnum", style: "font-size:19px;white-space:nowrap" }, current.date),
+        el("div", { class: "l" }, "選定觀測日")),
+      el("div", {}, el("div", { class: "n tnum" }, current.total.toLocaleString()),
+        el("div", { class: "l" }, "當日新增觀測")),
+      el("div", {}, el("div", { class: "n tnum" }, current.knownPlayers), el("div", { class: "l" }, "累計已知球員")),
+      el("div", {}, el("div", { class: "n tnum" }, cumulative.toLocaleString()), el("div", { class: "l" }, "累計觀測")),
+      el("div", {}, el("div", { class: "n tnum" }, Math.round(cumulative / grandTotal * 100) + "%"),
+        el("div", { class: "l" }, "佔最終認知")),
+    ),
+    el("section", { class: "panel" },
+      el("h3", {}, `${current.date} 這天，檔案學到了什麼`),
+      el("p", { class: "cap" }, current.total
+        ? `共 ${current.total.toLocaleString()} 筆新觀測。`
+        : "這天沒有新增觀測。"),
+      el("div", { class: "learned" }, current.learned.map(l =>
+        el("div", {}, el("div", { class: "ln" }, l.n), el("div", { class: "ll" }, l.label))))),
+    current.newPlayers.length ? el("section", { class: "panel" },
+      el("h3", {}, `首次進入檔案的球員　${current.newPlayers.length}`),
+      el("p", { class: "cap" }, "在此之前，檔案對這些球員沒有任何個人檔案紀錄。"),
+      el("div", { class: "chips" }, current.newPlayers.map(n => el("span", { class: "chip" }, n)))) : null,
+    moves.length ? el("section", { class: "panel" },
+      el("h3", {}, "能力值變動"),
+      el("p", { class: "cap" }, "兩次快照之間的實際差異，來源：Player_Attribute_Changes"),
+      moves.map(span => el("div", { style: "margin-top:12px" },
+        el("div", { class: "mono", style: "color:var(--text-3);margin-bottom:6px" }, span.span),
+        span.moves.slice(0, 40).map(m => el("div", { class: "move" },
+          el("div", {}, el("b", {}, tt.playerNames[m.player] || m.player),
+            el("span", { style: "color:var(--text-3)" }, "　" + m.attr)),
+          el("div", { class: "mv" }, `${m.old} → ${m.new}`),
+          el("div", { class: "md " + (m.delta > 0 ? "up" : "down") }, (m.delta > 0 ? "+" : "") + m.delta))),
+        span.moves.length > 40 ? el("p", { class: "cap" }, `另有 ${span.moves.length - 40} 筆變動`) : null))) : null,
+    el("section", { class: "panel" },
+      el("h3", {}, "全部觀測日"),
+      el("p", { class: "cap" }, "累計已知球員數的成長軌跡。"),
+      el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
+        el("thead", {}, el("tr", {}, ["觀測日", "新增觀測", "新球員", "累計已知球員", "主要內容"]
+          .map((x, i) => el("th", { class: i > 0 && i < 4 ? "num" : "" }, x)))),
+        el("tbody", {}, tt.timeline.slice().reverse().map(d =>
+          el("tr", {
+            class: "click", onClick: () => { state.ttDate = d.date; paint(); },
+            style: d.date === current.date ? "background:var(--garnet-soft)" : "",
+          },
+            el("td", { class: "mono" }, d.date),
+            el("td", { class: "num tnum" }, d.total),
+            el("td", { class: "num tnum" }, d.newPlayers.length || "—"),
+            el("td", { class: "num tnum" }, d.knownPlayers),
+            el("td", { class: "mono" }, d.learned.slice(0, 2).map(l => `${l.label} ${l.n}`).join("　")))))))),
+  ];
+}
+
+/* ===================================================================
+   IMPORT — paste -> parse -> resolve identity -> append-only record
+   The workbook's own model is append-only observations, so an import
+   never edits anything: it records a new observation awaiting merge.
+   =================================================================== */
+
+const IMPORT_KINDS = {
+  season: {
+    label: "賽季數據",
+    fields: ["Season", "Player", "Club", "Competition", "Apps", "Goals", "Assists", "POTM", "Rating", "Yellow", "Red"],
+    required: ["Season", "Player"],
+    hint: "一列一名球員一個賽季。可直接從 Excel 或 FM 匯出表格複製貼上（Tab 分隔）。",
+  },
+  profile: {
+    label: "球員檔案",
+    fields: ["Player", "Nationality", "DOB", "Club", "Position", "Shirt", "NT_Caps", "NT_Goals"],
+    required: ["Player"],
+    hint: "球員個人資訊。支援「欄位：值」逐行格式，空行分隔不同球員。",
+  },
+  standings: {
+    label: "聯賽積分榜",
+    fields: ["Season", "League", "Rank", "Club", "Played", "Wins", "Draws", "Losses", "Goals_For", "Goals_Against", "Points", "Note"],
+    required: ["Season", "Club"],
+    hint: "整張積分榜貼上即可，第一列視為標題列。",
+  },
+  award: {
+    label: "獎項名次",
+    fields: ["Season", "Award", "Rank", "Player", "Club"],
+    required: ["Season", "Award", "Player"],
+    hint: "獎項得主與名次。Player 欄會自動比對現有 Player_ID。",
+  },
+  raw: {
+    label: "自由欄位",
+    fields: [],
+    required: [],
+    hint: "保留原始標題列，不做欄位對應。適合還沒決定歸屬哪張表的資料。",
+  },
+};
+
+/* header synonyms, so a pasted table usually maps itself */
+const SYNONYMS = {
+  Season: ["season", "賽季", "赛季", "年度", "球季"],
+  Player: ["player", "球員", "球员", "姓名", "名字", "name", "選手"],
+  Club: ["club", "球隊", "球队", "俱樂部", "俱乐部", "team", "所屬"],
+  League: ["league", "聯賽", "联赛", "competition_league"],
+  Competition: ["competition", "賽事", "赛事", "comp"],
+  Apps: ["apps", "出場", "出场", "場次", "appearances", "上陣"],
+  Goals: ["goals", "進球", "进球", "入球", "得分", "球"],
+  Assists: ["assists", "助攻", "助"],
+  POTM: ["potm", "motm", "全場最佳", "最佳球員"],
+  Rating: ["rating", "評分", "评分", "平均分"],
+  Yellow: ["yellow", "黃牌", "黄牌"],
+  Red: ["red", "紅牌", "红牌"],
+  Rank: ["rank", "名次", "排名", "位置", "pos", "名"],
+  Award: ["award", "獎項", "奖项"],
+  Nationality: ["nationality", "國籍", "国籍", "nation"],
+  DOB: ["dob", "生日", "出生", "birth"],
+  Position: ["position", "位置", "場上位置"],
+  Shirt: ["shirt", "背號", "号码", "number"],
+  NT_Caps: ["caps", "國家隊出場", "代表隊出場"],
+  NT_Goals: ["nt_goals", "國家隊進球"],
+  Played: ["played", "賽", "场次", "比賽", "pl"],
+  Wins: ["wins", "勝", "胜", "w"],
+  Draws: ["draws", "和", "平", "d"],
+  Losses: ["losses", "負", "负", "l"],
+  Goals_For: ["gf", "進", "进球数", "得球"],
+  Goals_Against: ["ga", "失", "失球"],
+  Points: ["points", "分", "積分", "积分", "pts"],
+  Note: ["note", "備註", "备注", "說明"],
+};
+
+function guessField(header, allowed) {
+  const t = String(header || "").trim().toLowerCase();
+  if (!t) return "";
+  for (const field of allowed) {
+    if (field.toLowerCase() === t) return field;
+    if ((SYNONYMS[field] || []).some(s => t === s.toLowerCase())) return field;
+  }
+  for (const field of allowed) {
+    if ((SYNONYMS[field] || []).some(s => t.includes(s.toLowerCase()) || s.toLowerCase().includes(t))) return field;
+  }
+  return "";
+}
+
+/* --- identity index over every controlled name and alias ----------------- */
+const normName = s => String(s || "").replace(/[·・.\s·‧]/g, "").toLowerCase();
+const NAME_INDEX = (() => {
+  const idx = new Map();
+  for (const p of DATA.people.players) {
+    for (const n of [p.name, ...p.aliases]) {
+      const k = normName(n);
+      if (!k) continue;
+      if (!idx.has(k)) idx.set(k, []);
+      if (!idx.get(k).some(x => x.id === p.id)) idx.get(k).push(p);
+    }
+  }
+  return idx;
+})();
+
+/* character-overlap ratio: good enough for CJK transliteration drift */
+function similarity(a, b) {
+  if (!a || !b) return 0;
+  const A = new Set(a), B = new Set(b);
+  let shared = 0;
+  for (const c of A) if (B.has(c)) shared++;
+  return (2 * shared) / (A.size + B.size);
+}
+
+function resolveIdentity(raw) {
+  const key = normName(raw);
+  if (!key) return { status: "empty", candidates: [] };
+  const exact = NAME_INDEX.get(key);
+  if (exact && exact.length === 1) return { status: "exact", match: exact[0], candidates: exact };
+  if (exact && exact.length > 1) return { status: "ambiguous", candidates: exact };
+
+  const scored = [];
+  for (const [k, people] of NAME_INDEX) {
+    const score = similarity(key, k);
+    if (score >= 0.6) for (const p of people) scored.push({ p, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored.slice(0, 4).map(x => x.p);
+  if (!top.length) return { status: "new", candidates: [] };
+  if (scored.length === 1 || (scored[0].score - (scored[1]?.score ?? 0)) > 0.15) {
+    return { status: "fuzzy", match: top[0], score: scored[0].score, candidates: top };
+  }
+  return { status: "ambiguous", candidates: top };
+}
+
+/* --- parsers ------------------------------------------------------------- */
+function parseTabular(text) {
+  const lines = text.split(/\r?\n/).map(l => l.replace(/\s+$/, "")).filter(l => l.trim());
+  if (lines.length < 2) return null;
+  const sep = lines[0].includes("\t") ? "\t" : lines[0].includes(",") ? "," : /\s{2,}/;
+  const split = l => (sep instanceof RegExp ? l.split(sep) : l.split(sep)).map(c => c.trim());
+  const headers = split(lines[0]);
+  if (headers.length < 2) return null;
+  const rows = lines.slice(1).map(split).filter(r => r.some(c => c));
+  return { headers, rows };
+}
+
+function parseBlocks(text) {
+  const blocks = text.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+  const records = [];
+  const keys = [];
+  for (const block of blocks) {
+    const rec = {};
+    for (const line of block.split(/\r?\n/)) {
+      const m = line.match(/^\s*([^:：]+)[:：]\s*(.*)$/);
+      if (!m) continue;
+      const k = m[1].trim();
+      rec[k] = m[2].trim();
+      if (!keys.includes(k)) keys.push(k);
+    }
+    if (Object.keys(rec).length) records.push(rec);
+  }
+  if (!records.length) return null;
+  return { headers: keys, rows: records.map(r => keys.map(k => r[k] ?? "")) };
+}
+
+function doParse() {
+  const text = document.getElementById("pasteBox").value;
+  if (!text.trim()) return;
+  const parsed = parseTabular(text) || parseBlocks(text);
+  if (!parsed) {
+    state.importParsed = { error: "認不出格式。請確認是 Tab／逗號分隔的表格，或「欄位：值」逐行格式。" };
+    state.importMap = {};
+    paint();
+    return;
+  }
+  const kind = IMPORT_KINDS[state.importKind];
+  const map = {};
+  parsed.headers.forEach((hdr, i) => {
+    map[i] = kind.fields.length ? guessField(hdr, kind.fields) : hdr;
+  });
+  state.importParsed = parsed;
+  state.importMap = map;
+  paint();
+}
+
+/* --- build the observation rows the preview and the write both use ------- */
+function buildRecords() {
+  const parsed = state.importParsed;
+  if (!parsed || parsed.error) return [];
+  const kind = IMPORT_KINDS[state.importKind];
+  const playerCol = Object.entries(state.importMap).find(([, f]) => f === "Player")?.[0];
+
+  return parsed.rows.map((cells, i) => {
+    const rec = {};
+    cells.forEach((v, ci) => {
+      const field = state.importMap[ci];
+      if (field && v !== "") rec[field] = v;
+    });
+    const missing = kind.required.filter(f => !rec[f]);
+    const rawName = playerCol !== undefined ? cells[playerCol] : null;
+    const identity = rawName ? resolveIdentity(rawName) : null;
+    return { row: i + 1, values: rec, missing, rawName, identity };
+  });
+}
+
+/* ===================================================================
+   STORAGE — one API, two backends.
+
+   On claude.ai the page is granted a shared document store and a download
+   verb. Anywhere else (GitHub Pages, a file:// copy) neither exists, but the
+   consoles must not lose the ability to record a decision: the whole point of
+   them is the decision. So the same small surface the callers already use is
+   implemented over localStorage and a blob link, and getDb() hands back
+   whichever backend this page actually has.
+
+   The blob link matters: the Artifact viewer's sandbox blocks a page-initiated
+   download, which is why the platform provides a download verb at all. Outside
+   that sandbox an ordinary anchor works, so there is nothing to degrade.
+   =================================================================== */
+
+const LOCAL_PREFIX = "fm24:";
+
+function readLocal(collection) {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_PREFIX + collection) || "{}");
+  } catch (e) {
+    return {};   // private window, blocked site data, or corrupted value
+  }
+}
+function writeLocal(collection, map) {
+  try {
+    localStorage.setItem(LOCAL_PREFIX + collection, JSON.stringify(map));
+    return true;
+  } catch (e) {
+    return false;  // quota exceeded or storage disabled
+  }
+}
+
+/* the subset of the platform's document-store shape that the consoles call */
+function createLocalDb() {
+  const query = (collection, order, direction, cap) => ({
+    orderBy(field, dir) { return query(collection, field, dir, cap); },
+    limit(n) { return query(collection, order, direction, n); },
+    async get() {
+      const map = readLocal(collection);
+      let rows = Object.entries(map).map(([id, data]) => ({ id, data }));
+      if (order) {
+        const sign = direction === "desc" ? -1 : 1;
+        rows.sort((a, b) => String(a.data?.[order] ?? "").localeCompare(String(b.data?.[order] ?? "")) * sign);
+      }
+      return cap ? rows.slice(0, cap) : rows;
+    },
+  });
+  return {
+    backend: "local",
+    collection(name) { return query(name, null, null, null); },
+    doc(path) {
+      const cut = path.indexOf("/");
+      const collection = path.slice(0, cut);
+      const id = path.slice(cut + 1);
+      return {
+        async set(value) {
+          const map = readLocal(collection);
+          map[id] = value;
+          if (!writeLocal(collection, map)) {
+            const err = new Error("localStorage 無法寫入");
+            err.code = "storage_failed";
+            throw err;
+          }
+        },
+        async delete() {
+          const map = readLocal(collection);
+          delete map[id];
+          writeLocal(collection, map);
+        },
+      };
+    },
+  };
+}
+
+function createLocalDownloads() {
+  return {
+    backend: "local",
+    async save({ filename, data }) {
+      const url = URL.createObjectURL(new Blob([data], { type: "application/json;charset=utf-8" }));
+      const anchor = Object.assign(document.createElement("a"), { href: url, download: filename });
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    },
+  };
+}
+
+let dbHandle = null, dbTried = false, downloadsHandle = null, storageBackend = null;
+
+async function getDb() {
+  if (dbTried) return dbHandle;
+  dbTried = true;
+
+  let platformDb = null, platformDownloads = null;
+  if (typeof claude !== "undefined" && claude?.use) {
+    try { platformDb = await claude.use("db"); } catch (e) { platformDb = null; }
+    try { platformDownloads = await claude.use("downloads"); } catch (e) { platformDownloads = null; }
+  }
+
+  dbHandle = platformDb || createLocalDb();
+  downloadsHandle = platformDownloads || createLocalDownloads();
+  storageBackend = platformDb ? "platform" : "local";
+
+  /* a browser with storage blocked entirely still has to say so honestly */
+  if (storageBackend === "local") {
+    const probe = LOCAL_PREFIX + "__probe";
+    try {
+      localStorage.setItem(probe, "1");
+      localStorage.removeItem(probe);
+    } catch (e) {
+      storageBackend = "none";
+      dbHandle = null;
+    }
+  }
+  return dbHandle;
+}
+
+const STORAGE_NOTE = {
+  platform: "決定儲存在這份 Artifact 的共用空間，換裝置開啟也看得到。",
+  local: "決定儲存在這台瀏覽器（localStorage），不會同步到其他裝置。匯出的 JSON 才是搬運與併檔的依據。",
+  none: "這個瀏覽器停用了本機儲存（無痕視窗或封鎖了網站資料），決定無法保存。比對與證據仍可正常檢視。",
+};
+
+function storageHint() {
+  if (!storageBackend) return null;
+  return el("div", { class: "hint" }, STORAGE_NOTE[storageBackend]);
+}
+async function loadBatches() {
+  const db = await getDb();
+  if (!db) { state.batches = "unavailable"; return; }
+  try {
+    const docs = await db.collection("imports").orderBy("createdAt", "desc").limit(100).get();
+    state.batches = docs.map(d => ({ id: d.id, ...d.data }));
+  } catch (e) {
+    state.batches = "unavailable";
+  }
+}
+
+async function writeBatch() {
+  const db = await getDb();
+  const records = buildRecords();
+  if (!db || !records.length) return;
+  const btn = document.getElementById("writeBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "寫入中…"; }
+  const now = new Date().toISOString();
+  const id = "imp-" + now.replace(/[^0-9]/g, "").slice(0, 14) + "-" + Math.random().toString(36).slice(2, 7);
+  const matched = records.filter(r => r.identity?.match).length;
+  const doc = {
+    createdAt: now,
+    kind: state.importKind,
+    kindLabel: IMPORT_KINDS[state.importKind].label,
+    columns: Object.values(state.importMap).filter(Boolean),
+    /* every row keeps its raw name and the resolution verdict, so a later
+       merge can audit the match instead of trusting it */
+    rows: records.map(r => ({
+      values: r.values,
+      rawName: r.rawName,
+      resolvedId: r.identity?.match?.id ?? null,
+      resolution: r.identity?.status ?? "n/a",
+      missing: r.missing,
+    })),
+    stats: { total: records.length, matched, incomplete: records.filter(r => r.missing.length).length },
+    verificationStatus: "使用者匯入（待併入工作簿）",
+  };
+  try {
+    await db.doc("imports/" + id).set(doc);
+    state.importParsed = null;
+    state.importMap = {};
+    const box = document.getElementById("pasteBox");
+    if (box) box.value = "";
+    await loadBatches();
+  } catch (e) {
+    state.importError = e?.code === "not_granted"
+      ? "沒有寫入權限。這份檔案可能是以唯讀方式分享給你的。"
+      : "寫入失敗：" + (e?.message || e?.code || "未知錯誤");
+  }
+  paint();
+}
+
+async function deleteBatch(id) {
+  const db = await getDb();
+  if (!db) return;
+  try { await db.doc("imports/" + id).delete(); } catch (e) { /* already gone */ }
+  await loadBatches();
+  paint();
+}
+
+async function exportBatches() {
+  await getDb();
+  if (!downloadsHandle || !Array.isArray(state.batches)) return;
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    schema: "FM24_IMPORT_BATCH_V1",
+    note: "餵給 fm24/ingest.py，會以 append-only 觀測列併入 SQLite。",
+    batches: state.batches,
+  };
+  try {
+    await downloadsHandle.save({
+      filename: `fm24-imports-${new Date().toISOString().slice(0, 10)}.json`,
+      data: JSON.stringify(payload, null, 2),
+    });
+  } catch (e) { /* viewer declined */ }
+}
+
+/* --- view ---------------------------------------------------------------- */
+function renderImport() {
+  if (state.batches === null) { loadBatches().then(paint); }
+  const kind = IMPORT_KINDS[state.importKind];
+  const parsed = state.importParsed;
+  const records = buildRecords();
+
+  const statusCell = r => {
+    if (!r.identity) return el("span", { class: "pill flat" }, "無姓名欄");
+    const s = r.identity;
+    if (s.status === "exact") return el("span", { class: "pill ok", title: s.match.name }, "✓ " + s.match.id);
+    if (s.status === "fuzzy") return el("span", { class: "pill warn", title: `${s.match.name}（相似度 ${(s.score * 100) | 0}%）` },
+      "≈ " + s.match.id);
+    if (s.status === "ambiguous") return el("span", {
+      class: "pill warn", title: s.candidates.map(c => `${c.id} ${c.name}`).join("\n"),
+    }, `多候選 ×${s.candidates.length}`);
+    return el("span", { class: "pill bad" }, "新身分");
+  };
+
+  const preview = parsed && !parsed.error ? el("section", { class: "panel" },
+    el("h3", {}, "欄位對應"),
+    el("p", { class: "cap" }, "已自動猜測；不需要的欄位設為「略過」。"),
+    el("div", {}, parsed.headers.map((hdr, i) =>
+      el("div", { class: "maprow" },
+        el("div", { class: "src", title: hdr }, hdr || `（第 ${i + 1} 欄）`),
+        el("div", { class: "arw" }, "→"),
+        kind.fields.length
+          ? el("select", {
+              id: "map" + i,
+              onChange: e => { state.importMap[i] = e.target.value; paint(); },
+            },
+            el("option", { value: "", selected: !state.importMap[i] }, "略過"),
+            kind.fields.map(f => el("option", { value: f, selected: state.importMap[i] === f }, f)))
+          : el("div", { class: "mono" }, hdr)))),
+    el("h3", { style: "margin-top:22px" }, `預覽　${records.length} 列`),
+    el("p", { class: "cap" },
+      `${records.filter(r => r.identity?.match).length} 列已比對到現有身分　·　`
+      + `${records.filter(r => r.missing.length).length} 列缺必填欄位`),
+    el("div", { class: "tblwrap" }, el("table", { class: "data" },
+      el("thead", {}, el("tr", {},
+        el("th", {}, "#"), el("th", {}, "身分比對"),
+        [...new Set(Object.values(state.importMap).filter(Boolean))].map(f => el("th", {}, f)),
+        el("th", {}, "檢查"))),
+      el("tbody", {}, records.slice(0, 50).map(r =>
+        el("tr", {},
+          el("td", { class: "mono" }, r.row),
+          el("td", {}, statusCell(r)),
+          [...new Set(Object.values(state.importMap).filter(Boolean))].map(f =>
+            el("td", {}, dash(r.values[f]))),
+          el("td", {}, r.missing.length
+            ? el("span", { class: "pill bad", title: "缺少必填欄位" }, "缺 " + r.missing.join("、"))
+            : el("span", { class: "pill ok" }, "完整"))))))),
+    records.length > 50 ? el("p", { class: "cap", style: "margin-top:10px" }, `僅顯示前 50 列，寫入時會全部保留。`) : null,
+    el("div", { class: "btnrow", style: "margin-top:18px" },
+      el("button", { class: "btn", type: "button", id: "writeBtn", onClick: writeBatch },
+        `寫入待併入區　${records.length} 列`),
+      el("button", {
+        class: "btn ghost", type: "button",
+        onClick: () => { state.importParsed = null; state.importMap = {}; paint(); },
+      }, "取消")),
+  ) : parsed?.error ? el("div", { class: "note" }, parsed.error) : null;
+
+  const batches = state.batches;
+  const pending = Array.isArray(batches) ? batches : [];
+  const totalRows = pending.reduce((a, b) => a + (b.stats?.total || 0), 0);
+
+  return [
+    el("div", { class: "view-head" },
+      el("div", { class: "eyebrow" }, "Append-only　匯入不覆寫任何既有資料"),
+      el("h2", {}, "匯入資料"),
+      el("p", {}, "貼上新資料，系統會解析欄位、比對現有 Player_ID，存成一批待併入觀測。"
+        + "匯出的 JSON 可直接餵給 ingest.py 併回 SQLite 與工作簿。")),
+    el("section", { class: "panel" },
+      el("h3", {}, "1　選擇資料類型"),
+      el("p", { class: "cap" }, "決定必填欄位與可對應的目標欄位。"),
+      el("div", { class: "chips" }, Object.entries(IMPORT_KINDS).map(([id, k]) =>
+        el("button", {
+          class: "chip", type: "button", "aria-pressed": String(id === state.importKind),
+          onClick: () => { state.importKind = id; state.importParsed = null; state.importMap = {}; paint(); },
+        }, k.label))),
+      el("div", { class: "hint", style: "margin-top:14px" }, kind.hint,
+        kind.required.length ? el("div", { style: "margin-top:6px" },
+          "必填：", el("code", {}, kind.required.join("、"))) : null),
+      el("h3", { style: "margin-top:22px" }, "2　貼上資料"),
+      el("p", { class: "cap" }, "支援 Tab 分隔、逗號分隔，或「欄位：值」逐行格式。"),
+      el("textarea", {
+        class: "paste", id: "pasteBox", spellcheck: "false",
+        placeholder: state.importKind === "profile"
+          ? "姓名：拉明·亞馬爾\n國籍：西班牙\n位置：AM(RL)\n\n姓名：佩德里\n國籍：西班牙"
+          : "賽季\t球員\t出場\t進球\t助攻\n2035/36\t拉明·亞馬爾\t41\t18\t20",
+      }),
+      el("div", { class: "btnrow", style: "margin-top:12px" },
+        el("button", { class: "btn", type: "button", onClick: doParse }, "解析並預覽"),
+        el("button", {
+          class: "btn ghost", type: "button",
+          onClick: () => { document.getElementById("pasteBox").value = ""; state.importParsed = null; paint(); },
+        }, "清空"))),
+    state.importError ? el("div", { class: "note" }, state.importError) : null,
+    preview,
+    el("section", { class: "panel" },
+      el("h3", {}, "待併入區"),
+      el("p", { class: "cap" }, batches === "unavailable"
+        ? "此檢視無法使用儲存功能。"
+        : `${pending.length} 批　${totalRows} 列，尚未併入工作簿。`),
+      batches !== "unavailable" && batches !== null ? storageHint() : null,
+      batches === null ? el("div", { class: "empty" }, "載入中…")
+        : batches === "unavailable" ? el("div", { class: "hint" }, STORAGE_NOTE.none)
+        : pending.length === 0 ? el("div", { class: "empty" }, "還沒有任何待併入批次。")
+        : el("div", {},
+            pending.map(b => el("div", { class: "batch" },
+              el("div", {},
+                el("div", { style: "font-weight:500" }, `${b.kindLabel}　${b.stats?.total ?? 0} 列`),
+                el("div", { class: "bm" },
+                  `${b.createdAt?.slice(0, 16).replace("T", " ")}　·　`
+                  + `已比對 ${b.stats?.matched ?? 0}　·　`
+                  + `缺欄位 ${b.stats?.incomplete ?? 0}　·　${b.id}`)),
+              el("button", { class: "btn danger", type: "button", onClick: () => deleteBatch(b.id) }, "刪除"))),
+            el("div", { class: "btnrow", style: "margin-top:18px" },
+              el("button", { class: "btn", type: "button", onClick: exportBatches }, "匯出全部 JSON"),
+              el("span", { class: "cap" }, "下載後執行　", el("code", {}, "python3 ingest.py <檔案>"))))),
+  ];
+}
+
+/* ------------------------------------------------------------------ shell */
+function paint() {
+  const view = VIEWS.find(v => v.id === state.view);
+  const main = document.getElementById("main");
+  main.replaceChildren(el("div", { class: "view" }, view.render()));
+  document.querySelectorAll("#nav button").forEach(b =>
+    b.setAttribute("aria-current", String(b.dataset.view === state.view)));
+  if (state.scrollTop) { window.scrollTo(0, 0); state.scrollTop = false; }
+  const activeDay = main.querySelector('.day[aria-current="true"]');
+  if (activeDay) activeDay.scrollIntoView({ block: "nearest", inline: "center" });
+}
+function go(id) { state.view = id; state.player = null; state.person = null; state.scrollTop = true; paint(); }
+
+{
+  const items = [];
+  let group = null;
+  VIEWS.forEach((v, i) => {
+    if (v.group !== group) { group = v.group; items.push(el("div", { class: "grp" }, group)); }
+    items.push(el("button", { type: "button", "data-view": v.id, onClick: () => go(v.id) },
+      el("span", { class: "k" }, String(i + 1).padStart(2, "0")),
+      el("span", { class: "t" }, v.label)));
+  });
+  document.getElementById("nav").replaceChildren(...items);
+}
+
+document.getElementById("stampSub").textContent =
+  `${DATA.meta.sheet_count} 表 · ${DATA.meta.row_count.toLocaleString()} 列`;
+document.getElementById("railFoot").replaceChildren(
+  el("div", {}, el("b", {}, DATA.meta.player_count.toLocaleString()), " 名球員",
+    el("span", { style: "opacity:.6" }, ` / ${DATA.meta.alias_count} 別名`)),
+  el("div", {}, el("b", {}, DATA.meta.club_count.toLocaleString()), " 間俱樂部"),
+  el("div", {}, el("b", {}, DATA.meta.nation_count.toLocaleString()), " 個國家"),
+  el("div", { style: "margin-top:8px;opacity:.7" }, "建置 " + DATA.meta.generated));
+
+const themer = document.getElementById("themer");
+themer.addEventListener("click", () => {
+  const dark = matchMedia("(prefers-color-scheme:dark)").matches;
+  const cur = document.documentElement.getAttribute("data-theme") || (dark ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem("fm24-theme", next); } catch (e) { /* private mode */ }
+});
+try {
+  const saved = localStorage.getItem("fm24-theme");
+  if (saved) document.documentElement.setAttribute("data-theme", saved);
+} catch (e) { /* private mode */ }
+
+paint();
+</script>
