@@ -18,13 +18,49 @@ import re
 import sqlite3
 from collections import Counter, defaultdict
 
+# Script conversion is not optional in practice. Without it the pipeline still
+# runs, but it silently produces different answers with the same confidence:
+# the same workbook reported 32 unread sheets with OpenCC and 50 without, and
+# club reference columns fell from 78 to 58. A degraded result that announces
+# nothing is worse than a refusal, so callers must opt in explicitly.
+SCRIPT_CONVERSION_AVAILABLE = False
+SCRIPT_CONVERSION_NOTE = ""
+
 try:
     from opencc import OpenCC
     _S2T = OpenCC("s2t")
     _convert = _S2T.convert
-except Exception:  # pragma: no cover - resolver still works, just less well
+    SCRIPT_CONVERSION_AVAILABLE = True
+except Exception as _exc:  # pragma: no cover - exercised only without the package
+    SCRIPT_CONVERSION_NOTE = str(_exc) or "opencc unavailable"
+
     def _convert(text: str) -> str:
         return text
+
+
+class ScriptConversionUnavailable(RuntimeError):
+    """Raised instead of quietly returning numbers that cannot be compared."""
+
+
+def require_script_conversion(allow_degraded: bool = False) -> bool:
+    """Call before producing any figure that identity matching influences.
+
+    Returns True when conversion is available, False when running degraded by
+    explicit consent. Raises otherwise, because the alternative is publishing a
+    different answer under the same name.
+    """
+    if SCRIPT_CONVERSION_AVAILABLE:
+        return True
+    message = (
+        "簡繁轉換套件 (opencc) 無法載入：" + (SCRIPT_CONVERSION_NOTE or "未安裝") + "。\n"
+        "身分比對、參照欄位偵測與覆蓋率量測都會得出不同的數字，"
+        "且無法與完整環境的結果比較。\n"
+        "請執行  pip install opencc-python-reimplemented  後重試，"
+        "或明確加上 --allow-degraded 承認結果不完整。"
+    )
+    if allow_degraded:
+        return False
+    raise ScriptConversionUnavailable(message)
 
 
 def to_trad(text: str) -> str:

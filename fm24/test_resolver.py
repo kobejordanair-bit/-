@@ -432,3 +432,61 @@ class TestClasicoParsing:
         matches = Archive(DB).clasico()
         undated = [i for i, m in enumerate(matches) if not m["date"]]
         assert undated == [len(matches) - 1]
+
+
+class TestScriptConversionGuard:
+    """A degraded run must refuse, not quietly answer differently.
+
+    Without OpenCC the same workbook reported 50 unread sheets instead of 32 and
+    58 club reference columns instead of 78 — with no warning at either number.
+    """
+
+    def test_available_here(self):
+        from resolver import SCRIPT_CONVERSION_AVAILABLE
+        assert SCRIPT_CONVERSION_AVAILABLE, "install opencc-python-reimplemented"
+
+    def test_require_passes_when_available(self):
+        from resolver import require_script_conversion
+        assert require_script_conversion() is True
+
+    def test_refusal_names_the_remedy(self, monkeypatch):
+        import resolver
+        monkeypatch.setattr(resolver, "SCRIPT_CONVERSION_AVAILABLE", False)
+        monkeypatch.setattr(resolver, "SCRIPT_CONVERSION_NOTE", "simulated")
+        with pytest.raises(resolver.ScriptConversionUnavailable) as caught:
+            resolver.require_script_conversion()
+        assert "opencc" in str(caught.value)
+        assert resolver.require_script_conversion(allow_degraded=True) is False
+
+
+@needs_db
+class TestTableRoleDeclaration:
+    """Every sheet's purpose is declared, and the declaration is checked."""
+
+    def test_no_drift_between_declaration_and_build(self):
+        from coverage import sheet_tables, untouched_sheets
+        from table_roles import ADOPTED, PRESERVED, SURFACED, TRACING, role_of
+
+        con = sqlite3.connect(DB)
+        tables = sheet_tables(con)
+        unread = {tables[x["sheet"]] for x in untouched_sheets(DB)}
+
+        drift = []
+        for sheet, table in tables.items():
+            role, _ = role_of(table)
+            read = table not in unread
+            if role in (ADOPTED, SURFACED, TRACING) and not read:
+                drift.append((sheet, role, "declared used, never read"))
+            if role == PRESERVED and read:
+                drift.append((sheet, role, "read, but no declared purpose"))
+        assert not drift, drift
+
+    def test_pending_sheets_are_the_preserved_ones(self):
+        from coverage import sheet_tables, untouched_sheets
+        from table_roles import PENDING_INTEGRATION
+
+        unread = {x["sheet"] for x in untouched_sheets(DB)}
+        assert set(PENDING_INTEGRATION) == unread, {
+            "declared but read": set(PENDING_INTEGRATION) - unread,
+            "unread but undeclared": unread - set(PENDING_INTEGRATION),
+        }

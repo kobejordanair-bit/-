@@ -21,7 +21,7 @@ import argparse
 import sqlite3
 from pathlib import Path
 
-from resolver import (COMPETITION_REFERENCE_COLUMNS, ClubResolver, CompetitionResolver,
+from resolver import (COMPETITION_REFERENCE_COLUMNS, ClubResolver, CompetitionResolver, require_script_conversion,
                       club_key, competition_category, competition_keys,
                       discover_club_columns, discover_competition_columns)
 
@@ -134,7 +134,12 @@ def main() -> None:
     here = Path(__file__).parent
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("-d", "--database", type=Path, default=here / "data" / "fm24.sqlite")
+    ap.add_argument("--allow-degraded", action="store_true",
+                    help="承認簡繁轉換不可用，仍以不完整的結果執行")
     args = ap.parse_args()
+    degraded = not require_script_conversion(args.allow_degraded)
+    if degraded:
+        print("警告：簡繁轉換未啟用，以下覆蓋率數字偏高且不可與完整環境比較。\n")
 
     result = scan(args.database)
     print(f"掃描 {len(result['tables'])} 張表\n")
@@ -153,14 +158,57 @@ def main() -> None:
             print(f"{label}參照欄：自動偵測已全部涵蓋。")
         print()
 
-    idle = untouched_sheets(args.database)
-    if idle:
-        total = sum(s["rows"] for s in idle)
-        print(f"未被任何視圖使用的工作表（{len(idle)} 張，{total:,} 列）：")
-        for s in idle:
-            print(f"   {s['sheet']:<40} {s['rows']:>6} 列")
+    from table_roles import (ADOPTED, PENDING_INTEGRATION, PRESERVED, ROLE_LABELS,
+                             SURFACED, TRACING, role_of)
+
+    idle = {x["sheet"] for x in untouched_sheets(args.database)}
+    con = sqlite3.connect(args.database)
+    tables = sheet_tables(con)
+
+    buckets: dict[str, list] = {ADOPTED: [], SURFACED: [], TRACING: [], PRESERVED: []}
+    contradictions = []
+    for sheet, table in sorted(tables.items()):
+        role, note = role_of(table)
+        rows = con.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
+        read = table not in {tables[s] for s in idle}
+        buckets[role].append((sheet, rows, read, note))
+        # a sheet declared as used but never read, or read yet declared unused,
+        # means the declaration and the code have drifted
+        if role in (ADOPTED, SURFACED, TRACING) and not read:
+            contradictions.append((sheet, role, "宣告為已使用，但建置過程未讀取"))
+        if role == PRESERVED and read:
+            contradictions.append((sheet, role, "建置過程有讀取，但未宣告用途"))
+
+    print("每張工作表的用途（宣告，並與實際建置查詢交叉比對）")
+    print("「執行過一次 SELECT」不等於完整接入，所以用途是宣告的，不是掃出來的。\n")
+    for role in (ADOPTED, SURFACED, TRACING, PRESERVED):
+        items = buckets[role]
+        total = sum(r for _, r, _, _ in items)
+        print(f"── {ROLE_LABELS[role]}　{len(items)} 張、{total:,} 列")
+        for sheet, rows, read, note in items:
+            mark = "" if read else "  ⚠ 未被讀取"
+            pending = PENDING_INTEGRATION.get(sheet)
+            tag = f"  [{pending[0]}]" if pending else ""
+            detail = f"　{note or (pending[1] if pending else '')}"
+            print(f"     {sheet:<38} {rows:>6} 列{tag}{detail}{mark}")
+        print()
+
+    if contradictions:
+        print(f"宣告與實作不一致（{len(contradictions)}）：")
+        for sheet, role, why in contradictions:
+            print(f"   {sheet:<38} [{ROLE_LABELS[role]}] {why}")
     else:
-        print("每張工作表都至少被一個視圖使用。")
+        print("宣告與實作一致。")
+
+    pending_rows = sum(
+        con.execute(f'SELECT COUNT(*) FROM "{tables[s]}"').fetchone()[0]
+        for s in PENDING_INTEGRATION if s in tables)
+    by_priority: dict[str, int] = {}
+    for sheet, (priority, _) in PENDING_INTEGRATION.items():
+        by_priority[priority] = by_priority.get(priority, 0) + 1
+    print()
+    print(f"待接入（依審查決策表）：{len(PENDING_INTEGRATION)} 張、{pending_rows:,} 列　"
+          + "　".join(f"{k} {v} 張" for k, v in sorted(by_priority.items())))
 
 
 if __name__ == "__main__":

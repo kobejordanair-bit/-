@@ -17,13 +17,14 @@ import datetime as dt
 import json
 import re
 import sqlite3
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from resolver import (CATEGORY_LABELS, COMPETITION_REFERENCE_COLUMNS,
+from resolver import (CATEGORY_LABELS, COMPETITION_REFERENCE_COLUMNS, SCRIPT_CONVERSION_AVAILABLE,
                       LEAGUE_LABELS, ClubResolver, CompetitionResolver, IdentityResolver,
                       club_key, competition_category, is_truncated, league_key, normalise,
-                      discover_club_columns, discover_competition_columns,
+                      discover_club_columns, discover_competition_columns, require_script_conversion,
                       sheet_league, start_year, strip_stage, tier_signature)
 
 BARCELONA_CLUB_ID = "C-0030"
@@ -1212,7 +1213,12 @@ def main() -> None:
     ap.add_argument("-s", "--standalone", action="store_true",
                     help="emit a complete HTML document that opens from file:// "
                          "(the default output is a fragment for the Artifact platform)")
+    ap.add_argument("--allow-degraded", action="store_true",
+                    help="承認簡繁轉換不可用，仍以不完整的結果執行")
     args = ap.parse_args()
+    degraded = not require_script_conversion(args.allow_degraded)
+    if degraded:
+        print("警告：以降級模式建置，簡繁轉換未啟用，身分相關數字不完整。", file=sys.stderr)
     if args.json:
         export_json(args.database, args.json)
         return

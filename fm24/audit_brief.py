@@ -18,9 +18,9 @@ import sqlite3
 from pathlib import Path
 
 from build_site import Archive
-from resolver import (COMPETITION_REFERENCE_COLUMNS, SURNAME_GATE, ClubResolver,
+from resolver import (COMPETITION_REFERENCE_COLUMNS, SCRIPT_CONVERSION_AVAILABLE, SURNAME_GATE, ClubResolver,
                       CompetitionResolver, IdentityResolver, discover_club_columns,
-                      discover_competition_columns)
+                      discover_competition_columns, require_script_conversion)
 
 
 def generate(db_path: Path) -> str:
@@ -58,6 +58,11 @@ def generate(db_path: Path) -> str:
     w(f"- 結構版本：`{meta['schema_version']}`")
     w(f"- 本清單產生於：{meta['generated']}")
     w("")
+    if not SCRIPT_CONVERSION_AVAILABLE:
+        w("> ⚠ **本清單在簡繁轉換不可用的環境產生，所有身分相關數字都不完整，"
+          "且無法與完整環境的結果比較。**")
+        w("")
+
     w("## 0. 最想被挑戰的三件事")
     w("")
     w("如果時間有限，看這三條就好——它們是最可能錯、而且錯了影響最大的。")
@@ -265,13 +270,59 @@ def generate(db_path: Path) -> str:
     w("字串常值而不報錯，導致掃描結果憑空生出 268 列假資料。若你的工具也是 SQL，請注意。")
     w("")
 
-    w("## 8. 資料覆蓋率（自我量測）")
+    w("## 8. 資料覆蓋率")
     w("")
-    w("以下由 `coverage.py` 量測，不是人工盤點。")
+    w("**用途是宣告的，不是掃出來的。** 「執行過一次 SELECT」不等於完整接入——"
+      "一張表可能只被讀取球會欄做身分比對，它的進球、助攻、評分從未出現在任何讀者頁。"
+      "所以每張表的用途記在 `table_roles.py`，再由 `coverage.py` 與實際建置查詢交叉比對，"
+      "宣告與實作不一致會被抓出來（本次發現 1 處，已修正）。")
     w("")
     try:
-        from coverage import scan, untouched_sheets
-        idle = untouched_sheets(db_path)
+        from table_roles import ADOPTED, PENDING_INTEGRATION, PRESERVED, ROLE_LABELS, SURFACED, TRACING, role_of
+        from coverage import sheet_tables
+        tables = sheet_tables(con)
+        counts = {ADOPTED: [0, 0], SURFACED: [0, 0], TRACING: [0, 0], PRESERVED: [0, 0]}
+        for sheet, table in tables.items():
+            role, _ = role_of(table)
+            rows = con.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
+            counts[role][0] += 1
+            counts[role][1] += rows
+        w("| 用途 | 張數 | 列數 | 意義 |")
+        w("|---|---:|---:|---|")
+        meanings = {
+            ADOPTED: "數值以事實呈現於站上",
+            SURFACED: "內容顯示給讀者閱讀",
+            TRACING: "僅供身分比對或來源追溯，內容未呈現",
+            PRESERVED: "保存於資料庫，尚未被任何視圖使用",
+        }
+        for role in (ADOPTED, SURFACED, TRACING, PRESERVED):
+            n, rows = counts[role]
+            w(f"| {ROLE_LABELS[role]} | {n} | {rows:,} | {meanings[role]} |")
+        w("")
+        w(f"**只有 {counts[ADOPTED][0] + counts[SURFACED][0]} 張表的內容真正到達讀者**，"
+          f"其餘 {counts[TRACING][0]} 張只被身分解析器讀取、{counts[PRESERVED][0]} 張完全未使用。")
+        w("")
+        if PENDING_INTEGRATION:
+            by_p: dict[str, list] = {}
+            for sheet, (priority, note) in sorted(PENDING_INTEGRATION.items()):
+                by_p.setdefault(priority, []).append((sheet, note))
+            w("### 待接入清單（依審查決策表）")
+            w("")
+            for priority in sorted(by_p):
+                w(f"**{priority}**")
+                w("")
+                for sheet, note in by_p[priority]:
+                    rows = con.execute(f'SELECT COUNT(*) FROM "{tables[sheet]}"').fetchone()[0] \
+                        if sheet in tables else 0
+                    w(f"- `{sheet}`　{rows:,} 列　—— {note}")
+                w("")
+    except Exception as exc:                      # pragma: no cover - diagnostics only
+        w(f"（用途盤點未能產生：{exc}）")
+
+    w("### 參照欄位偵測")
+    w("")
+    try:
+        from coverage import scan
         result = scan(db_path)
         club_cols = len(discover_club_columns(con))
         comp_cols = len(discover_competition_columns(con))
@@ -281,17 +332,11 @@ def generate(db_path: Path) -> str:
                     if r["table"] not in ("Club_Dim", "Competition_Dim", "Player_Dim", "Nation_Dim")]
         w(f"- 自動偵測之外仍疑似漏列者：{len(leftover)} 個"
           + ("（" + "、".join(f"{r['table']}.{r['column']}" for r in leftover[:4]) + "）" if leftover else "（無）"))
-        if idle:
-            total = sum(x["rows"] for x in idle)
-            w(f"- **有 {len(idle)} 張工作表、{total:,} 列從未被任何視圖讀取。**"
-              "這是量測結果：建置過程中沒有任何查詢碰到它們。列出如下，請判斷哪些應該接進來：")
-            w("")
-            for x in idle:
-                w(f"  - `{x['sheet']}`　{x['rows']:,} 列")
-        else:
-            w("- 每張工作表都至少被一個查詢讀取。")
+        w("- 偵測門檻為至少 3 個相異值、60% 可對應比例。少量資料或多數名稱尚未受控的欄位"
+          "仍可能被漏掉，且本偵測與 `coverage.py` 的稽核共用同一組解析器，"
+          "**不構成完全獨立的完整性證明**。")
     except Exception as exc:                      # pragma: no cover - diagnostics only
-        w(f"（覆蓋率量測未能執行：{exc}）")
+        w(f"（參照欄位量測未能執行：{exc}）")
     w("")
 
     w("## 9. 想請你回答的問題")
@@ -310,7 +355,10 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("-d", "--database", type=Path, default=here / "data" / "fm24.sqlite")
     ap.add_argument("-o", "--output", type=Path, default=here / "dist" / "audit-brief.md")
+    ap.add_argument("--allow-degraded", action="store_true",
+                    help="承認簡繁轉換不可用，仍以不完整的結果執行")
     args = ap.parse_args()
+    require_script_conversion(args.allow_degraded)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     text = generate(args.database)
     args.output.write_text(text, encoding="utf-8")
