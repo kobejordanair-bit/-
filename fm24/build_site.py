@@ -1071,6 +1071,7 @@ def collect(archive: "Archive") -> dict:
     from experience import integrate_experience
     from player_awards import integrate_player_awards
     from honour_review import integrate_honour_review
+    from comparison import integrate_comparison
     payload = {
         "meta": archive.meta(),
         "world": archive.world(),
@@ -1087,14 +1088,14 @@ def collect(archive: "Archive") -> dict:
         "integrity": archive.integrity(),
         "honours": archive.honours(),
     }
-    return integrate_honour_review(archive, integrate_experience(archive, integrate_player_awards(archive, integrate_history(archive, integrate(archive, payload)))))
+    return integrate_comparison(archive, integrate_honour_review(archive, integrate_experience(archive, integrate_player_awards(archive, integrate_history(archive, integrate(archive, payload))))))
 
 
 def build(db_path: Path, out_path: Path, template_path: Path, standalone: bool = False, *, allow_degraded: bool = False) -> None:
     payload = collect(Archive(db_path, allow_degraded=allow_degraded))
     data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).replace('<', '\\u003c')
     html = template_path.read_text(encoding="utf-8")
-    for marker, filename in [('/*__EXPERIENCE_JS__*/', 'experience.js'), ('/*__EXPERIENCE_CSS__*/', 'experience.css'), ('/*__HONOUR_JS__*/', 'honour_features.js')]:
+    for marker, filename in [('/*__EXPERIENCE_JS__*/', 'experience.js'), ('/*__EXPERIENCE_CSS__*/', 'experience.css'), ('/*__HONOUR_JS__*/', 'honour_features.js'), ('/*__COMPARISON_JS__*/', 'player_compare.js')]:
         if marker in html:
             html = html.replace(marker, (Path(__file__).parent / filename).read_text(encoding='utf-8'))
     html = html.replace('"__ARCHIVE_DATA__"', data)

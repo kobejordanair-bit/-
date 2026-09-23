@@ -16,7 +16,6 @@ const HMath={
       facts:facts.map(f=>({key:f.key,award:f.award,period:f.periodDisplay||f.season,kind:f.kind,rank:f.rank,primary:f.primary,evidence:f.evidence}))};},
 };
 if(typeof X_ROUTES!=='undefined')Object.assign(X_ROUTES,{
-  honourlab:['hA','hB','hcClock','hcPeriod','hcAward','hcKind'],
   honourtime:['htPlayer','htClock','htPeriod','htAward','htKind','htOrder'],
   review:['reviewPriority','reviewKind','reviewQuery'],
 });
@@ -44,21 +43,18 @@ function hFilters(prefix){const all=DATA.people.players.flatMap(p=>p.awards||[])
 function hScope(filters){return [({all:'全部時間口徑',season:'跨年球季',year:'單一曆年',other:'其他期間'})[filters.clock],filters.period==='all'?'全部期間':filters.period,filters.award==='all'?'全部獎項':filters.award,filters.kind==='all'?'全部結果':H_KIND[filters.kind]].join(' / ');}
 function hOpenTimeline(id,filters){state.htPlayer=id;for(const [k,v] of Object.entries(filters||{clock:'all',period:'all',award:'all',kind:'all'}))state['ht'+k[0].toUpperCase()+k.slice(1)]=v;go('honourtime');}
 function hCardJump(id,filters){state.studioKind='honour';state.studioItem=id;for(const [k,v] of Object.entries(filters||{clock:'all',period:'all',award:'all',kind:'all'}))state['card'+k[0].toUpperCase()+k.slice(1)]=v;go('studio');}
-function hCompareJump(id,filters){state.hA=id;for(const [k,v] of Object.entries(filters))state['hc'+k[0].toUpperCase()+k.slice(1)]=v;go('honourlab');}
+function hCompareJump(id,filters={clock:'all',period:'all',award:'all',kind:'all'}){state.duelA=id;state.compareTab='honours';for(const [k,v] of Object.entries(filters))state['hc'+k[0].toUpperCase()+k.slice(1)]=v;go('duel');}
 function hFactsTable(facts){return evidenceTable(['期間','獎項','結果','俱樂部','來源'],facts.map(f=>[f.periodDisplay||f.season,f.award,f.kind==='placing'?`第 ${f.rank} 名`:H_KIND[f.kind],f.club,awardEvidence(f)]));}
 function hCoverage(){return el('p',{class:'cap'},`資料涵蓋 ${DATA.people.players.length} 個受控球員身分。${DATA.people.awardCoverage.unassigned.length} 筆獎項來源尚未唯一綁定，未計入任何個人比較；0 表示此範圍未收錄，不保證生涯從未得獎。`);}
-function renderHonourLab(){
-  const pickA=hPicker('世界球員 A','hA','P-0060'),pickB=hPicker('世界球員 B','hB',DATA.people.players.find(p=>p.id!=='P-0060'&&p.awards.length)?.id);
-  const a=DATA.people.players.find(p=>p.id===state.hA),b=DATA.people.players.find(p=>p.id===state.hB),f=hFilters('hc',[a,b]);
+function hHonourPanels(a,b){
+  const f=hFilters('hc');
   const af=HMath.filter(a,f.filters),bf=HMath.filter(b,f.filters),ac=HMath.counts(af),bc=HMath.counts(bf);
   const names=[...new Set([...af,...bf].map(x=>x.award))].sort();
   const count=(facts,name)=>{const c=HMath.counts(name===undefined?facts:facts.filter(x=>x.award===name));return `${c.winner} 得獎 / ${c.selection} 入選 / ${c.placing} 其他名次`;};
   const side=(p,fs,i)=>el('section',{class:'x-side'+(i?' b':'')},el('div',{class:'eyebrow'},p.id),el('h3',{},p.name),el('div',{class:'x-big'},String(fs.length)),el('p',{class:'cap'},'篩選內已收錄個人榮譽紀錄'),
     el('div',{class:'btnrow'},el('button',{class:'btn ghost',onClick:()=>hOpenTimeline(p.id,f.filters)},'得獎時間軸'),el('button',{class:'btn ghost',onClick:()=>hCardJump(p.id,f.filters)},'製作榮譽卡'),el('button',{class:'btn ghost',onClick:()=>xOpen('people','person',p.id)},'個人檔案')));
   const periods=[...new Set([...af,...bf].map(x=>x.periodDisplay||x.season))].sort();
-  return [xHeader('WORLD HONOURS / HEAD TO HEAD','世界球員榮譽對決','從全部受控球員名錄挑選對手。只比較相同口徑的個人獎項，曆年與球季分列；不混入巴薩出場數或球隊冠軍。'),hCoverage(),
-    el('div',{class:'x-grid'},pickA,pickB),el('div',{class:'btnrow'},el('button',{class:'btn ghost',onClick:()=>{[state.hA,state.hB]=[state.hB,state.hA];paint();}},'交換世界球員 ⇄')),f.ui,
-    a.id===b.id?el('p',{class:'hint'},'目前選到同一身分，兩側相同。可用來核對篩選範圍。'):null,
+  return [hCoverage(),f.ui,
     el('div',{class:'x-grid'},side(a,af,0),side(b,bf,1)),
     el('section',{class:'panel'},el('h3',{},'三種結果，分開對決'),el('p',{class:'cap'},`${a.name} 在左，${b.name} 在右。${hScope(f.filters)}。不加權排名，也不把其他名次算成得獎。`),
       Object.entries(H_KIND).map(([k,l])=>xBars(l,ac[k],bc[k])),names.length?evidenceTable(['獎項',a.name,b.name],names.map(n=>[n,count(af,n),count(bf,n)])):el('p',{class:'hint'},'這個篩選沒有已收錄紀錄。')),
@@ -69,7 +65,7 @@ function renderHonourTime(){const picker=hPicker('時間軸球員','htPlayer','P
   xPick('htOrder',['new','old'],'new');const periods=HMath.timeline(facts);if(state.htOrder==='new')periods.reverse();
   return [xHeader('HONOUR TIMELINE','球員榮譽時間軸','每個節點是一個來源期間，並非精確頒獎日。展開即可核對獎項、名次與原始證據。'),picker,f.ui,
     el('div',{class:'strip x-strip'},Object.entries(H_KIND).map(([k,l])=>xMetric(l,counts[k]))),hCoverage(),
-    el('div',{class:'x-controls'},xSelect('時間軸排序','htOrder',[['new','新到舊'],['old','舊到新']]),el('button',{class:'btn',onClick:()=>hCardJump(p.id,f.filters)},'把目前範圍做成榮譽卡'),el('button',{class:'btn ghost',onClick:()=>hCompareJump(p.id,f.filters)},'放上世界榮譽擂台')),
+    el('div',{class:'x-controls'},xSelect('時間軸排序','htOrder',[['new','新到舊'],['old','舊到新']]),el('button',{class:'btn',onClick:()=>hCardJump(p.id,f.filters)},'把目前範圍做成榮譽卡'),el('button',{class:'btn ghost',onClick:()=>hCompareJump(p.id,f.filters)},'帶入球員比較')),
     facts.length?el('div',{class:'h-timeline'},periods.map(g=>el('section',{class:'h-event'},el('div',{class:'h-period'},el('strong',{},g.period),el('span',{class:'pill flat'},HMath.clock(g.period)==='year'?'曆年':HMath.clock(g.period)==='season'?'球季':'原始期間')),
       el('div',{class:'h-event-body'},el('h3',{},`${g.counts.winner} 得獎 · ${g.counts.selection} 入選 · ${g.counts.placing} 其他名次`),el('div',{class:'chips'},g.facts.map(a=>el('span',{class:'chip'},a.award+' · '+(a.kind==='placing'?`第 ${a.rank} 名`:H_KIND[a.kind])))),el('details',{},el('summary',{},`${g.facts.length} 筆明細與來源`),hFactsTable(g.facts)))))):el('p',{class:'hint'},'這個範圍沒有已收錄且綁定的個人獎項。')];
 }

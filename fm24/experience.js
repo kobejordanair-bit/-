@@ -87,8 +87,8 @@ function xChart(labels,series,{label='趨勢比較',height=245,zero=true}={}){
 function renderHub(){
   const ss=DATA.seasons,metrics=DATA.experience.seasons,latest=ss[ss.length-1],best=ss.reduce((a,b)=>metrics[a.id].points>=metrics[b.id].points?a:b);
   const trophies=ss.reduce((n,s)=>n+(metrics[s.id].trophies??0),0);
-  const tiles=[['eleven','06 / DREAM ELEVEN','王朝夢幻 XI','跨年代排出你的十一人、自由換位，保存並分享陣容圖。'],['lab','01 / SEASON LAB','王朝實驗室','兩季並排、勝率與積分效率、十二季趨勢。'],['duel','02 / HEAD TO HEAD','球員對決','生涯與同季比較，出場效率、實際屬性與來源日期。'],['atlas','03 / WORLD ATLAS','足壇時光機','滑動年份，打開五大聯賽冠軍版圖與爭冠差距。'],['derby','04 / EL CLÁSICO','國家德比劇場','逐場走過宿敵交鋒，切換賽事與主客場紀錄。'],['studio','05 / POSTER STUDIO','戰績製卡室','把球季、球員或德比變成可下載的專屬海報。']];
-  tiles.unshift(['honourlab','WORLD HONOURS','世界榮譽對決',`${DATA.people.players.length} 個受控身分，比得獎、入選與逐期榮譽。`],['honourtime','HONOUR TIMELINE','榮譽時間軸','走過每個得獎年份，把目前範圍做成分享卡。'],['review','EVIDENCE DESK','優先核對工作台','按影響排序資料缺口、查看證據、記錄核對筆記。']);
+  const tiles=[['eleven','06 / DREAM ELEVEN','王朝夢幻 XI','跨年代排出你的十一人、自由換位，保存並分享陣容圖。'],['lab','01 / SEASON LAB','王朝實驗室','兩季並排、勝率與積分效率、十二季趨勢。'],['duel','02 / HEAD TO HEAD','球員比較','世界球員共用比較台：表現、榮譽、逐季軌跡、屬性快照。'],['atlas','03 / WORLD ATLAS','足壇時光機','滑動年份，打開五大聯賽冠軍版圖與爭冠差距。'],['derby','04 / EL CLÁSICO','國家德比劇場','逐場走過宿敵交鋒，切換賽事與主客場紀錄。'],['studio','05 / POSTER STUDIO','戰績製卡室','把球季、球員或德比變成可下載的專屬海報。']];
+  tiles.unshift(['honourtime','HONOUR TIMELINE','榮譽時間軸','走過每個得獎年份，把目前範圍做成分享卡。'],['review','EVIDENCE DESK','優先核對工作台','按影響排序資料缺口、查看證據、記錄核對筆記。']);
   return [el('section',{class:'x-hero x-enter'},el('div',{class:'eyebrow'},'THE MANAGER’S ROOM / INTERACTIVE ARCHIVE'),el('h2',{},`${ss.length} 季，`,el('br'), '把王朝拿出來玩。'),el('p',{},'不只翻紀錄。把球季拉到同一張圖，把兩名球員放上擂台，再把你最得意的那一刻做成海報。'),el('div',{class:'btnrow'},el('button',{class:'btn',onClick:()=>go('lab')},'進入王朝實驗室 →'),el('button',{class:'btn ghost',onClick:()=>go('studio')},'製作我的戰績卡')),el('small',{},`${ss[0].season} — ${latest.season} · WORLD MASTER v6.4.0 · 資料留在本機`)),
     el('div',{class:'strip x-strip'},xMetric('主表團隊冠軍',trophies),xMetric('巴薩生涯檔案',DATA.players.length),xMetric('國家德比紀錄',DATA.clasico.length),xMetric('最高聯賽積分',metrics[best.id].points)),
     el('div',{class:'x-grid'},tiles.map(([view,kicker,title,text])=>el('button',{class:'x-tile',onClick:()=>go(view)},el('span',{class:'eyebrow'},kicker),el('span',{class:'x-icon'},view==='lab'?'↗':view==='duel'?'VS':view==='atlas'?'◎':view==='derby'?String(DATA.clasico.length):'▧'),el('h3',{},title),el('p',{},text))),el('section',{class:'x-side',style:'grid-column:1/-1'},el('div',{class:'eyebrow'},'THE SEASON TO BEAT'),el('h3',{},best.season),el('div',{class:'x-big'},`${metrics[best.id].points} 分`),el('p',{class:'x-muted'},`主檔十二季中聯賽積分最高；同分時顯示較早球季。${best.titles.join('、')||'未列冠軍'}`),el('button',{class:'btn ghost',onClick:()=>{state.labA=best.id;go('lab');}},'用這季接受挑戰'))),
@@ -120,51 +120,8 @@ function xRadar(a,b){
   [5,10,15,20].forEach(v=>chart.append(svg('polygon',{points:pairs.map((_,i)=>point(i,v).join(',')).join(' '),fill:'none',stroke:'var(--line)'})));
   pairs.forEach((r,i)=>{const p=point(i,23);chart.append(svg('text',{x:p[0],y:p[1],'text-anchor':'middle','font-size':12},r.group));});
   ['a','b'].forEach((key,i)=>chart.append(svg('polygon',{points:pairs.map((r,j)=>point(j,r[key]).join(',')).join(' '),fill:i?'#527acf25':'#bf355425',stroke:i?'var(--azul)':'var(--garnet)','stroke-width':2})));
-  return el('div',{},chart,el('p',{class:'x-muted'},`${a.name}：${a.attrs.date} ／ ${b.name}：${b.attrs.date}。僅平均兩人共同提供的欄位；快照日期可能不同，這不是 CA／PA。`),evidenceTable(['分類','共同屬性欄位',a.name,b.name],pairs.map(r=>[r.group,r.keys.join('、'),fmt(r.a,2),fmt(r.b,2)])),xSource({source:a.attrs.source,sheet:a.attrs.schema==='GOALKEEPER'?'Player_Attr_Snap_G':'Player_Attr_Snap_O'},a.name+'屬性來源'),xSource({source:b.attrs.source,sheet:b.attrs.schema==='GOALKEEPER'?'Player_Attr_Snap_G':'Player_Attr_Snap_O'},b.name+'屬性來源'));
+  return el('div',{},chart,el('p',{class:'x-muted'},`${a.name}：${a.attrs.date} ／ ${b.name}：${b.attrs.date}。僅平均兩人共同提供的欄位；快照日期可能不同，這不是 CA／PA。`),evidenceTable(['分類','共同屬性欄位',a.name,b.name],pairs.map(r=>[r.group,r.keys.join('、'),fmt(r.a,2),fmt(r.b,2)])),xSource(a.attrs.evidence||{source:a.attrs.source,sheet:a.attrs.schema==='GOALKEEPER'?'Player_Attr_Snap_G':'Player_Attr_Snap_O'},a.name+'屬性來源'),xSource(b.attrs.evidence||{source:b.attrs.source,sheet:b.attrs.schema==='GOALKEEPER'?'Player_Attr_Snap_G':'Player_Attr_Snap_O'},b.name+'屬性來源'));
 }
-function xHonourDuel(a,b){
-  const pa=DATA.people.players.find(p=>p.id===a.id),pb=DATA.people.players.find(p=>p.id===b.id);
-  const periods=[...new Set([...(pa?.awards||[]),...(pb?.awards||[])].map(f=>f.periodDisplay||f.season))].sort().reverse();
-  xPick('duelHonourScope',['all',...periods],'all');
-  const ha=XMath.honours(pa,state.duelHonourScope),hb=XMath.honours(pb,state.duelHonourScope);
-  const names=[...new Set([...ha.facts,...hb.facts].map(f=>f.award))].sort();
-  const summary=(h,name)=>{const c=XMath.honours({awards:h.facts.filter(f=>f.award===name)}).counts;
-    return `${c.winner} 得獎 / ${c.selection} 入選 / ${c.placing} 其他名次`;};
-  const ta=XMath.teamHonours(a,state.duelScope),tb=XMath.teamHonours(b,state.duelScope);
-  return [el('section',{class:'panel'},el('h3',{},'個人榮譽對決'),
-    el('p',{class:'cap'},'依球員名錄同一份去重明細，涵蓋已收錄的全生涯個人獎項，不限效力巴薩期間。0 表示這個範圍沒有已收錄且綁定的紀錄，不保證從未得獎。'),
-    xSelect('個人榮譽範圍','duelHonourScope',[['all','全部已收錄生涯榮譽'],...periods.map(s=>[s,/^\d{4}$/.test(s)?s+' 曆年':s+' 球季'])]),
-    el('p',{class:'cap'},'曆年獎項與跨年球季分開篩選；不把 2034 年自動塞進 2034/35。下方數字不套用每場效率。'),
-    [['得獎','winner'],['最佳陣容入選','selection'],['其他名次','placing']].map(([label,key])=>xBars(label,ha.counts[key],hb.counts[key])),
-    evidenceTable(['獎項',a.name,b.name],names.map(name=>[name,summary(ha,name),summary(hb,name)])),
-    !names.length?el('p',{class:'x-muted'},'此範圍沒有已收錄的個人獎項。'):null,
-    el('div',{class:'x-grid'},[[a,ha],[b,hb]].map(([p,h])=>el('details',{},el('summary',{},`${p.name} · ${h.facts.length} 筆明細與來源`),
-      evidenceTable(['期間','獎項','結果','來源'],h.facts.map(f=>[f.periodDisplay||f.season,f.award,f.kind==='winner'?'得獎':f.kind==='selection'?'入選':`第 ${f.rank} 名`,awardEvidence(f)]))))),
-    el('div',{class:'btnrow'},[a,b].map(p=>el('button',{class:'btn ghost',onClick:()=>xOpen('people','person',p.id)},`開啟 ${p.name} 榮譽檔案`)))),
-    el('section',{class:'panel'},el('h3',{},'效力巴薩期間的團隊冠軍'),
-      el('p',{class:'cap'},`${state.duelScope==='career'?'巴薩生涯主表':state.duelScope+' 逐季 A1 表'}。此為在隊期間的團隊成就，不宣稱個人正式冠軍資格；與個人獎項分開比較。逐季表未提供世俱盃欄位，維持未知。`),
-      Object.keys(ta).map(k=>xBars(k,ta[k],tb[k])),
-      el('div',{class:'btnrow'},[a,b].map(p=>xSource(state.duelScope==='career'?DATA.experience.players[p.id].source:
-        p.seasonHonours.find(r=>XMath.season(r.season)===XMath.season(state.duelScope))?.evidence,p.name+'團隊歸屬來源'))))];
-}
-function renderDuel(){
-  const ps=DATA.players,ids=ps.map(p=>p.id);xPick('duelA',ids,ids[0]);xPick('duelB',ids,ids[1]);
-  const a=ps.find(p=>p.id===state.duelA),b=ps.find(p=>p.id===state.duelB),ma=DATA.experience.players[a.id],mb=DATA.experience.players[b.id];
-  const years=[...new Set([...ma.seasons,...mb.seasons].map(r=>XMath.season(r.season)))].sort();
-  xPick('duelScope',['career',...years],'career');xPick('duelRate',['totals','appearance'],'totals');
-  const ar=XMath.record(ma,state.duelScope),br=XMath.record(mb,state.duelScope),rate=state.duelRate==='appearance';
-  const side=(p,r,i)=>el('section',{class:'x-side'+(i?' b':'')},el('div',{class:'eyebrow'},p.id),el('h3',{},p.name),el('p',{class:'x-muted'},[p.nationality,p.position].filter(Boolean).join(' · ')||'最新 Profile 未提供國籍／位置'),el('div',{class:'x-big'},`${fmt(r?.apps)} 場`),el('p',{class:'x-muted'},r?`${state.duelScope==='career'?'巴薩生涯主表':state.duelScope+' 正式逐季觀測'}`:'這個球季沒有唯一正式採用觀測；不視為零出場。'),el('button',{class:'btn ghost',onClick:()=>xOpen('squad','player',p.id)},'完整球員檔案'),xSource(r?.source));
-  return [xHeader('02 / HEAD TO HEAD','球員對決','比較巴薩生涯與逐季表現。累計數據、出場效率、遊戲內屬性各自分開解讀。'),el('div',{class:'x-controls'},xSelect('球員 A','duelA',ps.map(p=>[p.id,p.name])),xSelect('球員 B','duelB',ps.map(p=>[p.id,p.name])),el('button',{class:'btn ghost',onClick:()=>{[state.duelA,state.duelB]=[state.duelB,state.duelA];paint();}},'交換 ⇄')),
-    el('div',{class:'x-controls'},xSelect('比較範圍','duelScope',[['career','巴薩生涯主表'],...years.map(y=>[y,y])]),xSelect('表現顯示方式','duelRate',[['totals','原始總量'],['appearance','每次出場效率']])),
-    el('div',{class:'x-grid x-enter'},side(a,ar,0),side(b,br,1)),
-    el('section',{class:'panel'},el('h3',{},rate?'每次出場的產出':'主檔原始表現'),el('p',{class:'cap'},rate?'進球、助攻、最佳球員除以出場次數，包含替補；沒有分鐘資料，因此不是每 90 分鐘。':'巴薩生涯主表與球員名錄的聯賽生涯是不同統計範圍。未從零散逐季列重算總計。'),
-      [['出場','apps'],['進球','goals'],['助攻','assists'],['最佳球員','motm'],['平均評分','rating']].map(([l,k])=>xBars(l+(rate&&['goals','assists','motm'].includes(k)?'／出場':''),XMath.stat(ar,k,rate),XMath.stat(br,k,rate),k==='rating'||rate&&k!=='apps'?2:0))),
-    el('section',{class:'panel'},el('h3',{},'逐季進球軌跡'),xChart(years,[{name:a.name,values:years.map(y=>XMath.stat(XMath.record(ma,y),'goals',rate))},{name:b.name,values:years.map(y=>XMath.stat(XMath.record(mb,y),'goals',rate))}],{label:rate?'兩名球員逐季每次出場進球':'兩名球員逐季進球'}),el('p',{class:'cap'},'只使用明示 ADOPTED 的巴薩逐季列；缺季中斷折線，不接成零。'),el('details',{},el('summary',{},'查看圖表原始數值'),evidenceTable(['球季',a.name,b.name],years.map(y=>[y,fmt(XMath.stat(XMath.record(ma,y),'goals',rate),rate?2:0),fmt(XMath.stat(XMath.record(mb,y),'goals',rate),rate?2:0)])))),
-    ...xHonourDuel(a,b),
-    el('section',{class:'panel'},el('h3',{},'屬性快照對照'),xRadar(a,b)),
-    el('button',{class:'btn',onClick:()=>{state.studioKind='player';state.studioItem=a.id;go('studio');}},'把球員 A 做成典藏卡 →')];
-}
-
 function xLeagueName(name){return {'LaLiga EA Sports':'西甲','Premier League':'英超','Bundesliga':'德甲','Serie A TIM':'義甲','Ligue 1 Uber Eats':'法甲'}[name]||name;}
 function xLeagueJump(league,season){state.league=league;state.leagueSeason=season;state.snapshot=null;go('leagues');}
 function renderAtlas(){

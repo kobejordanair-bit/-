@@ -472,13 +472,13 @@ const statusPill = s => {
 
 /*__EXPERIENCE_JS__*/
 /*__HONOUR_JS__*/
+/*__COMPARISON_JS__*/
 
 /* ------------------------------------------------------------------ views */
 const VIEWS = [
   { id: "hub", group: "總教練互動中心", label: "互動中心", render: renderHub },
   { id: "lab", group: "總教練互動中心", label: "王朝實驗室", render: renderLab },
-  { id: "duel", group: "總教練互動中心", label: "球員對決", render: renderDuel },
-  { id: "honourlab", group: "總教練互動中心", label: "世界榮譽對決", render: renderHonourLab },
+  { id: "duel", group: "總教練互動中心", label: "球員比較", render: renderCompare },
   { id: "honourtime", group: "總教練互動中心", label: "榮譽時間軸", render: renderHonourTime },
   { id: "atlas", group: "總教練互動中心", label: "足壇時光機", render: renderAtlas },
   { id: "derby", group: "總教練互動中心", label: "國家德比劇場", render: renderDerby },
@@ -674,7 +674,7 @@ function personalHonours(p) {
   if(!p)return null;
   const c=p.awardCounts;
   return el('section',{class:'panel'},el('h3',{},`獎項紀錄　${p.awards.length}`),
-    el('div',{class:'btnrow'},el('button',{class:'btn ghost',onClick:()=>hOpenTimeline(p.id)},'開啟榮譽時間軸'),el('button',{class:'btn ghost',onClick:()=>{state.hA=p.id;go('honourlab');}},'世界榮譽比較'),el('button',{class:'btn ghost',onClick:()=>hCardJump(p.id)},'製作個人榮譽卡')),
+    el('div',{class:'btnrow'},el('button',{class:'btn ghost',onClick:()=>hOpenTimeline(p.id)},'開啟榮譽時間軸'),el('button',{class:'btn ghost',onClick:()=>hCompareJump(p.id)},'加入球員比較'),el('button',{class:'btn ghost',onClick:()=>hCardJump(p.id)},'製作個人榮譽卡')),
     el('div',{class:'chips'},el('span',{class:'chip'},`得獎 ${c.winner}`),el('span',{class:'chip'},`入選 ${c.selection}`),el('span',{class:'chip'},`其他名次 ${c.placing}`)),
     el('p',{class:'cap'},'已收錄的全生涯個人榮譽，與球員名錄及比較頁使用同一份去重明細。多份來源只計一次；入選序號不當名次。0 表示未收錄，不代表從未得獎。'),
     p.awards.length?evidenceTable(['獎項','期間','結果','俱樂部','來源'],p.awards.map(a=>[
@@ -2811,13 +2811,15 @@ function readRoute() {
   let parts;
   try { parts = path.split('/').filter(Boolean).map(decodeURIComponent); }
   catch (e) { return false; }
-  const [view, first, second] = parts;
+  let [view, first, second] = parts;
+  const migrated = CMath.migrate(view, query || '');
+  view = migrated.view;
   if (!VIEWS.some(v => v.id === view)) return false;
 
   state.view = view;
   state.player = state.person = null;
   if (X_ROUTES[view]) {
-    const params = new URLSearchParams(query || '');
+    const params = migrated.params;
     X_ROUTES[view].forEach(k => { state[k] = params.has(k) ? params.get(k).slice(0, 160) : null; });
     return true;
   }

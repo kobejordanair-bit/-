@@ -326,7 +326,11 @@ SELECT Competition_Raw   FROM UCL_Knockout_Results   -- 這才會報 no such col
 
 ## 世界榮譽與核對工作台
 
-新增世界球員榮譽比較、得獎時間軸與三種配色的榮譽卡；涵蓋主檔全部受控球員。
+世界榮譽比較與原球員對決已合併成「球員比較」（`#/duel`），全站共 28 個入口。
+共用主檔全部 332 位球員的選擇器，下分總覽、表現與生涯、個人榮譽、屬性快照、巴薩團隊榮譽五個分頁。
+新增全球正式採用聯賽紀錄及全名錄屬性快照；缺值不補零，巴薩各項賽事與聯賽範圍分開。
+原 `#/honourlab` 分享連結自動轉入榮譽分頁並保留球員與條件；原巴薩對決連結保留巴薩口徑。
+整合與擴充詳見 [球員比較交付](PLAYER_COMPARISON.md)。得獎時間軸與三種配色的榮譽卡仍可從比較頁直接開啟。
 得獎、最佳陣容入選與其他名次分開計算，支援曆年／跨年球季、期間、獎項、結果篩選；分享網址保留選擇。
 優先核對工作台按來源衝突及影響排序，展開即可查看原始來源、受控別名線索及失效列號對照。
 本機筆記不會更改主檔或獎項統計。完整說明見 [榮譽功能交付](HONOUR_FEATURES.md)。
@@ -338,8 +342,8 @@ JSON 建置後執行 `python3 honour_report.py`，產生與網站同源的 `PRIO
 ```bash
 pip install -r requirements-dev.txt
 python3 etl.py <最新版工作簿.xlsx>
-python3 -m pytest test_resolver.py test_evidence.py test_history.py test_integrity.py test_experience.py test_player_awards.py test_honour_review.py -q
-node --test test_experience.js test_honour_features.js
+python3 -m pytest test_resolver.py test_evidence.py test_history.py test_integrity.py test_experience.py test_player_awards.py test_honour_review.py test_comparison.py -q
+node --test test_experience.js test_honour_features.js test_player_compare.js
 python3 coverage.py
 ```
 
