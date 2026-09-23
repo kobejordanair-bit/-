@@ -97,3 +97,52 @@ def test_registry_counts_recomputed(payload):
     assert payload['people']['withAwards'] == sum(bool(p['awards']) for p in payload['people']['players'])
     for p in payload['people']['players']:
         assert sum(p['awardCounts'].values()) == len(p['awards'])
+
+
+def test_catalogue_extends_authority_without_losing_raw_names(payload):
+    catalogue = payload['honours']['catalogueFacts']
+    facts = [f for fs in catalogue.values() for f in fs]
+    assert len(facts) == payload['honours']['catalogueCount'] > 1132
+    for award in ['Kopa Trophy', 'Fan Player of Season', 'Goal 50', 'European Golden Shoe']:
+        assert catalogue[award]
+    assert any(not f['resolved'] for f in facts)
+    assert any(f['actorKind'] == 'coach' for f in facts)
+    refs = {(r['sheet'], str(r['row'])) for f in facts for r in [f['primary'], *f['evidence']]}
+    for fs in payload['honours']['facts'].values():
+        for f in fs:
+            assert (f['primary']['sheet'], str(f['primary']['row'])) in refs
+    for p in payload['people']['players']:
+        for f in p['awards']:
+            assert f in catalogue[f['award']]
+
+
+def test_unresolved_same_name_does_not_guess_same_person():
+    f = dict(id=None, player='Same Name', award='A', season='2034',periodId='Y',kind='selection',rank='入選',primary={'sheet':'S','row':2})
+    assert signature(f) != signature(dict(f,primary={'sheet':'S','row':3}))
+
+
+def test_missing_stats_preserved_and_negative_award_summary_not_a_trophy(archive, payload):
+    for p in payload['players']:
+        assert all(not a.startswith('無已確認') for a in p['awards'])
+        for n in p['national']:
+            raw=archive.q('SELECT * FROM Player_Career_Summaries WHERE _row=?',n['evidence']['row'])[0]
+            if raw['Assists'] in (None,'','NULL'):
+                assert n['assists'] is None
+    assert any(n['assists'] is None for p in payload['players'] for n in p['national'])
+
+
+def test_timeline_sorted_by_actual_period_years(archive, payload):
+    from evidence import Periods
+    ps=Periods(archive.q('SELECT * FROM Period_Dim')).by_id
+    dates=[(ps[e['period']]['start'],ps[e['period']]['end']) for e in payload['chronicle'] if e['period'] in ps]
+    assert dates == sorted(dates, reverse=True)
+    assert next(e for e in payload['chronicle'] if e['period'] in ps)['season'] == '2034/35'
+
+
+def test_all_retirement_career_rows_surface_with_source_block(archive, payload):
+    raw=archive.q('SELECT * FROM Retirement_Career_History')
+    assert len(payload['reference']['tables']['Retirement_Career_History']['rows']) == len(raw) == 21
+    shown=[]
+    for r in payload['history']['retirements']:
+        shown.extend(r['sections']['Retirement_Career_History'])
+    assert len(shown)==21

@@ -8,7 +8,8 @@
 `experience.js`、`experience.css` 是可維護的來源模組，建置時全部嵌入 `archive.html`，開啟網站不需要額外 JavaScript 套件。
 
 目前原定 P0／P1／P2 的 32 張表均已完成接入，待接入清單為 0。
-最新完整性修正與 193 項驗收見 [完整性修正報告](INTEGRITY_REPAIR.md)。
+最新全站 26 頁核對、榮譽比較與 240 項測試見 [全頁檢查報告](ALL_PAGES_REVIEW.md)。
+前一輪完整性修正見 [完整性修正報告](INTEGRITY_REPAIR.md)。
 P0／P1／P2 交付見 [接入完成報告](INTEGRATION_COMPLETE.md)，
 來源關聯與逐季核對的設計見 [P0 接入驗收](P0_INTEGRATION.md)。
 這不表示 122 張表的全部欄位都已採用為正式統計。下方比對器研究中的舊統計屬歷史開發紀錄；
@@ -21,11 +22,11 @@ P0／P1／P2 交付見 [接入完成報告](INTEGRATION_COMPLETE.md)，
 - **維度表**：`Player_Dim`、`Club_Dim`、`Nation_Dim`、`Period_Dim`、`Competition_Dim`
   （注意：每列是一個「別名」，不是一個實體 — 332 名球員攤成 369 列）
 - **事實表**：`Player_Club_Season_Totals`、`Canonical_Award_Facts`、`Domestic_League_Standings` …
-- **來源血緣**：每列都帶 `Source_ID` / `Verification_Status` / `Observation_ID` / `Fact_ID`
+- **來源血緣**：依表格保留 `Source_ID` / `Verification_Status` / `Observation_ID` / `Fact_ID`
 - **身分解析**：`Record_Identity_Map` 10,444 列
 - **資料品質**：`Data_Issues`、`Award_Resolution_Status`
 
-Excel 能存這些，但不能查。這個管線讓 Excel 降級成「輸入格式」。
+Excel 保留正式主檔，SQLite 與網站提供跨表查詢、來源追溯及互動閱讀。
 
 ## 用法
 
@@ -72,7 +73,7 @@ download 能力。離開那個沙箱後，一般的 `<a download>` 就能用，�
 
 `fm24/archive.html` 是已建置的完整文件，直接 commit 進版本庫供 Pages 服務。
 
-1. 把 `claude/determined-galileo-ubwy3m` 合併進預設分支
+1. 將已驗證的程式與建置產物提交至預設分支 `main`
 2. GitHub → Settings → Pages → Source 選 **Deploy from a branch**，分支選預設分支、資料夾選 **/ (root)**
 3. 幾分鐘後開 `https://<帳號>.github.io/<repo>/fm24/archive.html`
 
@@ -86,7 +87,7 @@ python3 build_site.py --standalone -o archive.html
 git add fm24/archive.html && git commit && git push
 ```
 
-`archive.html` 是唯一需要進版控的產出物（約 1 MB）；`dist/` 與 `data/*.sqlite` 仍在 `.gitignore` 裡。
+`archive.html` 是唯一需要進版控的產出物（約 6 MB，隨主檔資料量變動）；`dist/` 與 `data/*.sqlite` 仍在 `.gitignore` 裡。
 
 
 `opencc` 在建置時必須可用。CLI 和直接呼叫建置 API 都預設拒絕缺少簡繁轉換的環境。
@@ -105,21 +106,16 @@ python3 ingest.py fm24-identity-decisions-*.json --identity --commit # 身分決
 資料落在 `Ingest_*` 系列表（刻意與工作簿自己的 `Import_Observations` 分表），
 `etl.py` 重建資料庫時會把它們原樣搬過去，不會被 xlsx 覆蓋掉。
 
-`dist/index.html` 是完全自足的單一檔案（約 240 KB，資料內嵌為 JSON），
-可直接丟 GitHub Pages 或任何靜態主機。
+`dist/index.html` 為 Artifact 片段；部署至 GitHub Pages 使用 `--standalone` 產生的 `archive.html`。
 
 ## 設計原則
 
 **ETL 不做型別轉換。** 所有欄位一律存成 TEXT。工作簿裡 `Apps` 同時出現 `0(2)` 和 `2`，
 `PassPct_Raw` 是 `85%`，強制轉型會靜默破壞來源原形。解析留給 `build_site.py` 的 `num()`。
 
-**完整性報告由資料自己生成。** `Archive.integrity()` 裡的 findings 不是人工清單，
-是每次 build 重新從資料驗證出來的。目前抓到四項，最嚴重的一項：
-
-> 15 名球員在 `PER-S-2034-35` 下同時有 `2034/35` 與 `2034-35` 兩種 `Season_Display`，
-> 且 `Club_Raw` 分別寫成「巴塞隆納」與「巴塞罗那」。任何 SUM 都會重複計算。
-
-球員頁面在該球員逐季表格上方會直接掛警告，讓缺陷出現在它真正造成傷害的地方。
+**完整性報告由資料自己生成。** `Archive.integrity()` 每次建置重新檢查來源。
+逐季只採明示 ADOPTED 的觀測；舊快照與問題紀錄保留查證，不相加重算正式總計。
+完整性頁區分網站已處理、主檔待核對與來源保留未知，最新範圍見全頁檢查報告。
 
 ## 檔案
 
@@ -138,13 +134,13 @@ python3 ingest.py fm24-identity-decisions-*.json --identity --commit # 身分決
 ## 視圖
 
 **世界** — 世界總覽（五大聯賽冠軍版圖、歐冠決賽、國際賽）、聯賽積分榜（含快照切換）、
-榮譽殿堂（金球獎完整前三名 + 21 種獎項歷屆得主）、編年史（1,334 筆事件可搜尋）
+榮譽殿堂（37 種獎項、1,636 筆去重展示紀錄）、編年史（1,346 筆來源事件可搜尋與逐批載入）
 
 **檔案** — 球員名錄（332 個受控身分）、巴薩王朝／賽季／陣容（含六維能力雷達）
 
 **工具** — 球員身分、俱樂部身分、賽事身分三個控制台，匯入資料、檔案完整性報告
 
-## 身分解析
+## 身分解析（歷史開發紀錄）
 
 445 筆獎項列分屬 212 個未解析姓名。比對在 build time 跑（`resolver.py`），不在瀏覽器：
 需要 OpenCC 做簡繁正規化，也需要把檔案已接受的每一筆「原始名→ID」關聯攤開成索引。
@@ -321,31 +317,20 @@ SELECT Competition_Raw   FROM UCL_Knockout_Results   -- 這才會報 no such col
 每列都保留原始姓名與比對結論（`exact` / `fuzzy` / `ambiguous` / `new`），
 所以之後併入工作簿時可以稽核比對，而不是照單全收。
 
-## ETL 偵測到的缺陷
+## 資料採用與已知缺口
 
-每次 build 由 `Archive.integrity()` 重新從資料驗證，不是人工清單。目前六項，兩項高風險：
-
-> **2034/35 同一球員存在兩筆賽季總計** — 15 名球員在 `PER-S-2034-35` 下同時有
-> `2034/35` 與 `2034-35` 兩種 `Season_Display`，`Club_Raw` 分別寫成「巴塞隆納」與「巴塞罗那」。
-> 任何 SUM 都會重複計算。球員頁面在逐季表格上方直接掛警告。
-
-> **聯賽積分榜同賽季存在多份快照** — 部分聯賽賽季同時有 `PROVISIONAL_AS_OF_*`（賽季中）
-> 與 `FINAL_SOURCE_ADOPTED_*`（賽季末）兩份表。不看 `Season_Status` 直接查會得到
-> 兩倍隊伍數與錯誤的冠軍。本站只採 FINAL，並提供快照切換。
-
-> **同一間俱樂部持有多個 Club_ID** — 4 個俱樂部名稱對應到一個以上的 `Club_ID`
-> （拜仁慕尼黑、馬賽、南安普頓、艾斯特拉阿馬多拉）。其中南安普頓兩個 ID 都有資料列
-> （4 列 + 1 列），依 `Club_ID` 分組會把同一間俱樂部算成兩間。
-
-其餘：轉會方向欄位混用中英文編碼、630 列以字串 `'NULL'` 表示空值、
-同一 `Club_ID` 對應多種原始寫法、賽季主表的來源空值。
+目前檢查結果見 [完整性修正報告](INTEGRITY_REPAIR.md) 與 [全頁檢查報告](ALL_PAGES_REVIEW.md)。
+季中／季末快照分開展示；只採明示 ADOPTED 的球員逐季觀測。缺值保持未知，俱樂部、賽事及球員身份歧義仍列待核對。
+球員榮譽明細、巴薩個人頁與榮譽比較共用同一份去重結果；全站目錄保留未綁定原始姓名，沒有按近似度猜測入帳。
+匯入的 `fuzzy` 僅是候選，不能寫入已確認 Player_ID；`ingest.py --commit` 只寫待審表，不自動改寫 Excel。
 
 ## 測試
 
 ```bash
 pip install -r requirements-dev.txt
 python3 etl.py <最新版工作簿.xlsx>
-python3 -m pytest test_resolver.py test_evidence.py -q
+python3 -m pytest test_resolver.py test_evidence.py test_history.py test_integrity.py test_experience.py test_player_awards.py -q
+node --test test_experience.js
 python3 coverage.py
 ```
 

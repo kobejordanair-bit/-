@@ -10,6 +10,37 @@ const XMath = {
     return rows.length===1 ? rows[0] : null;
   },
   stat(record,key,rate=false) { if (!record) return null; return rate && ['goals','assists','motm'].includes(key) ? this.divide(record[key],record.apps) : this.number(record[key]); },
+  honours(person,scope='all') {
+    const facts=(person?.awards||[]).filter(f=>scope==='all'||this.season(f.periodDisplay||f.season)===this.season(scope));
+    const counts={winner:0,selection:0,placing:0};facts.forEach(f=>{if(f.kind in counts)counts[f.kind]++;});
+    return {facts,counts};
+  },
+  teamHonours(player,scope='career') {
+    const labels=['西甲','歐冠','國王盃','西超盃','歐超盃','世俱盃'];
+    const matches=(player?.seasonHonours||[]).filter(r=>this.season(r.season)===this.season(scope));
+    const titles=scope==='career'?player?.titles:matches.length===1?matches[0].titles:null;
+    return Object.fromEntries(labels.map(k=>[k,this.number(titles?.[k])]));
+  },
+  parseTable(text) {
+    text=text.replace(/^\uFEFF/,'').replace(/^(?:\r?\n)+/,'');
+    const first=text.split(/\r?\n/)[0], sep=first.includes('\t')?'\t':first.includes(',')?',':null;
+    if(!sep){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(lines.length<2||! /\S\s{2,}\S/.test(lines[0]))return null;
+      const rows=lines.map(l=>l.trim().split(/\s{2,}/));return rows.slice(1).some(r=>r.length!==rows[0].length)?{error:'資料列與標題欄數不同，請使用 Tab 或標準 CSV。'}:{headers:rows[0],rows:rows.slice(1)};}
+    const records=[];let row=[],cell='',quoted=false,closed=false;
+    for(let i=0;i<text.length;i++){const c=text[i];
+      if(quoted){if(c==='"'){if(text[i+1]==='"'){cell+='"';i++;}else{quoted=false;closed=true;}}else cell+=c;continue;}
+      if(c==='"'){if(cell.trim()||closed)return {error:'引號位置不正確，請檢查 CSV 格式。'};cell='';quoted=true;continue;}
+      if(c===sep||c==='\n'||c==='\r'){row.push(cell.trim());cell='';closed=false;if(c!==sep){if(row.some(v=>v!==''))records.push(row);row=[];if(c==='\r'&&text[i+1]==='\n')i++;}continue;}
+      if(closed&&!/\s/.test(c))return {error:'結束引號後須為分隔符或換行。'};cell+=c;
+    }
+    if(quoted)return {error:'引號尚未閉合，未匯入任何資料。'};
+    row.push(cell.trim());if(row.some(v=>v!==''))records.push(row);
+    if(records.length<2)return null;
+    const headers=records.shift();
+    if(new Set(headers).size!==headers.length||headers.some(h=>!h))return {error:'欄名重複或空白，請修正後再解析。'};
+    if(records.some(r=>r.length!==headers.length))return {error:'資料列與標題欄數不同，請檢查分隔符；不會捨棄多出的欄位。'};
+    return {headers,rows:records};
+  },
   matchScore(m) { const p=String(m.score||'').match(/^(\d+)\s*[-:：]\s*(\d+)$/); return p ? {gf:Number(p[m.homeIsBarca?1:2]),ga:Number(p[m.homeIsBarca?2:1])} : null; },
   matches(rows) {
     const out={w:0,d:0,l:0,unknown:0,gf:0,ga:0,scored:0,streak:0,bestUnbeaten:0};
@@ -24,7 +55,7 @@ const XMath = {
   lineup(raw,ids) { const used=new Set();return Array.from({length:11},(_,i)=>{const id=String(raw||'').split(',')[i]||'';if(!ids.includes(id)||used.has(id))return '';used.add(id);return id;}); },
 };
 
-const X_ROUTES={hub:[],lab:['labA','labB','labMetric'],duel:['duelA','duelB','duelScope','duelRate'],
+const X_ROUTES={hub:[],lab:['labA','labB','labMetric'],duel:['duelA','duelB','duelScope','duelRate','duelHonourScope'],
   atlas:['atlasSeason'],derby:['derbyComp','derbyVenue','derbyIndex'],studio:['studioKind','studioItem','studioStyle'],
   eleven:['xiFormation','xiRoster']};
 function xPick(key,items,fallback){if(!items.includes(state[key]))state[key]=fallback??items[0];return state[key];}
@@ -90,6 +121,31 @@ function xRadar(a,b){
   ['a','b'].forEach((key,i)=>chart.append(svg('polygon',{points:pairs.map((r,j)=>point(j,r[key]).join(',')).join(' '),fill:i?'#527acf25':'#bf355425',stroke:i?'var(--azul)':'var(--garnet)','stroke-width':2})));
   return el('div',{},chart,el('p',{class:'x-muted'},`${a.name}：${a.attrs.date} ／ ${b.name}：${b.attrs.date}。僅平均兩人共同提供的欄位；快照日期可能不同，這不是 CA／PA。`),evidenceTable(['分類','共同屬性欄位',a.name,b.name],pairs.map(r=>[r.group,r.keys.join('、'),fmt(r.a,2),fmt(r.b,2)])),xSource({source:a.attrs.source,sheet:a.attrs.schema==='GOALKEEPER'?'Player_Attr_Snap_G':'Player_Attr_Snap_O'},a.name+'屬性來源'),xSource({source:b.attrs.source,sheet:b.attrs.schema==='GOALKEEPER'?'Player_Attr_Snap_G':'Player_Attr_Snap_O'},b.name+'屬性來源'));
 }
+function xHonourDuel(a,b){
+  const pa=DATA.people.players.find(p=>p.id===a.id),pb=DATA.people.players.find(p=>p.id===b.id);
+  const periods=[...new Set([...(pa?.awards||[]),...(pb?.awards||[])].map(f=>f.periodDisplay||f.season))].sort().reverse();
+  xPick('duelHonourScope',['all',...periods],'all');
+  const ha=XMath.honours(pa,state.duelHonourScope),hb=XMath.honours(pb,state.duelHonourScope);
+  const names=[...new Set([...ha.facts,...hb.facts].map(f=>f.award))].sort();
+  const summary=(h,name)=>{const c=XMath.honours({awards:h.facts.filter(f=>f.award===name)}).counts;
+    return `${c.winner} 得獎 / ${c.selection} 入選 / ${c.placing} 其他名次`;};
+  const ta=XMath.teamHonours(a,state.duelScope),tb=XMath.teamHonours(b,state.duelScope);
+  return [el('section',{class:'panel'},el('h3',{},'個人榮譽對決'),
+    el('p',{class:'cap'},'依球員名錄同一份去重明細，涵蓋已收錄的全生涯個人獎項，不限效力巴薩期間。0 表示這個範圍沒有已收錄且綁定的紀錄，不保證從未得獎。'),
+    xSelect('個人榮譽範圍','duelHonourScope',[['all','全部已收錄生涯榮譽'],...periods.map(s=>[s,/^\d{4}$/.test(s)?s+' 曆年':s+' 球季'])]),
+    el('p',{class:'cap'},'曆年獎項與跨年球季分開篩選；不把 2034 年自動塞進 2034/35。下方數字不套用每場效率。'),
+    [['得獎','winner'],['最佳陣容入選','selection'],['其他名次','placing']].map(([label,key])=>xBars(label,ha.counts[key],hb.counts[key])),
+    evidenceTable(['獎項',a.name,b.name],names.map(name=>[name,summary(ha,name),summary(hb,name)])),
+    !names.length?el('p',{class:'x-muted'},'此範圍沒有已收錄的個人獎項。'):null,
+    el('div',{class:'x-grid'},[[a,ha],[b,hb]].map(([p,h])=>el('details',{},el('summary',{},`${p.name} · ${h.facts.length} 筆明細與來源`),
+      evidenceTable(['期間','獎項','結果','來源'],h.facts.map(f=>[f.periodDisplay||f.season,f.award,f.kind==='winner'?'得獎':f.kind==='selection'?'入選':`第 ${f.rank} 名`,awardEvidence(f)]))))),
+    el('div',{class:'btnrow'},[a,b].map(p=>el('button',{class:'btn ghost',onClick:()=>xOpen('people','person',p.id)},`開啟 ${p.name} 榮譽檔案`)))),
+    el('section',{class:'panel'},el('h3',{},'效力巴薩期間的團隊冠軍'),
+      el('p',{class:'cap'},`${state.duelScope==='career'?'巴薩生涯主表':state.duelScope+' 逐季 A1 表'}。此為在隊期間的團隊成就，不宣稱個人正式冠軍資格；與個人獎項分開比較。逐季表未提供世俱盃欄位，維持未知。`),
+      Object.keys(ta).map(k=>xBars(k,ta[k],tb[k])),
+      el('div',{class:'btnrow'},[a,b].map(p=>xSource(state.duelScope==='career'?DATA.experience.players[p.id].source:
+        p.seasonHonours.find(r=>XMath.season(r.season)===XMath.season(state.duelScope))?.evidence,p.name+'團隊歸屬來源'))))];
+}
 function renderDuel(){
   const ps=DATA.players,ids=ps.map(p=>p.id);xPick('duelA',ids,ids[0]);xPick('duelB',ids,ids[1]);
   const a=ps.find(p=>p.id===state.duelA),b=ps.find(p=>p.id===state.duelB),ma=DATA.experience.players[a.id],mb=DATA.experience.players[b.id];
@@ -103,6 +159,7 @@ function renderDuel(){
     el('section',{class:'panel'},el('h3',{},rate?'每次出場的產出':'主檔原始表現'),el('p',{class:'cap'},rate?'進球、助攻、最佳球員除以出場次數，包含替補；沒有分鐘資料，因此不是每 90 分鐘。':'巴薩生涯主表與球員名錄的聯賽生涯是不同統計範圍。未從零散逐季列重算總計。'),
       [['出場','apps'],['進球','goals'],['助攻','assists'],['最佳球員','motm'],['平均評分','rating']].map(([l,k])=>xBars(l+(rate&&['goals','assists','motm'].includes(k)?'／出場':''),XMath.stat(ar,k,rate),XMath.stat(br,k,rate),k==='rating'||rate&&k!=='apps'?2:0))),
     el('section',{class:'panel'},el('h3',{},'逐季進球軌跡'),xChart(years,[{name:a.name,values:years.map(y=>XMath.stat(XMath.record(ma,y),'goals',rate))},{name:b.name,values:years.map(y=>XMath.stat(XMath.record(mb,y),'goals',rate))}],{label:rate?'兩名球員逐季每次出場進球':'兩名球員逐季進球'}),el('p',{class:'cap'},'只使用明示 ADOPTED 的巴薩逐季列；缺季中斷折線，不接成零。'),el('details',{},el('summary',{},'查看圖表原始數值'),evidenceTable(['球季',a.name,b.name],years.map(y=>[y,fmt(XMath.stat(XMath.record(ma,y),'goals',rate),rate?2:0),fmt(XMath.stat(XMath.record(mb,y),'goals',rate),rate?2:0)])))),
+    ...xHonourDuel(a,b),
     el('section',{class:'panel'},el('h3',{},'屬性快照對照'),xRadar(a,b)),
     el('button',{class:'btn',onClick:()=>{state.studioKind='player';state.studioItem=a.id;go('studio');}},'把球員 A 做成典藏卡 →')];
 }

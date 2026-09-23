@@ -221,8 +221,8 @@ class Archive:
         ):
             adoption = row["Statistical_Adoption_Status"] or "UNKNOWN_NOT_ADOPTED"
             record = {
-                "season": row["Season_Display"], "apps": as_int(row["Apps"]), "goals": as_int(row["Goals"]),
-                "assists": as_int(row["Assists"]), "motm": as_int(row["POTM"]), "rating": num(row["Rating"]),
+                "season": row["Season_Display"], "apps": maybe_int(row["Apps"]), "goals": maybe_int(row["Goals"]),
+                "assists": maybe_int(row["Assists"]), "motm": maybe_int(row["POTM"]), "rating": num(row["Rating"]),
                 "source": row["Source_ID"], "status": row["Verification_Status"],
                 "adoption": adoption, "adoptionNote": row["Adoption_Note"],
                 "instance": row["Source_Instance_ID"],
@@ -257,15 +257,17 @@ class Archive:
         national = defaultdict(list)
         for row in self.q("SELECT * FROM Player_Career_Summaries WHERE Team_Level!='Club'"):
             national[row["Player_ID"]].append({
-                "scope": row["Scope"], "country": row["Country_Raw"], "apps": as_int(row["Apps"]),
-                "goals": as_int(row["Goals"]), "assists": as_int(row["Assists"]),
+                "scope": row["Scope"], "level": row['Team_Level'], "country": row["Country_Raw"], "apps": maybe_int(row["Apps"]),
+                "goals": maybe_int(row["Goals"]), "assists": maybe_int(row["Assists"]),
+                "date": row['Snapshot_Date'],
+                "evidence": dict(sheet='Player_Career_Summaries', row=row['_row'], source=row.get('Source_ID'), status=row.get('Verification_Status')),
             })
 
         out = []
         for row in self.q("SELECT * FROM Barcelona_Player_Career"):
             pid = row["Player_ID"]
             profile = profiles.get(pid, {})
-            awards = [a.strip() for a in (row["Major_Awards"] or "").split("；") if a.strip()]
+            awards = [a.strip() for a in (row["Major_Awards"] or "").split("；") if a.strip() and not a.strip().startswith('無已確認')]
             out.append({
                 "id": pid,
                 "name": row["Player_Name"],
@@ -900,6 +902,13 @@ class Archive:
     # ------------------------------------------------------------ chronicle --
     def chronicle(self) -> list[dict]:
         rows = self.q("SELECT * FROM World_Timeline ORDER BY Period_ID DESC, Timeline_ID")
+        from evidence import Periods
+        periods = Periods(self.q('SELECT * FROM Period_Dim'))
+        def order(r):
+            p = periods.by_id.get(r['Period_ID'], {})
+            year = re.search(r'\d{4}', r['Season_or_Year'] or '')
+            return (p.get('start') or (int(year[0]) if year else 0), p.get('end') or 0, r['Timeline_ID'] or '')
+        rows.sort(key=order, reverse=True)
         return [{
             "id": r["Timeline_ID"], "period": r["Period_ID"], "season": r["Season_or_Year"],
             "type": r["Event_Type"], "fact": r["Objective_Fact"], "subject": r["Subject"],

@@ -342,6 +342,10 @@ for _table, (_priority, _constraint) in COMPLETED_P1_P2.items():
         note=_constraint)
 
 PENDING_INTEGRATION: dict[str, tuple[str, str]] = {}
+TABLE_USES['Retirement_Career_History'] = use(SURFACED, PROVENANCE, IDENTITY,
+    columns='Years_Raw/Club_Raw/Nation_Raw/Apps_Raw/Goals_Raw/Source_ID/Source_Block_Index',
+    output='history.retirements[].sections → 退役生涯逐段履歷；reference.tables → 來源原文',
+    note='以球員、來源、區塊三者共同定位；不把履歷再加進生涯摘要。')
 
 # Independent structured award authorities now reach each player's ledger.
 from player_awards import AWARD_SHEETS

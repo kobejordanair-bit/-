@@ -56,7 +56,7 @@ SELECTION_SHEETS = {'FIFA_FIFPro_World_XI', 'Barcelona_LaLiga_Best_XI',
 
 def signature(f):
     # Calendar years and seasons deliberately remain distinct Period_Dim IDs.
-    return (f['id'], ALIASES.get(f['award'], f['award']),
+    return (f['id'] or ('raw', f['primary']['sheet'], str(f['primary']['row'])), ALIASES.get(f['award'], f['award']),
             f['periodId'] or f['season'], f['kind'],
             None if f['kind'] == 'selection' else f['rank'])
 
@@ -104,6 +104,7 @@ def integrate_player_awards(archive, payload):
     ledger, locators, skipped = {}, {}, []
 
     def add(f):
+        f['award'] = ALIASES.get(f['award'], f['award'])
         key = signature(f)
         if key in ledger:
             old = ledger[key]
@@ -114,27 +115,29 @@ def integrate_player_awards(archive, payload):
                 if loc not in seen:
                     old['evidence'].append(r)
                     seen.add(loc)
-            old.setdefault('performance', f.get('performance'))
+            if not old.get('performance') and f.get('performance'):
+                old['performance'] = f['performance']
             return old
         ledger[key] = f
         return f
 
     for facts in payload['honours']['facts'].values():
         for original in facts:
-            # Coach prizes are not personal player honours.
-            if 'Mánager' in original['award']:
-                continue
             f = deepcopy(original)
+            f['actorKind'] = 'coach' if 'Mánager' in f['award'] else 'player'
             loc = (f['primary']['sheet'], str(f['primary']['row']))
             mapped, route = identity(*loc, f['player'], f['season'])
             if f['id'] and mapped and f['id'] != mapped:
                 skipped.append(dict(reason='球員 ID 與來源身分對照衝突', evidence=f['primary']))
+                f['id'] = None
+                f['resolved'] = False
+                f['identityRoute'] = 'conflict'
+                add(f)
                 continue
             f['id'] = f['id'] or mapped
-            if f['id'] not in players:
+            if f['id'] not in players and f['actorKind'] != 'coach':
                 skipped.append(dict(reason='尚無唯一受控球員身分', evidence=f['primary']))
-                continue
-            f['resolved'] = True
+            f['resolved'] = f['id'] in players
             f['periodId'] = period_id(f['season'])
             f['season'] = f['periodDisplay'] = period_display(f['season'])
             f['identityRoute'] = 'Canonical_Award_Facts' if original['id'] else route
@@ -142,6 +145,12 @@ def integrate_player_awards(archive, payload):
 
     tables = payload['reference']['tables']
     counts = {}
+    def performance(r):
+        return {k: value(next((r[c] for c in cols if value(r.get(c)) is not None), None))
+                for k, cols in {'apps':['Appearances','Apps'], 'goals':['Goals'],
+                    'assists':['Assists'], 'rating':['Average_Rating','Rating'],
+                    'nationality':['Nationality','Nationality_Raw'], 'age':['Age'],
+                    'position':['Position','Position_Raw']}.items()}
     for sheet, award in AWARD_SHEETS.items():
         rows = archive.q(f'SELECT * FROM "{sheet}" ORDER BY _row')
         columns = [k for k in rows[0] if k != '_row'] if rows else []
@@ -159,36 +168,46 @@ def integrate_player_awards(archive, payload):
             raw_period = r.get('Season') or r.get('Year')
             pid, route = identity(*loc, r.get('Player') or r.get('Player_Raw'), raw_period)
             if loc in locators:
+                existing = locators[loc]
+                # Attach performance only when this exact source still describes
+                # the same period/person; never turn a reused row locator into proof.
+                if (existing['periodId'] == period_id(raw_period)
+                    and ((pid and pid == existing['id']) or value(existing['player']) == value(r.get('Player') or r.get('Player_Raw')))
+                    and not existing.get('performance')):
+                    existing['performance'] = performance(r)
                 report['canonicalSource'] += 1
-                continue
-            if not pid:
-                skipped.append(dict(reason='尚無唯一受控球員身分', evidence=ref))
-                report['unassigned'] += 1
                 continue
             rank = '入選' if sheet in SELECTION_SHEETS else '1' if sheet == 'Barcelona_Season_Leaders' else value(r.get('Rank'))
             if not rank:
                 skipped.append(dict(reason='來源未提供名次', evidence=ref))
                 report['missingRank'] += 1
                 continue
+            if not pid:
+                skipped.append(dict(reason='尚無唯一受控球員身分', evidence=ref))
+                report['unassigned'] += 1
             f = dict(key=f'{sheet}:{r["_row"]}', award=award or r['Award'],
                 season=period_display(raw_period), periodId=period_id(raw_period),
-                periodDisplay=period_display(raw_period), id=pid, player=players[pid]['name'],
+                periodDisplay=period_display(raw_period), id=pid, player=players[pid]['name'] if pid else r.get('Player') or r.get('Player_Raw'),
                 club=r.get('Club') or r.get('Club_Raw'), rank=rank,
                 kind='selection' if rank == '入選' else 'winner' if rank == '1' else 'placing',
-                resolved=True, identityRoute=route, evidence=[], primary=ref,
-                performance={k: value(next((r[c] for c in cols if value(r.get(c)) is not None), None))
-                    for k, cols in {'apps':['Appearances','Apps'], 'goals':['Goals'],
-                        'assists':['Assists'], 'rating':['Average_Rating','Rating'],
-                        'nationality':['Nationality','Nationality_Raw'], 'age':['Age'],
-                        'position':['Position','Position_Raw']}.items()})
+                resolved=bool(pid), identityRoute=route, evidence=[], primary=ref, actorKind='player',
+                performance=performance(r))
             before = len(ledger)
             add(f)
-            report['added' if len(ledger) > before else 'merged'] += 1
+            if pid:
+                report['added' if len(ledger) > before else 'merged'] += 1
         counts[sheet] = dict(report)
 
     grouped = defaultdict(list)
     for f in ledger.values():
-        grouped[f['id']].append(f)
+        if f['id'] in players and f.get('actorKind') != 'coach':
+            grouped[f['id']].append(f)
+    catalogue = defaultdict(list)
+    for f in ledger.values():
+        catalogue[f['award']].append(f)
+    payload['honours']['catalogueFacts'] = {k: sorted(sorted(fs, key=lambda f: int(f['rank']) if str(f['rank']).isdigit() else 999), key=lambda f: f['periodDisplay'] or '', reverse=True)
+                                           for k, fs in catalogue.items()}
+    payload['honours']['catalogueCount'] = len(ledger)
     summaries = {r['Player_ID']: r for r in archive.q('SELECT * FROM Barcelona_Player_Career ORDER BY _row')}
     for pid, p in players.items():
         p['awards'] = sorted(grouped[pid], key=lambda f: (f['periodDisplay'] or '', f['award']), reverse=True)
@@ -199,7 +218,7 @@ def integrate_player_awards(archive, payload):
     payload['people']['players'].sort(key=lambda p: (-len(p['awards']), -p['apps'], p['name']))
     payload['people']['withAwards'] = sum(bool(p['awards']) for p in players.values())
     skipped = list({(x['evidence']['sheet'], str(x['evidence']['row'])): x for x in skipped}.values())
-    payload['people']['awardCoverage'] = dict(sheets=counts, records=len(ledger),
+    payload['people']['awardCoverage'] = dict(sheets=counts, records=sum(len(fs) for fs in grouped.values()),
         unassigned=skipped, identityIssues=identity_issues,
         policy='CAF＋結構化獎項表；核對來源列姓名及期間，或 Player_Dim 完全一致且唯一的既有別名；不模糊配對。生涯摘要不另計次數。')
     payload['reference']['rowCount'] = sum(len(t['rows']) for t in tables.values())

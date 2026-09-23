@@ -8,7 +8,8 @@ from table_roles import COMPLETED_P1_P2
 
 def integrate_history(archive, payload):
     tables = {}
-    for table, (priority, rule) in COMPLETED_P1_P2.items():
+    history_tables = dict(COMPLETED_P1_P2, Retirement_Career_History=('補充', '退役生涯分段；保留來源口徑，不重算摘要。'))
+    for table, (priority, rule) in history_tables.items():
         rows = archive.q(f'SELECT * FROM "{table}" ORDER BY _row')
         columns = [k for k in rows[0] if k != '_row'] if rows else []
         tables[table] = dict(priority=priority, rule=rule, columns=columns, rows=[
@@ -58,7 +59,7 @@ def integrate_history(archive, payload):
         sections = {}
         # One source block describes one retirement observation. Player_ID alone
         # must not combine later snapshots, or the distinct scopes disappear.
-        for table in ('Retirement_Career_Totals','Retirement_Milestones','Retirement_Narratives',
+        for table in ('Retirement_Career_Totals','Retirement_Career_History','Retirement_Milestones','Retirement_Narratives',
                       'Retirement_Extraction_Issues','Retirement_Honours_Claims'):
             linked = [r for r in rows(table) if all(r['values'].get(k) == v.get(k)
                 for k in ('Player_ID','Source_ID','Source_Block_Index'))]
