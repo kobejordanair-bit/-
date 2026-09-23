@@ -17,7 +17,7 @@ const CMath={
     return out;
   },
   performance(data,id,basis,scope){
-    if(basis==='league')return this.aggregate((data.comparison.players[id]?.league||[]).filter(r=>scope==='career'||CStat.season(r.season)===scope));
+    if(['league','club'].includes(basis))return this.aggregate((data.comparison.players[id]?.[basis]||[]).filter(r=>scope==='career'||CStat.season(r.season)===scope));
     const p=data.experience.players[id],rows=p?(scope==='career'?[{...p,season:'巴薩生涯主表',club:'巴塞隆納'}]:p.seasons.filter(r=>CStat.season(r.season)===scope).map(r=>({...r,club:'巴塞隆納'}))):[];
     const r=rows.length===1?rows[0]:null;return {...Object.fromEntries(C_FIELDS.map(k=>[k,CStat.number(r?.[k])])),rows,rowCount:rows.length,conflict:rows.length>1};
   },
@@ -26,7 +26,7 @@ const CMath={
     const known=record.rows.filter(r=>CStat.number(r[key])!==null&&(!isRate||CStat.number(r.apps)!==null));
     if(record.conflict||record.fieldConflicts?.includes(key))return {value:null,note:'此欄來源衝突，待核對'};
     if(!known.length)return {value:null,note:total?'這些紀錄未提供此欄':'未收錄'};
-    if(key==='rating')return {value:record.rating,note:record.rating===null?'多段評分無可靠合併分母；可查看下方原檔總計快照':'來源評分'};
+    if(key==='rating')return {value:record.rating,note:record.rating===null?'多段評分無可靠合併分母；請展開逐季來源':'來源評分'};
     const sum=known.reduce((n,r)=>n+CStat.number(r[key]),0),partial=known.length<total;
     return {value:isRate?CStat.divide(sum,known.reduce((n,r)=>n+CStat.number(r.apps),0)):sum,
       note:(partial?'已知範圍':'已收錄範圍')+(isRate?'場均':'')+` · ${known.length}/${total} 段`+(isRate?`；分母 ${known.reduce((n,r)=>n+CStat.number(r.apps),0)} 場`:partial?'（小計）':'（合計）'),partial};
@@ -44,19 +44,20 @@ if(typeof X_ROUTES!=='undefined')X_ROUTES.duel=['duelA','duelB','compareTab','co
 const C_TABS=[['overview','比較總覽'],['performance','表現與生涯'],['honours','個人榮譽'],['attributes','屬性快照'],['team','巴薩團隊榮譽']];
 function cSetTab(tab){state.compareTab=tab;paint();}
 function cPair(){const ps=DATA.people.players;xPick('duelA',ps.map(p=>p.id),'P-0060');xPick('duelB',ps.map(p=>p.id),'P-0037');return [ps.find(p=>p.id===state.duelA),ps.find(p=>p.id===state.duelB)];}
-function cControls(a,b,team=false){xPick('compareBasis',['league','barca'],'league');xPick('duelRate',['totals','appearance'],'totals');
-  const rows=p=>team?DATA.players.find(x=>x.id===p.id)?.seasonHonours||[]:state.compareBasis==='league'?DATA.comparison.players[p.id].league:DATA.experience.players[p.id]?.seasons||[];
+function cControls(a,b,team=false){xPick('compareBasis',['club','league','barca'],'club');xPick('duelRate',['totals','appearance'],'totals');
+  const rows=p=>team?DATA.players.find(x=>x.id===p.id)?.seasonHonours||[]:state.compareBasis==='barca'?DATA.experience.players[p.id]?.seasons||[]:DATA.comparison.players[p.id][state.compareBasis]||[];
   const years=CMath.periods([...rows(a),...rows(b)]);
-  const allRows=[...Object.values(DATA.comparison.players).flatMap(p=>p.league),...Object.values(DATA.experience.players).flatMap(p=>p.seasons),...DATA.players.flatMap(p=>p.seasonHonours||[])];
+  const allRows=[...Object.values(DATA.comparison.players).flatMap(p=>[...p.league,...(p.club||[])]),...Object.values(DATA.experience.players).flatMap(p=>p.seasons),...DATA.players.flatMap(p=>p.seasonHonours||[])];
   const choices=CMath.scopePeriods([...rows(a),...rows(b)],allRows,state.duelScope);
   xPick('duelScope',['career',...choices],'career');
   if(team)return {years,ui:xSelect('團隊榮譽期間','duelScope',[['career','效力巴薩期間累計'],...choices.map(y=>[y,y])])};
-  return {years,ui:el('div',{class:'x-controls'},xSelect('統計口徑','compareBasis',[['league','聯賽紀錄 · 世界球員'],['barca','巴薩紀錄 · 各項賽事']]),
-    xSelect('表現期間','duelScope',[['career',state.compareBasis==='league'?'已收錄聯賽累計':'巴薩生涯主表'],...choices.map(y=>[y,y])]),
+  return {years,ui:el('div',{class:'x-controls'},xSelect('統計口徑','compareBasis',[['club','俱樂部全賽事 · 世界球員'],['league','聯賽紀錄 · 世界球員'],['barca','巴薩紀錄 · 各項賽事']]),
+    xSelect('表現期間','duelScope',[['career',state.compareBasis==='club'?'已收錄俱樂部全賽事累計':state.compareBasis==='league'?'已收錄聯賽累計':'巴薩生涯主表'],...choices.map(y=>[y,y])]),
     state.compareTab==='performance'?xSelect('表現顯示方式','duelRate',[['totals','原始總量'],['appearance','每次出場效率']]):null)};
 }
-function cScope(){return (state.compareBasis==='league'?'聯賽紀錄':'巴薩各項賽事')+' / '+(state.duelScope==='career'?(state.compareBasis==='league'?'已收錄累計':'生涯主表'):state.duelScope);}
-function cScopeNote(){return el('p',{class:'cap'},state.compareBasis==='league'?
+function cScope(){return (state.compareBasis==='club'?'俱樂部全賽事':state.compareBasis==='league'?'聯賽紀錄':'巴薩各項賽事')+' / '+(state.duelScope==='career'?(state.compareBasis==='barca'?'生涯主表':'已收錄累計'):state.duelScope);}
+function cScopeNote(){return el('p',{class:'cap'},state.compareBasis==='club'?
+  '直接採用主檔正式採用的各俱樂部球季總計（含聯賽、盃賽等原檔範圍），不再加上聯賽或分賽事列，以免重複計算。國家隊另屬不同範圍，不混入。累計只涵蓋已收錄球季，可能短於聯賽生涯資料；同季轉隊分俱樂部計算。':state.compareBasis==='league'?
   '聯賽生涯表與分賽事表交叉核對，同季同俱樂部採較新快照，相容重複觀測僅計一次。不含盃賽與國家隊；累計只代表已收錄範圍，可能含季中資料。缺值不補零，多段評分不取簡單平均。':
   '巴薩生涯總計直接使用主表，逐季只採 ADOPTED 觀測；不同球季不重算生涯總計。非巴薩球員在此口徑顯示未收錄。');}
 function cSources(record,name){return el('details',{},el('summary',{},`${name} · ${record.rows.length} 段統計依據`),
@@ -68,15 +69,15 @@ function cCareerSnapshots(a,b){return el('section',{class:'panel'},el('h3',{},'�
     el('div',{},el('p',{},'截至 '+r.date),evidenceTable(['出場','進球','助攻','最佳球員','來源評分'],[[fmt(r.apps),fmt(r.goals),fmt(r.assists),fmt(r.motm),fmt(r.rating,2)]]),xSource(r.source)):
     el('p',{},'未收錄唯一可採用的生涯總計快照'));})));}
 function cPairCards(a,b){return el('div',{class:'x-grid'},[a,b].map((p,i)=>{
-  const d=DATA.comparison.players[p.id],profile=CMath.latest(d.profiles),r=CMath.performance(DATA,p.id,state.compareBasis,state.duelScope),hc=HMath.counts(p.awards),periods=d.league.map(r=>CStat.season(r.season)).sort();
+  const d=DATA.comparison.players[p.id],profile=CMath.latest(d.profiles),r=CMath.performance(DATA,p.id,state.compareBasis,state.duelScope),hc=HMath.counts(p.awards),periods=(state.compareBasis==='barca'?DATA.experience.players[p.id]?.seasons||[]:d[state.compareBasis]||[]).map(r=>CStat.season(r.season)).sort();
   return el('section',{class:'x-side'+(i?' b':'')},el('div',{class:'eyebrow'},(i?'PLAYER B / ':'PLAYER A / ')+p.id),el('h3',{},p.name),
     el('p',{class:'x-muted'},profile?([profile.nationality,profile.position,profile.club].filter(Boolean).join(' · ')||'此 Profile 未提供國籍、位置與俱樂部'):'未收錄唯一可採用的 Profile 快照'),
     profile?el('p',{class:'cap'},'Profile 日期：'+(profile.date||'未提供')):null,
     el('div',{class:'x-big'},r.apps===null?'—':fmt(r.apps)+' 場'),el('p',{class:'cap'},cScope()),
     r.apps===null?el('p',{class:'cap'},!r.rowCount?'這個範圍未收錄表現。':r.conflict?'來源重複或範圍歧義，未加總。':`${r.rows.filter(x=>CStat.number(x.apps)===null).length} 段未提供出場，合計保留未知；可在表現分頁查證。`):null,
     el('p',{},`${hc.winner} 得獎 · ${hc.selection} 入選 · ${hc.placing} 其他名次`),el('p',{class:'cap'},'以上榮譽是全期間已收錄個人紀錄；獎項篩選請切換「個人榮譽」。'),
-    el('div',{class:'chips'},el('span',{class:'chip'},`${d.league.length} 段聯賽紀錄`),el('span',{class:'chip'},`${d.snapshots.length} 份屬性快照`),el('span',{class:'chip'},DATA.experience.players[p.id]?'巴薩主表在檔':'無巴薩主表')),
-    periods.length?el('p',{class:'cap'},`聯賽資料涵蓋 ${periods[0]} 至 ${periods.at(-1)}，中間可能缺季。`):el('p',{class:'cap'},'尚無正式採用的聯賽數據，數字保留未知。'),
+    el('div',{class:'chips'},el('span',{class:'chip'},`${d.club?.length||0} 段全賽事紀錄`),el('span',{class:'chip'},`${d.league.length} 段聯賽紀錄`),el('span',{class:'chip'},`${d.snapshots.length} 份屬性快照`),el('span',{class:'chip'},DATA.experience.players[p.id]?'巴薩主表在檔':'無巴薩主表')),
+    periods.length?el('p',{class:'cap'},`此口徑資料涵蓋 ${periods[0]} 至 ${periods.at(-1)}，中間可能缺季。`):el('p',{class:'cap'},'尚無此口徑的正式採用逐季數據，數字保留未知。'),
     el('div',{class:'btnrow'},el('button',{class:'btn ghost',onClick:()=>xOpen('people','person',p.id)},'完整球員檔案'),el('button',{class:'btn ghost',onClick:()=>hOpenTimeline(p.id)},'榮譽時間軸'),el('button',{class:'btn ghost',onClick:()=>hCardJump(p.id)},'製作榮譽卡'),
       DATA.experience.players[p.id]?el('button',{class:'btn ghost',onClick:()=>{state.studioKind='player';state.studioItem=p.id;go('studio');}},'巴薩生涯卡'):null),
     profile?xSource(profile.source,'Profile 來源'):null); }));}
@@ -85,7 +86,7 @@ function cPerformance(a,b,years){const ar=CMath.performance(DATA,a.id,state.comp
     [ar,br].some(r=>r.conflict)?el('p',{class:'hint'},'範圍內出現重複或歧義紀錄，該側停止加總；原始列仍可展開查證。'):null,
     [ar,br].some(r=>!r.rowCount)?el('p',{class:'hint'},'有球員在此範圍未收錄資料；「—」是未知，不是 0。'):null,
     el('p',{class:'hint'},'有缺欄時顯示已知範圍的小計，不是完整生涯總數。每項數字下方列出涵蓋段數；兩人的資料涵蓋可能不同。'),
-    state.compareBasis==='league'?el('div',{class:'x-grid cap'},...[a,b].map((p,i)=>{const dates=[...new Set((i?br:ar).rows.map(r=>r.date).filter(Boolean))].sort();return el('p',{},p.name+' 來源快照：'+(dates.length?dates[0]+(dates.length>1?' ～ '+dates.at(-1):''):'日期未明示')+'；僅代表在檔觀測，不宣稱每季皆為季末定版。');})):null,
+    state.compareBasis!=='barca'?el('div',{class:'x-grid cap'},...[a,b].map((p,i)=>{const rows=(i?br:ar).rows,dates=[...new Set(rows.map(r=>r.date).filter(Boolean))].sort(),periods=rows.map(r=>CStat.season(r.season)).filter(Boolean).sort();return el('p',{},p.name+' 收錄球季：'+(periods.length?periods[0]+' ～ '+periods.at(-1):'未收錄')+'；來源快照：'+(dates.length?dates[0]+(dates.length>1?' ～ '+dates.at(-1):''):'日期未明示')+'。僅代表在檔觀測，不宣稱每季皆為季末定版。');})):null,
     [['出場','apps'],['進球','goals'],['助攻','assists'],['最佳球員','motm'],['平均評分','rating'],['零封','cleanSheets'],['失球','goalsConceded']].map(([l,k])=>{const av=CMath.display(ar,k,rate),bv=CMath.display(br,k,rate);return el('div',{},xBars(l+(rate&&['goals','assists','motm'].includes(k)?'／出場':''),av.value,bv.value,k==='rating'||rate&&['goals','assists','motm'].includes(k)?2:0),el('div',{class:'x-grid cap'},el('span',{},a.name+'：'+av.note),el('span',{},b.name+'：'+bv.note)));}),
     el('details',{},el('summary',{},'為什麼有些數字是「—」？查看欄位完整度與已知小計'),el('p',{class:'cap'},'任一段缺值，完整總計保持未知。已知小計只加有值的紀錄，不代表完整生涯；不拿局部小計除以全生涯出場。評分僅在一段紀錄時顯示；多段不直接平均。'),
       evidenceTable(['欄位',a.name+' 已填／在檔段數',a.name+' 已知小計',b.name+' 已填／在檔段數',b.name+' 已知小計'],[['出場','apps'],['進球','goals'],['助攻','assists'],['最佳球員','motm'],['評分','rating'],['零封','cleanSheets'],['失球','goalsConceded']].map(([l,k])=>[l,...[ar,br].flatMap(r=>{const vals=r.rows.map(x=>CStat.number(x[k])).filter(v=>v!==null);return [r.rows.length?`${vals.length} / ${r.rows.length}`:'未收錄',r.conflict||r.fieldConflicts?.includes(k)||!vals.length||k==='rating'?'—':fmt(vals.reduce((s,v)=>s+v,0))];})]))),
@@ -118,7 +119,7 @@ function renderCompare(){const [a,b]=cPair();xPick('compareTab',C_TABS.map(t=>t[
     a.id===b.id?el('p',{class:'hint'},'目前選到同一身分，兩側相同。'):null,
     el('div',{class:'chips',role:'group','aria-label':'球員比較分頁'},C_TABS.map(([id,label])=>el('button',{class:'chip','aria-pressed':String(id===tab),onClick:()=>cSetTab(id)},label))),
     ['overview','performance','team'].includes(tab)?controls.ui:null,
-    ...(tab==='overview'?[el('p',{class:'cap'},`${DATA.people.players.length} 個受控身分；${DATA.comparison.leaguePlayers} 人有正式採用聯賽紀錄，${DATA.comparison.snapshotPlayers} 人有屬性快照。兩側資料涵蓋可能不同，不把未收錄當成零。`),cPairCards(a,b),cScopeNote(),
+    ...(tab==='overview'?[el('p',{class:'cap'},`${DATA.people.players.length} 個受控身分；${DATA.comparison.clubPlayers||0} 人有俱樂部全賽事紀錄，${DATA.comparison.leaguePlayers} 人有正式採用聯賽紀錄，${DATA.comparison.snapshotPlayers} 人有屬性快照。兩側資料涵蓋可能不同，不把未收錄當成零。`),cPairCards(a,b),cScopeNote(),
       el('section',{class:'panel'},el('h3',{},'把對決展開'),el('p',{},'「表現與生涯」看數據與逐季軌跡；「個人榮譽」看得獎、入選及來源；「屬性快照」可指定日期；團隊榮譽保留巴薩歸屬口徑。'))]:
     tab==='performance'?cPerformance(a,b,controls.years):tab==='honours'?hHonourPanels(a,b):tab==='attributes'?cAttributes(a,b):[cTeam(a,b)])];
 }

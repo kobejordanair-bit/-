@@ -88,7 +88,7 @@ TABLE_USES: dict[str, Use] = {
         output="seasons[] → 巴薩王朝／巴薩賽季；experience.seasons → 王朝實驗室及戰績海報"),
     "Player_Club_Season_Totals": use(
         ADOPTED, SURFACED, columns="Apps/Goals/Assists/POTM/Rating/Clean_Sheets/Goals_Conceded，僅 ADOPTED 列",
-        output="players[].seasonStats → 球員逐季圖與表；experience.players[].seasons → 球員對決（缺值保留）",
+        output="players[].seasonStats → 球員逐季圖與表；experience.players[].seasons → 巴薩比较；comparison.players[].club → 世界球員俱樂部全賽事比較（缺值保留）",
         note="非 ADOPTED 列另存 supersededStats，不計入任何統計"),
     "Barcelona_Player_Career": use(
         ADOPTED, SURFACED, columns="生涯總計與六項團隊冠軍",

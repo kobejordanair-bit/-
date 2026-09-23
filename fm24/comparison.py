@@ -38,7 +38,7 @@ def resolve_league(rows):
 
 def integrate_comparison(archive, payload):
     from build_site import TECHNICAL, MENTAL, PHYSICAL
-    players={p['id']:dict(league=[],profiles=[],snapshots=[],leagueSummaries=[]) for p in payload['people']['players']}
+    players={p['id']:dict(league=[],club=[],profiles=[],snapshots=[],leagueSummaries=[]) for p in payload['people']['players']}
     sources = {r['Source_ID']: r for r in archive.q('SELECT Source_ID, Season_Context FROM Source_Index')}
     dates = defaultdict(set)
     profiles = archive.q('SELECT * FROM Player_Profile_Snapshots ORDER BY Snapshot_Date DESC, _row')
@@ -64,6 +64,13 @@ def integrate_comparison(archive, payload):
             players[r['Player_ID']]['league'].append(observation(r,'Player_Club_Competition_Stats'))
     for p in players.values():
         p['league'] = resolve_league(p['league'])
+    # Season totals already include the source's club competitions. Never add
+    # league/competition rows to these totals, or mix in national-team matches.
+    for r in archive.q("SELECT * FROM Player_Club_Season_Totals WHERE Statistical_Adoption_Status='ADOPTED' ORDER BY Season_ID, _row"):
+        if r['Player_ID'] in players:
+            players[r['Player_ID']]['club'].append(observation(r,'Player_Club_Season_Totals'))
+    for p in players.values():
+        p['club'] = resolve_league(p['club'])
     for r in summaries:
         if r['Player_ID'] in players and r['Scope']=='League career total' and r['Team_Level']=='Club':
             players[r['Player_ID']]['leagueSummaries'].append(dict(
@@ -87,6 +94,7 @@ def integrate_comparison(archive, payload):
                 groups=groups,source=r['Source_ID'],evidence=reference(r['Source_ID'],sheet,r['_row'],r['Verification_Status'])))
     for p in players.values():p['snapshots'].sort(key=lambda r:r['date'] or '',reverse=True)
     payload['comparison']=dict(players=players,leaguePlayers=sum(bool(p['league']) for p in players.values()),
+        clubPlayers=sum(bool(p['club']) for p in players.values()),clubRows=sum(len(p['club']) for p in players.values()),
         leagueRows=sum(len(p['league']) for p in players.values()),snapshotPlayers=sum(bool(p['snapshots']) for p in players.values()),
         policy='聯賽使用兩張表明示 ADOPTED 的聯賽觀測，同球員／期間／俱樂部採唯一較新日期，相容同日欄位合併且僅計一次；不明日期或同日矛盾欄位停止加總。原檔生涯總計按快照日期獨立呈現，不混入逐季加總。')
     return payload

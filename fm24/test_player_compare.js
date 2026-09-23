@@ -47,6 +47,19 @@ test('global and Barcelona statistics remain separate even for same ID',()=>{
  assert.equal(C.performance(data,'P1','league','career').apps,10);assert.equal(C.performance(data,'P1','barca','career').apps,900);
  assert.equal(C.performance(data,'P2','barca','career').apps,null);assert.equal(C.performance(data,'P1','league','2033/34').apps,null);
 });
+test('all-club comparison uses season totals across clubs without adding league or Barca totals',()=>{
+ const data={comparison:{players:{P1:{club:[row({apps:40,goals:20}),row({clubId:'C2',fact:'F2',apps:10,goals:3})],league:[row()]}}},experience:{players:{P1:{apps:900,goals:200,seasons:[]}}}};
+ const result=C.performance(data,'P1','club','2034/35');
+ assert.equal(result.apps,50);assert.equal(result.goals,23);
+ assert.equal(C.display(result,'goals',true).value,23/50);
+ assert.equal(C.performance(data,'P1','club','career').apps,50);
+ assert.equal(C.performance(data,'P1','club','2033/34').apps,null);
+ assert.equal(C.performance(data,'P2','club','career').apps,null);
+});
+test('an explicit all-club share link retains its statistical scope',()=>{
+ const r=C.migrate('duel','compareBasis=club&duelScope=2034/35&duelRate=appearance');
+ assert.equal(r.params.get('compareBasis'),'club');assert.equal(r.params.get('duelScope'),'2034/35');
+});
 test('unprovided Barcelona season and ambiguous seasons stay unknown',()=>{
  const data={experience:{players:{P1:{seasons:[row(),row()]}}}};
  assert.equal(C.performance(data,'P1','barca','2034/35').conflict,true);

@@ -14,6 +14,40 @@ def test_all_world_identities_are_selectable(data):
     _,d=data
     assert set(d['comparison']['players'])=={p['id'] for p in d['people']['players']}
 
+def test_all_club_totals_include_non_barca_players_and_only_adopted_rows(data):
+    a,d=data
+    raw=a.q("SELECT * FROM Player_Club_Season_Totals WHERE Statistical_Adoption_Status='ADOPTED'")
+    actual={o['source']['row']:o for p in d['comparison']['players'].values() for r in p['club'] for o in r['observations']}
+    assert len(actual)==len(raw)==436
+    assert d['comparison']['clubPlayers']==40
+    from comparison import METRICS
+    for r in raw:
+        out=actual[r['_row']]
+        assert out['source']['sheet']=='Player_Club_Season_Totals'
+        for k,col in METRICS.items():assert out[k]==metric(r[col])
+
+def test_club_totals_never_add_league_or_competition_breakdowns(data):
+    _,d=data
+    for pid,totals in [('P-0060',(472,195,182)),('P-0037',(501,399,134))]:
+        rows=d['comparison']['players'][pid]['club']
+        assert len(rows)==12
+        assert tuple(sum(r[k] for r in rows) for k in ['apps','goals','assists'])==totals
+    yamal=next(r for r in d['comparison']['players']['P-0060']['club'] if r['period']=='PER-S-2034-35')
+    assert (yamal['apps'],yamal['goals'],yamal['assists'])==(28,8,9)
+    assert yamal['date']=='2035-06-02'
+
+def test_club_totals_do_not_fill_unprovided_fields_from_other_scopes(data):
+    a,d=data
+    from copy import deepcopy
+    class Missing:
+        def q(self,sql):
+            rows=a.q(sql)
+            if 'FROM Player_Club_Season_Totals' in sql:rows=[dict(r,Assists=None,Goals='0') for r in rows]
+            return rows
+    out=integrate_comparison(Missing(),deepcopy(d))
+    rows=[r for p in out['comparison']['players'].values() for r in p['club']]
+    assert rows and all(r['assists'] is None and r['goals']==0 for r in rows)
+
 def test_league_rows_are_only_adopted_and_preserve_every_source_value(data):
     a,d=data
     raw=a.q("SELECT * FROM Player_League_Career WHERE Statistical_Adoption_Status='ADOPTED'")
