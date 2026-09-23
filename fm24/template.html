@@ -415,6 +415,7 @@ textarea.paste:focus{outline:2px solid var(--garnet);outline-offset:1px}
   .view-head h2{font-size:24px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/*__EXPERIENCE_CSS__*/
 </style>
 
 <div class="shell">
@@ -469,8 +470,17 @@ const statusPill = s => {
   return el("span", { class: "pill " + kind, title: t }, short);
 };
 
+/*__EXPERIENCE_JS__*/
+
 /* ------------------------------------------------------------------ views */
 const VIEWS = [
+  { id: "hub", group: "總教練互動中心", label: "互動中心", render: renderHub },
+  { id: "lab", group: "總教練互動中心", label: "王朝實驗室", render: renderLab },
+  { id: "duel", group: "總教練互動中心", label: "球員對決", render: renderDuel },
+  { id: "atlas", group: "總教練互動中心", label: "足壇時光機", render: renderAtlas },
+  { id: "derby", group: "總教練互動中心", label: "國家德比劇場", render: renderDerby },
+  { id: "studio", group: "總教練互動中心", label: "戰績製卡室", render: renderStudio },
+  { id: "eleven", group: "總教練互動中心", label: "王朝夢幻 XI", render: renderEleven },
   { id: "world",     group: "閱讀檔案", label: "世界總覽",   render: renderWorld },
   { id: "leagues",   group: "閱讀檔案", label: "聯賽積分榜", render: renderLeagues },
   { id: "honours",   group: "閱讀檔案", label: "榮譽殿堂",   render: renderHonours },
@@ -493,7 +503,7 @@ const VIEWS = [
 ];
 
 const state = {
-  view: "world",
+  view: "hub",
   league: DATA.world.leagues.includes("LaLiga EA Sports") ? "LaLiga EA Sports" : DATA.world.leagues[0],
   leagueSeason: DATA.world.seasons[DATA.world.seasons.length - 1],
   award: "Ballon d\u2019Or",
@@ -2801,6 +2811,11 @@ const ROUTE_KEYS = { people: "person", squad: "player", seasons: "season", leagu
   tournaments:"tournament", retirements:"retirement", reference:"referenceSheet" };
 
 function currentRoute() {
+  if (X_ROUTES[state.view]) {
+    const query = new URLSearchParams();
+    X_ROUTES[state.view].forEach(k => { if (state[k] !== null && state[k] !== undefined) query.set(k, state[k]); });
+    return '#/' + state.view + (query.size ? '?' + query.toString() : '');
+  }
   const key = ROUTE_KEYS[state.view];
   const selection = key ? state[key] : null;
   if (state.view === "leagues") {
@@ -2820,14 +2835,22 @@ function writeRoute(replace) {
 }
 
 function readRoute() {
-  const raw = decodeURI(location.hash || "").replace(/^#\/?/, "");
+  const raw = (location.hash || "").replace(/^#\/?/, "");
   if (!raw) return false;
-  const parts = raw.split("/").filter(Boolean).map(decodeURIComponent);
+  const [path, query] = raw.split('?');
+  let parts;
+  try { parts = path.split('/').filter(Boolean).map(decodeURIComponent); }
+  catch (e) { return false; }
   const [view, first, second] = parts;
   if (!VIEWS.some(v => v.id === view)) return false;
 
   state.view = view;
   state.player = state.person = null;
+  if (X_ROUTES[view]) {
+    const params = new URLSearchParams(query || '');
+    X_ROUTES[view].forEach(k => { state[k] = params.has(k) ? params.get(k).slice(0, 160) : null; });
+    return true;
+  }
   if (view === "leagues") {
     if (first && DATA.world.leagues.includes(first)) state.league = first;
     if (second && DATA.world.seasons.includes(second)) state.leagueSeason = second;
@@ -3079,6 +3102,7 @@ function renderReference() {
 
 /* ------------------------------------------------------------------ shell */
 function paint() {
+  if (state.view !== 'derby') xStopPlayback();
   const view = VIEWS.find(v => v.id === state.view);
   const main = document.getElementById("main");
   const banner = DATA.meta.degraded
@@ -3140,6 +3164,7 @@ try {
 addEventListener("popstate", () => { if (readRoute()) paint(); });
 addEventListener("hashchange", () => { if (readRoute()) paint(); });
 
+xInit();
 readRoute();
 paint();
 </script>

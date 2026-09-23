@@ -928,6 +928,10 @@ class Archive:
                     decider = kind
                     raw = raw[len(token):].strip()
                     break
+                if raw.endswith(token):
+                    decider = kind
+                    raw = raw[:-len(token)].strip()
+                    break
 
             home_is_barca = "巴塞" in (r["Home_Club_Raw"] or "")
             goals = re.match(r"(\d+)\s*[-:：]\s*(\d+)", raw)
@@ -942,6 +946,8 @@ class Archive:
                 "home": r["Home_Club_Raw"], "away": r["Away_Club_Raw"],
                 "result": r["Result_Raw"], "score": raw or None, "verdict": verdict,
                 "decider": decider, "homeIsBarca": home_is_barca,
+                "source": {"source": r.get('Source_ID'), "sheet": 'El_Clasico_Match_History',
+                           "row": r['_row'], "status": r.get('Verification_Status')},
             }
             (out if r["Date"] else undated).append(match)
 
@@ -1041,6 +1047,7 @@ def export_json(db_path: Path, out_path: Path, *, allow_degraded: bool = False) 
             "competitions": "賽事身分積欠與同賽事異寫",
             "timetravel": "檔案認知史：哪一天知道了什麼",
             "integrity": "完整性檢查、處理狀態與完整來源問題歷史",
+            "experience": "互動比較專用的來源數值；缺值保留 null，逐季僅明示 ADOPTED",
         },
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1052,6 +1059,7 @@ def export_json(db_path: Path, out_path: Path, *, allow_degraded: bool = False) 
 def collect(archive: "Archive") -> dict:
     from evidence import integrate
     from history import integrate_history
+    from experience import integrate_experience
     payload = {
         "meta": archive.meta(),
         "world": archive.world(),
@@ -1068,13 +1076,17 @@ def collect(archive: "Archive") -> dict:
         "integrity": archive.integrity(),
         "honours": archive.honours(),
     }
-    return integrate_history(archive, integrate(archive, payload))
+    return integrate_experience(archive, integrate_history(archive, integrate(archive, payload)))
 
 
 def build(db_path: Path, out_path: Path, template_path: Path, standalone: bool = False, *, allow_degraded: bool = False) -> None:
     payload = collect(Archive(db_path, allow_degraded=allow_degraded))
     data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).replace('<', '\\u003c')
-    html = template_path.read_text(encoding="utf-8").replace('"__ARCHIVE_DATA__"', data)
+    html = template_path.read_text(encoding="utf-8")
+    for marker, filename in [('/*__EXPERIENCE_JS__*/', 'experience.js'), ('/*__EXPERIENCE_CSS__*/', 'experience.css')]:
+        if marker in html:
+            html = html.replace(marker, (Path(__file__).parent / filename).read_text(encoding='utf-8'))
+    html = html.replace('"__ARCHIVE_DATA__"', data)
     if standalone:
         html = STANDALONE_SKELETON.format(body=html)
     out_path.parent.mkdir(parents=True, exist_ok=True)

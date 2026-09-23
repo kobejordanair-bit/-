@@ -85,14 +85,14 @@ TABLE_USES: dict[str, Use] = {
     # --- figures presented as fact ----------------------------------------
     "Barcelona_Season_Master": use(
         ADOPTED, SURFACED, columns="名次、積分、勝和負、六項賽事結果、轉會摘要",
-        output="seasons[] → 巴薩王朝／巴薩賽季"),
+        output="seasons[] → 巴薩王朝／巴薩賽季；experience.seasons → 王朝實驗室及戰績海報"),
     "Player_Club_Season_Totals": use(
         ADOPTED, SURFACED, columns="Apps/Goals/Assists/POTM/Rating，僅 ADOPTED 列",
-        output="players[].seasonStats → 球員逐季圖與表",
+        output="players[].seasonStats → 球員逐季圖與表；experience.players[].seasons → 球員對決（缺值保留）",
         note="非 ADOPTED 列另存 supersededStats，不計入任何統計"),
     "Barcelona_Player_Career": use(
         ADOPTED, SURFACED, columns="生涯總計與六項團隊冠軍",
-        output="players[] → 巴薩陣容名冊與球員頁"),
+        output="players[] → 巴薩陣容名冊與球員頁；experience.players → 生涯比較／戰績海報；夢幻 XI 選人名冊"),
     "Domestic_League_Standings": use(
         ADOPTED, SURFACED, columns="名次、積分、勝和負、進失球、資格說明",
         output="world.standings → 聯賽積分榜；world.champions → 冠軍版圖"),
@@ -104,7 +104,7 @@ TABLE_USES: dict[str, Use] = {
                output="world.ucl 與 world.uclTitles → 歐冠決賽與奪冠次數（依 Club_ID 合併）"),
     "El_Clasico_Match_History": use(
         ADOPTED, SURFACED, columns="Date/Competition/Home/Away/Result_Raw",
-        output="clasico[] → 國家德比戰績條"),
+        output="clasico[] → 國家德比戰績條／德比劇場／比分海報；保留原始比分與來源列"),
     "Barcelona_Transfers": use(
         ADOPTED, SURFACED, columns="Direction/Player/Counterparty_Club/Fee_Display",
         output="seasons[].transfersIn/Out → 巴薩賽季轉會名單"),
