@@ -55,4 +55,6 @@ python audit_brief.py
 ```
 
 OpenCC 為必要相依套件；缺少時預設拒絕執行。明確降級產物不能與完整環境的數字比較。
-本次為本機交付；GitHub 寫入憑證／整合權限不足，公開網站尚未更新。
+Git Credential Manager 已於 2026-09-23 完成帳號授權，解除原先本機 Git 無法推送的阻塞。
+發布目標為儲存庫 main 分支的 `fm24/archive.html`；網站位址：
+https://kobejordanair-bit.github.io/-/fm24/archive.html 。
