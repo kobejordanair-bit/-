@@ -3,8 +3,10 @@
 把 `FM24_World_Master_v6.4.0_award_delta_2034_35.final` 的 122 張工作表、27,124 列資料轉成可查詢的 SQLite，
 再產出一個單檔的靜態檔案館網站。
 
-目前已完成 8 張 P0 的讀者頁接入。來源關聯、欄位日期、逐季核對與測試結果見
-[P0 接入驗收](P0_INTEGRATION.md)。下方比對器研究中的舊統計屬歷史開發紀錄；
+目前原定 P0／P1／P2 的 32 張表均已完成接入，待接入清單為 0。
+完整交付與最新驗收見 [接入完成報告](INTEGRATION_COMPLETE.md)，
+來源關聯與逐季核對的設計見 [P0 接入驗收](P0_INTEGRATION.md)。
+這不表示 122 張表的全部欄位都已採用為正式統計。下方比對器研究中的舊統計屬歷史開發紀錄；
 目前數字以重新建置的輸出與 `coverage.py` 為準。工作簿是正式主檔，網站是衍生閱讀介面。
 
 ## 為什麼不直接開 Excel
@@ -33,7 +35,7 @@ python3 build_site.py --standalone \
 給程式或模型讀的純資料：
 
 ```bash
-python3 build_site.py --json dist/fm24-data.json      # 1.5 MB，無網頁外殼
+python3 build_site.py --json dist/fm24-data.json      # 無網頁外殼，含來源與歷史資料
 ```
 
 **三種產出的差別**：預設輸出是**片段**，交給 Artifact 平台包上它自己的文件外殼。

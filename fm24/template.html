@@ -480,11 +480,15 @@ const VIEWS = [
   { id: "dynasty",   group: "閱讀檔案", label: "巴薩王朝",   render: renderDynasty },
   { id: "seasons",   group: "閱讀檔案", label: "巴薩賽季",   render: renderSeasons },
   { id: "squad",     group: "閱讀檔案", label: "巴薩陣容",   render: renderSquad },
+  { id: "tournaments", group: "閱讀檔案", label: "國際賽程", render: renderTournaments },
+  { id: "clubhistory", group: "閱讀檔案", label: "俱樂部史料", render: renderClubHistory },
+  { id: "retirements", group: "閱讀檔案", label: "退役檔案", render: renderRetirements },
   { id: "resolve",   group: "管理資料", label: "球員身分",   render: renderResolve },
   { id: "clubs",     group: "管理資料", label: "俱樂部身分", render: renderClubs },
   { id: "comps",     group: "管理資料", label: "賽事身分",   render: renderComps },
   { id: "import",    group: "管理資料", label: "匯入資料",   render: renderImport },
   { id: "sources",   group: "管理資料", label: "來源與期間", render: renderSources },
+  { id: "reference", group: "管理資料", label: "史料與查證", render: renderReference },
   { id: "integrity", group: "管理資料", label: "檔案完整性", render: renderIntegrity },
 ];
 
@@ -634,7 +638,7 @@ function evidenceDetails(refs, label = "查看來源") {
     refs.map(r => {
       const s = DATA.sources.sources.find(x => x.id === r.source);
       return el("div", { class: "note", style: "margin:10px 0;overflow-wrap:anywhere" },
-        el("strong", {}, s?.file || r.source || "工作簿衍生紀錄"),
+        el("strong", {}, s?.file || r.source || "工作簿來源列"),
         el("p", {}, r.sheet ? `${r.sheet}${r.row ? ` · Excel 第 ${r.row} 列` : " · 未提供列號"}` : "來源未提供工作表定位"),
         r.source ? el("p", { class: "mono" }, r.source) : null,
         s ? el("p", {}, [s.domain, s.season, s.note].filter(Boolean).join(" · "))
@@ -642,18 +646,23 @@ function evidenceDetails(refs, label = "查看來源") {
         r.status ? el("p", {}, "驗證／採用：" + r.status) : null,
         r.role ? el("p", {}, "證據用途：" + r.role) : null,
         r.factKey ? el("p", { class: "mono" }, "Fact_Key：" + r.factKey) : null,
-        r.linkRow ? el("p", {}, `關聯表第 ${r.linkRow} 列 · ${r.match === "exact_source_locator" ? "來源識別、工作表與列號唯一對應" : "Fact_Key 關聯"}`) : null);
+        r.linkRow ? el("p", {}, `關聯表第 ${r.linkRow} 列 · ${r.match === "exact_source_locator" ? "來源識別、工作表與列號唯一對應" : "Fact_Key 關聯"}`) : null,
+        referenceRecord(r) ? rawRecord(referenceRecord(r), "檢視對應來源列全部欄位") : null);
     }));
 }
 function awardEvidence(f) {
-  return evidenceDetails([f.primary, ...f.evidence], `查看來源（${f.evidence.length} 筆關聯）`);
+  return el("div",{}, f.performance ? el("div",{class:"cap"},
+    `${dash(f.performance.apps)} 場 · ${dash(f.performance.goals)} 球 · ${dash(f.performance.assists)} 助 · 評分 ${dash(f.performance.rating)}`,
+    el("p",{},[f.performance.nationality,f.performance.age ? f.performance.age+" 歲" : null,f.performance.position].filter(Boolean).join(" · "))) : null,
+    evidenceDetails([f.primary, ...f.evidence], `查看來源（${f.evidence.length} 筆關聯）`));
 }
 function seasonProvenance(s) {
   return el("section", { class: "panel" }, el("h3", {}, "本季欄位的來源與採用狀態"),
     el("p", { class: "cap" }, "日期與採用狀態依欄位群組記錄；未列出的欄位沒有獨立來源宣告。"),
     evidenceTable(["欄位群組", "來源日期", "採用狀態", "涵蓋範圍", "證據"], s.provenance.map(r =>
       [r.group, r.date, r.adoption, r.coverage, evidenceDetails([r.evidence,
-        {sheet:"Season_Master_Field_Provenance", row:r.row}])])));
+        {sheet:"Season_Master_Field_Provenance", row:r.row}])])),
+    s.historyRefs?.length ? evidenceDetails(s.historyRefs,"查看賽季歷史表原始依據") : null);
 }
 function playerEvidence(p) {
   const labels = {Apps:"出場",Starts:"先發",Goals:"進球",Assists:"助攻",Avg_Rating:"評分",MOTM:"MOTM",
@@ -842,6 +851,7 @@ function renderPlayer() {
           el("span", { class: "pill flat" }, `巴薩 ${p.seasons} 季`),
           p.fifpro ? el("span", { class: "pill win" }, `FIFPro 最佳陣容 ×${p.fifpro}`) : null))),
     statLine,
+    retirementLink(p),
     el("section", { class: "panel" },
       el("h3", {}, "團隊冠軍歸屬"),
       el("p", { class: "cap" }, "生涯主表的正式冠軍總計；下方逐季表保留主檔 A1 歸屬依據。"),
@@ -1377,6 +1387,7 @@ function renderPerson() {
       el("div", {}, el("div", { class: "n tnum" }, p.awards.length), el("div", { class: "l" }, "獎項紀錄")),
     ) : el("div", { class: "hint" },
       "這個身分在檔案中只出現於獎項紀錄，沒有任何出場數據列。來源未提供即保持未知，不補值。"),
+    retirementLink(p),
     p.clubs.length ? el("section", { class: "panel" },
       el("h3", {}, "效力俱樂部"),
       el("p", { class: "cap" }, "來源：Player_League_Career"),
@@ -2784,7 +2795,8 @@ function renderImport() {
    changing how anything renders.
    =================================================================== */
 
-const ROUTE_KEYS = { people: "person", squad: "player", seasons: "season", leagues: "league" };
+const ROUTE_KEYS = { people: "person", squad: "player", seasons: "season", leagues: "league",
+  tournaments:"tournament", retirements:"retirement", reference:"referenceSheet" };
 
 function currentRoute() {
   const key = ROUTE_KEYS[state.view];
@@ -2916,6 +2928,150 @@ function renderSources() {
     s.unassignedEvidence.length ? el("section",{class:"panel"},el("h3",{},"尚無對應頁面的證據"),
       s.unassignedEvidence.map(r => el("details",{},el("summary",{},[r.sheet,r.playerId,r.periodId].filter(Boolean).join(" · ")),
         el("pre",{style:"white-space:pre-wrap;overflow-wrap:anywhere"},JSON.stringify(r.records,null,2))))) : null,
+  ];
+}
+
+/* ---------------------------- historical records and source evidence */
+function referenceRecord(ref) {
+  return DATA.reference?.tables[ref.sheet]?.rows.find(r => String(r.row) === String(ref.row));
+}
+function referenceRows(refs) { return (refs || []).map(referenceRecord).filter(Boolean); }
+function rawRecord(record, label="完整來源欄位") {
+  return el("details",{},el("summary",{},label),
+    evidenceTable(["來源欄位","原始值"],Object.entries(record.values).map(([k,v]) => [k,
+      el("span",{style:"white-space:pre-wrap;overflow-wrap:anywhere"},dash(v))])));
+}
+function sourceCell(record) { return evidenceDetails([record.source]); }
+function referenceButton(sheet,label) {
+  return el("button",{class:"btn ghost",type:"button",onClick:()=>{
+    state.referenceSheet=sheet;state.referenceQuery="";state.referenceLimit=80;go("reference");
+  }},label);
+}
+function retirementLink(p) {
+  if (!p.retirementIds?.length) return null;
+  return el("div",{class:"note"}, "此球員另有退役來源快照；下列生涯資料不代表現役狀態。 ",
+    el("button",{class:"btn ghost",type:"button",onClick:()=>{
+      state.retirement=p.retirementIds[0];go("retirements");
+    }},"查看退役檔案"));
+}
+function renderTournaments() {
+  const all=DATA.history.tournaments;
+  const t=all.find(t=>t.id===state.tournament) || all[0];
+  if (!t) return [el("h2",{},"國際賽程"),el("p",{},"尚未收錄賽事脈絡。")];
+  const c=t.context.values;
+  const groups={};
+  referenceRows(t.groups).forEach(r=>(groups[r.values.Group_Raw] ||= []).push(r));
+  const stages={};
+  referenceRows(t.matches).forEach(r=>(stages[r.values.Stage_Raw] ||= []).push(r));
+  return [el("div",{class:"view-head"},el("div",{class:"eyebrow"},"國際賽事來源檔案"),
+      el("h2",{},`${t.period} ${t.name}`),el("p",{},`主辦：${dash(t.host)} · ${t.groups.length} 筆分組列 · ${t.matches.length} 場賽程`)),
+    el("div",{class:"filters"},el("select",{id:"tournamentPick","aria-label":"國際賽事",onChange:e=>{
+      state.tournament=e.target.value;paint();writeRoute(false);
+    }},all.map(x=>el("option",{value:x.id,selected:x.id===t.id},`${x.period} ${x.name} · ${dash(x.host)}`)))),
+    el("section",{class:"panel"},el("h3",{},"賽事歸屬依據"),el("p",{},c.Association_Basis),
+      el("p",{class:"cap"},"標題與主辦資訊採主檔的正式歸屬。原始標題保留於來源，不用它覆蓋明確更正。"),
+      sourceCell(t.context)),
+    el("div",{class:"hint"},"比分、加時與點球註記依來源呈現，不另推定晉級隊伍。日期若是一組日期，代表來源提供的範圍，不配成單場確切日期。"),
+    ...(t.groupIssues || []).map(i=>el("div",{class:"note"},
+      el("p",{},`Master 待核對：${i.team} 同時出現在 ${i.groups.join("、")}。保留原始列，未自行修正分組。`),
+      evidenceDetails(referenceRows(i.records).map(r=>r.source)))),
+    ...Object.entries(groups).map(([name,rs])=>el("section",{class:"panel"},el("h3",{},name),
+      evidenceTable(["名次","國家／球隊","賽","勝","和","負","進","失","淨","分","註記","來源"],
+        rs.map(r=>{const v=r.values;return [v.Rank,v.Team_Raw,v.Played,v.Won,v.Drawn,v.Lost,v.Goals_For,v.Goals_Against,v.Goal_Difference,v.Points,v.Info_Raw,sourceCell(r)];})))),
+    ...Object.entries(stages).map(([name,rs])=>el("section",{class:"panel"},el("h3",{},name),
+      evidenceTable(["日期／範圍原文","球隊一","比分","球隊二","加時／點球原文","場地","來源"],
+        rs.map(r=>{const v=r.values;return [v.Date_Raw,v.Team_1_Raw,`${dash(v.Score_1)} – ${dash(v.Score_2)}`,v.Team_2_Raw,v.Result_Note_Raw,v.Venue_Raw,sourceCell(r)];})))),
+    DATA.history.unassignedGroups.length || DATA.history.unassignedMatches.length ? el("div",{class:"note"},
+      "有資料無法唯一連到賽事脈絡，保留於史料與查證。",
+      referenceButton("National_Tournament_Groups","查閱分組來源"),referenceButton("National_Tournament_Matches","查閱賽程來源")) : null,
+  ];
+}
+function renderClubHistory() {
+  const tables=DATA.reference.tables;
+  const xi=tables.Barcelona_LaLiga_Best_XI.rows;
+  const seasons=[...new Set(xi.map(r=>r.values.Season))].sort().reverse();
+  const season=seasons.includes(state.xiSeason) ? state.xiSeason : seasons[0];
+  return [el("div",{class:"view-head"},el("h2",{},"俱樂部史料"),
+    el("p",{},"隊史紀錄、逐季西甲最佳陣容與皇馬歷史對照。每項保留自己的年代、快照與統計範圍。")),
+    el("section",{class:"panel"},el("h3",{},"巴薩隊史紀錄"),
+      el("p",{class:"cap"},"這是來源記錄的完整隊史範圍，包含存檔開季以前的紀錄；不可與本站十二季累計混用。As_Of 是來源觀測時點，非今日紀錄。"),
+      evidenceTable(["分類","紀錄","數值原文","發生期間","脈絡","截至","來源"],tables.Barcelona_Club_Records.rows.map(r=>{
+        const v=r.values;return [v.Record_Category,v.Record_Name,v.Value_Raw,v.Period_or_Date,v.Context,v.As_Of,sourceCell(r)];})),
+      referenceButton("Barcelona_Club_Records_RAW","查看季末原始紀錄（不另累計）")),
+    el("section",{class:"panel"},el("h3",{},"逐季西甲最佳陣容"),
+      el("p",{class:"cap"},"俱樂部依每列來源顯示；表名不代表全部入選者都屬巴薩。這些是入選佐證，不另增加獎項次數。"),
+      el("div",{class:"filters"},el("select",{id:"xiSeason","aria-label":"最佳陣容賽季",onChange:e=>{state.xiSeason=e.target.value;paint();}},
+        seasons.map(s=>el("option",{value:s,selected:s===season},s)))),
+      evidenceTable(["賽季","球員","俱樂部","位置","出場","進球","評分","來源"],xi.filter(r=>r.values.Season===season).map(r=>{
+        const v=r.values;return [v.Season,v.Player,v.Club,v.Position,v.Appearances,v.Goals,v.Average_Rating,sourceCell(r)];}))),
+    el("section",{class:"panel"},el("h3",{},"皇馬西甲逐季對照"),
+      el("p",{class:"cap"},"歷史表與季末榜並列核對，同季只列一列。若有正式季末榜，以其為目前結果；舊快照仍保留來源，不相加、不覆寫。"),
+      evidenceTable(["賽季","歷史表：名次／場／分","歷史表狀態","正式季末榜：名次／場／分","季末快照","來源"],
+        DATA.history.madrid.map(r=>{const v=r.history.values;return [r.season,`${dash(v.Rank)} / ${dash(v.Matches)} / ${dash(v.Points)}`,
+          v.Season_Status,r.final ? `${r.final.rank} / ${r.final.played} / ${r.final.points}` : "尚無唯一正式季末榜",
+          r.final?.snapshot, evidenceDetails([r.history.source,...(r.final ? [r.final.evidence]:[])])];}))),
+    el("section",{class:"panel"},el("h3",{},"國家德比舊摘要"),
+      el("p",{class:"cap"},`最新逐場檔案有 ${DATA.clasico.length} 場。下列摘要只代表各自 As_Of，不替代逐場紀錄。`),
+      evidenceTable(["球隊","場","勝","和","負","截至","來源"],tables.Barcelona_RealMadrid_H2H.rows.map(r=>{
+        const v=r.values;return [v.Club,v.Matches,v.Wins,v.Draws,v.Losses,v.As_Of,sourceCell(r)];}))),
+  ];
+}
+function renderRetirements() {
+  const all=DATA.history.retirements;
+  const r=all.find(r=>r.id===state.retirement) || all[0];
+  if (!r) return [el("h2",{},"退役檔案"),el("p",{},"尚無退役來源。")];
+  const p=r.profile.values, section=t=>referenceRows(r.sections[t]);
+  return [el("div",{class:"view-head"},el("div",{class:"eyebrow"},`${dash(p.Status_Raw)} · 快照 ${dash(p.Snapshot_Raw)}`),
+    el("h2",{},`${r.name} · 退役檔案`),el("p",{},"保留來源當時的身分與生涯敘述；這不是現役名單，也不把敘述中的獎項展開成正式逐季冠軍。")),
+    el("div",{class:"filters"},el("select",{id:"retirementPick","aria-label":"退役球員",onChange:e=>{state.retirement=e.target.value;paint();writeRoute(false);}},
+      all.map(x=>el("option",{value:x.id,selected:x.id===r.id},x.name)))),
+    el("section",{class:"panel"},el("h3",{},"退役身分快照"),
+      evidenceTable(["國籍","生日","來源顯示年齡","位置","生涯期間","國家隊出場／進球"],
+        [[p.Nationality_Raw,p.Date_of_Birth_Raw,p.Age_Source_Display_Raw,p.Position_Raw,p.Career_Period_Raw,
+          `${dash(p.International_Caps_Raw)} / ${dash(p.International_Goals_Raw)}`]]),sourceCell(r.profile)),
+    el("section",{class:"panel"},el("h3",{},"各來源口徑的生涯總計"),
+      el("p",{class:"cap"},"來源個人頁和生涯歷史摘要的口徑可能不同；並列保存，不替換、不相加，也不覆蓋球員名錄的聯賽統計。"),
+      evidenceTable(["來源口徑","出場","進球","說明／俱樂部數","來源"],
+        [["退役個人頁",p.Career_Apps_Raw,p.Career_Goals_Raw,p.Career_Period_Raw,sourceCell(r.profile)],
+          ...section('Retirement_Career_Totals').map(x=>["生涯歷史摘要",x.values.Apps_Raw,x.values.Goals_Raw,
+            x.values.Clubs_Raw,sourceCell(x)])])),
+    el("section",{class:"panel"},el("h3",{},"里程碑原始欄位"),
+      el("p",{class:"cap"},"First／Second／Third 是來源欄名，未定義為獎項排名，不能解讀成冠亞季軍。"),
+      evidenceTable(["原始分類","First 原值","Second 原值","Third 原值","來源"],section('Retirement_Milestones').map(x=>
+        [x.values.Category_Raw,x.values.First_Raw,x.values.Second_Raw,x.values.Third_Raw,sourceCell(x)]))),
+    ...section('Retirement_Narratives').map(x=>el("section",{class:"panel"},el("h3",{},"退役回顧原文"),
+      el("p",{style:"white-space:pre-wrap;line-height:1.9"},x.values.Narrative_Raw),sourceCell(x))),
+    el("section",{class:"panel"},el("h3",{},"來源缺口與歧義"),
+      section('Retirement_Extraction_Issues').map(x=>el("div",{class:"note"},el("p",{},x.values.Issue_Raw),sourceCell(x)))),
+    el("section",{class:"panel"},el("h3",{},"尚未逐季採用的榮譽敘述"),
+      section('Retirement_Honours_Claims').map(x=>el("details",{},el("summary",{},x.values.Adoption_Status),
+        el("p",{},x.values.Adoption_Note),el("p",{style:"white-space:pre-wrap"},x.values.Claim_Raw),sourceCell(x)))),
+  ];
+}
+function renderReference() {
+  const tables=DATA.reference.tables, names=Object.keys(tables);
+  const name=names.includes(state.referenceSheet) ? state.referenceSheet : names[0];
+  state.referenceSheet=name;
+  const t=tables[name], q=(state.referenceQuery || "").trim().toLowerCase();
+  const rows=t.rows.filter(r=>!q || String(r.row)===q || Object.values(r.values).some(v=>String(v??"").toLowerCase().includes(q)));
+  const shown=rows.slice(0,state.referenceLimit || 80);
+  return [el("div",{class:"view-head"},el("h2",{},"史料與查證"),
+      el("p",{},`${names.length} 張 P1／P2 工作表，${DATA.reference.rowCount} 筆來源列。原始觀測、舊摘要、問題與決策紀錄均可搜尋，不額外計入正式統計。`)),
+    el("div",{class:"filters"},el("select",{id:"referenceSheet","aria-label":"史料工作表",onChange:e=>{
+      state.referenceSheet=e.target.value;state.referenceQuery="";state.referenceLimit=80;paint();writeRoute(false);
+    }},names.map(n=>el("option",{value:n,selected:n===name},`${tables[n].priority} · ${n} (${tables[n].rows.length})`))),
+      el("input",{id:"referenceQuery",type:"search",placeholder:"搜尋此表全部欄位或 Excel 列號…",value:state.referenceQuery || "",onInput:e=>{
+        const pos=e.target.selectionStart;state.referenceQuery=e.target.value;state.referenceLimit=80;paint();
+        const input=document.getElementById('referenceQuery');input.focus();input.setSelectionRange(pos,pos);
+      }})),
+    el("div",{class:"note"},t.rule),
+    name==='Import_Observations' ? el("div",{class:"hint"},"Existing、Submitted、Selected 與 Rules 是當次匯入決策歷史；在此檢視不會重新套用或改動任何球員數據。") : null,
+    el("section",{class:"panel"},el("h3",{},name),el("p",{class:"cap"},`符合 ${rows.length} 筆，顯示 ${shown.length} 筆。展開可看所有欄位與來源定位。`),
+      evidenceTable(["Excel 列","來源摘要","全部欄位","來源"],shown.map(r=>[
+        r.row,Object.entries(r.values).filter(([k,v])=>v && !k.endsWith('JSON') && !k.startsWith('Source_') && !k.includes('Verification'))
+          .slice(0,4).map(([k,v])=>`${k}: ${v.length>150 ? v.slice(0,150)+'…' : v}`).join(" · "),
+        rawRecord(r),sourceCell(r)])),
+      shown.length<rows.length ? el("button",{class:"btn",onClick:()=>{state.referenceLimit=rows.length;paint();}},"顯示全部符合資料") : null),
   ];
 }
 

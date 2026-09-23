@@ -38,8 +38,8 @@ ROLE_LABELS = {
 ROLE_MEANINGS = {
     ADOPTED: "欄位數值成為站上以事實呈現的數字",
     SURFACED: "內容直接顯示給讀者",
-    IDENTITY: "僅供比對同一實體，內容未呈現",
-    PROVENANCE: "僅供查證某項事實的出處，內容未呈現",
+    IDENTITY: "供比對同一實體；是否另有呈現，見讀者頁標籤",
+    PROVENANCE: "供查證事實或來源聲明的出處；不代表採用為正式統計",
     PRESERVED: "保存於資料庫，尚未被任何視圖使用",
 }
 
@@ -305,8 +305,8 @@ TABLE_USES: dict[str, Use] = {
 }
 
 
-# Sheets awaiting integration, with the reviewer's priority and constraints.
-PENDING_INTEGRATION: dict[str, tuple[str, str]] = {
+# Completed review plan, retaining the original priorities and constraints.
+COMPLETED_P1_P2: dict[str, tuple[str, str]] = {
     "Barcelona_Club_Records": ("P1", "隊史紀錄，需顯示 As_Of 並區分存檔十二季與完整隊史"),
     "Barcelona_LaLiga_Best_XI": ("P1", "逐季西甲最佳陣容，不得假設全為巴薩球員"),
     "National_Tournament_Context": ("P1", "須與分組、賽程一併接入；明確更正優先於原始標題"),
@@ -332,6 +332,16 @@ PENDING_INTEGRATION: dict[str, tuple[str, str]] = {
     "Retirement_Extraction_Issues": ("P2", "退役資料缺口與歧義"),
     "Retirement_Honours_Claims": ("P2", "未逐季採用的來源敘述，不自動展開年份"),
 }
+
+# Each is rendered in its reader view and in the searchable evidence register.
+# Whole-row preservation does not imply statistical adoption.
+for _table, (_priority, _constraint) in COMPLETED_P1_P2.items():
+    TABLE_USES[_table] = use(SURFACED, PROVENANCE,
+        columns="全部來源欄位（含原始列號）；不以原始證據新增正式統計",
+        output="reference.tables → 史料與查證；國際賽程／俱樂部史料／退役檔案及獎項來源面板",
+        note=_constraint)
+
+PENDING_INTEGRATION: dict[str, tuple[str, str]] = {}
 
 
 def use_of(table: str) -> Use:

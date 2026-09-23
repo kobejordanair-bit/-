@@ -1222,6 +1222,8 @@ def export_json(db_path: Path, out_path: Path, *, allow_degraded: bool = False) 
             "players": "巴塞隆納球員生涯與能力值",
             "chronicle": "工作簿的世界史事件",
             "sources": "來源名冊、期間別名與未能唯一關聯的來源證據",
+            "history": "國際賽程、俱樂部歷史對照與退役檔案；保留來源範圍，不另累計",
+            "reference": "24 張 P1/P2 工作表全部 707 列與原始欄位、來源列號及採用限制",
             "honours": "金球獎與各獎項歷屆得主",
             "resolution": "球員身分積欠與候選",
             "clubs": "俱樂部身分積欠與重複身分",
@@ -1238,6 +1240,7 @@ def export_json(db_path: Path, out_path: Path, *, allow_degraded: bool = False) 
 
 def collect(archive: "Archive") -> dict:
     from evidence import integrate
+    from history import integrate_history
     payload = {
         "meta": archive.meta(),
         "world": archive.world(),
@@ -1254,7 +1257,7 @@ def collect(archive: "Archive") -> dict:
         "integrity": archive.integrity(),
         "honours": archive.honours(),
     }
-    return integrate(archive, payload)
+    return integrate_history(archive, integrate(archive, payload))
 
 
 def build(db_path: Path, out_path: Path, template_path: Path, standalone: bool = False, *, allow_degraded: bool = False) -> None:

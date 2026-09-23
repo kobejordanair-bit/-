@@ -275,7 +275,7 @@ def generate(db_path: Path, *, allow_degraded: bool = False) -> str:
     w("**用途是宣告的，不是掃出來的。** 「執行過一次 SELECT」不等於完整接入——"
       "一張表可能只被讀取球會欄做身分比對，它的進球、助攻、評分從未出現在任何讀者頁。"
       "所以每張表的用途記在 `table_roles.py`，再由 `coverage.py` 與實際建置查詢交叉比對，"
-      "宣告與實作不一致會被抓出來（本次發現 1 處，已修正）。")
+      "檢查宣告為已使用的表是否真的被讀取；實際結果見 coverage.py 輸出。")
     w("")
     try:
         from table_roles import (ADOPTED, IDENTITY, PENDING_INTEGRATION, PRESERVED, PROVENANCE,
@@ -319,6 +319,9 @@ def generate(db_path: Path, *, allow_degraded: bool = False) -> str:
                         if sheet in tables else 0
                     w(f"- `{sheet}`　{rows:,} 列　—— {note}")
                 w("")
+        else:
+            w("原定 P0／P1／P2 待接入清單：0 張、0 列。這不表示所有工作表的所有欄位均已採用。")
+            w("")
     except Exception as exc:                      # pragma: no cover - diagnostics only
         w(f"（用途盤點未能產生：{exc}）")
 
