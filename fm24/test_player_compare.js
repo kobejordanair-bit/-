@@ -18,6 +18,30 @@ test('absent periods and clubs cannot form reliable cumulative statistics',()=>{
 test('empty data is unknown and an explicit zero remains zero',()=>{
  assert.equal(C.aggregate([]).goals,null);assert.equal(C.aggregate([row({goals:0})]).goals,0);
 });
+test('incomplete careers display known totals with coverage instead of hiding all goals',()=>{
+ const r=C.aggregate([row(),row({season:'2033/34',fact:'F2',apps:20,goals:null,assists:null})]);
+ assert.equal(r.goals,null);
+ assert.deepEqual(C.display(r,'goals'),{value:2,note:'已知範圍 · 1/2 段（小計）',partial:true});
+ assert.equal(C.display(r,'assists').value,0);
+ assert.equal(C.display(r,'rating').value,null);
+});
+test('partial per-appearance rates use matching numerator and denominator records',()=>{
+ const r=C.aggregate([row(),row({season:'2033/34',fact:'F2',apps:20,goals:null})]);
+ assert.equal(C.display(r,'goals',true).value,.2);
+ assert.equal(C.display(r,'goals',true).partial,true);
+ assert.equal(C.display(C.aggregate([row({apps:0})]),'goals',true).value,null);
+});
+test('cross-table unresolved conflicts and empty columns cannot become known subtotals',()=>{
+ assert.equal(C.display(C.aggregate([row({conflict:true})]),'goals').value,null);
+ assert.equal(C.display(C.aggregate([row({goals:null})]),'goals').value,null);
+ assert.equal(C.display(C.aggregate([]),'apps').value,null);
+});
+test('a source disagreement blocks only the disputed metric',()=>{
+ const r=C.aggregate([row({fieldConflicts:['rating'],rating:null})]);
+ assert.equal(C.display(r,'goals').value,2);
+ assert.equal(C.display(r,'rating').value,null);
+ assert.match(C.display(r,'rating').note,/衝突/);
+});
 test('global and Barcelona statistics remain separate even for same ID',()=>{
  const data={comparison:{players:{P1:{league:[row()]}}},experience:{players:{P1:{apps:900,goals:200,seasons:[]}}}};
  assert.equal(C.performance(data,'P1','league','career').apps,10);assert.equal(C.performance(data,'P1','barca','career').apps,900);

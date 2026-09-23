@@ -87,7 +87,7 @@ TABLE_USES: dict[str, Use] = {
         ADOPTED, SURFACED, columns="名次、積分、勝和負、六項賽事結果、轉會摘要",
         output="seasons[] → 巴薩王朝／巴薩賽季；experience.seasons → 王朝實驗室及戰績海報"),
     "Player_Club_Season_Totals": use(
-        ADOPTED, SURFACED, columns="Apps/Goals/Assists/POTM/Rating，僅 ADOPTED 列",
+        ADOPTED, SURFACED, columns="Apps/Goals/Assists/POTM/Rating/Clean_Sheets/Goals_Conceded，僅 ADOPTED 列",
         output="players[].seasonStats → 球員逐季圖與表；experience.players[].seasons → 球員對決（缺值保留）",
         note="非 ADOPTED 列另存 supersededStats，不計入任何統計"),
     "Barcelona_Player_Career": use(
@@ -119,7 +119,7 @@ TABLE_USES: dict[str, Use] = {
         ADOPTED, SURFACED, IDENTITY, PROVENANCE,
         columns="Apps/Goals/Assists/POTM/Rating/門將數據／採用狀態／Fact_ID／Source_ID／_row；Club_Raw 供比對",
         output="people[] 的聯賽生涯累計 → 球員名錄；comparison.players[].league → 僅明示 ADOPTED 的聯賽比較與逐季來源",
-        note="比較台缺值不轉零，重複球季俱樂部或 Fact_ID 停止加總，多段評分不平均"),
+        note="比較台與分賽事聯賽觀測依日期去重；缺值以已知小計與涵蓋段數呈現，矛盾欄位停止加總，多段評分不平均"),
     "Domestic_Leagues": use(
         ADOPTED, IDENTITY, columns="Competition/Season/Club/Rank=1",
         output="world.champions[].confirmedElsewhere → 決定冠軍是否標為暫定",
@@ -144,8 +144,8 @@ TABLE_USES: dict[str, Use] = {
                               output="honours.records → 歷史紀錄查詢"),
     "Player_Profile_Snapshots": use(SURFACED, PROVENANCE, columns="國籍、位置、生日、背號、俱樂部、日期、Source_ID、_row",
                                     output="players[]／people[] 的個人欄位；comparison.players[].profiles → 比較卡最新唯一 Profile 與來源"),
-    "Player_Career_Summaries": use(SURFACED, columns="國家隊出場、進球、助攻",
-                                   output="players[].national → 球員頁國家隊區塊"),
+    "Player_Career_Summaries": use(SURFACED, columns="聯賽生涯與國家隊出場、進球、助攻、最佳球員、評分、日期、來源",
+                                   output="players[].national → 球員頁國家隊區塊；comparison.players[].leagueSummaries → 原檔聯賽總計快照"),
     "Player_Attribute_Changes": use(SURFACED, columns="屬性、新舊值、快照區間",
                                     output="timetravel.changes → 認知史能力值變動"),
     "Barcelona_Season_Leaders": use(SURFACED, columns="Metric/Player/Value",
@@ -186,9 +186,9 @@ TABLE_USES: dict[str, Use] = {
         output="sources.periods 與 sources.mergedPeriods → 期間對照表",
         note="同一賽季的多種寫法收斂到一個 Period_ID，共 12 個期間有多種寫法"),
 
-    "Player_Club_Competition_Stats": use(IDENTITY, columns="Club_ID/League_Raw",
-                                         output="球員聯賽歸屬，供比對加權",
-                                         note="出場、進球、評分欄位未呈現"),
+    "Player_Club_Competition_Stats": use(ADOPTED, SURFACED, IDENTITY, columns="正式採用聯賽範圍的期間／球員／俱樂部／表現／來源",
+                                         output="comparison.players.league → 與聯賽生涯交叉核對，較新快照及逐欄矛盾",
+                                         note="盃賽、國家隊及非正式比賽不加入聯賽比較"),
 
     # Read only so identity matching can see their club columns. Declared
     # separately because the distinction matters: these sheets are read, but

@@ -30,7 +30,8 @@ def integrate_experience(archive, payload):
         if r['Player_ID'] not in players:
             continue
         players[r['Player_ID']]['seasons'].append(dict(
-            {k:metric(r[col]) for k,col in {'apps':'Apps','goals':'Goals','assists':'Assists','motm':'POTM','rating':'Rating'}.items()},
+            {k:metric(r[col]) for k,col in {'apps':'Apps','goals':'Goals','assists':'Assists','motm':'POTM','rating':'Rating',
+                'cleanSheets':'Clean_Sheets','goalsConceded':'Goals_Conceded'}.items()},
             season=r['Season_Display'], source=reference(r['Source_ID'], 'Player_Club_Season_Totals', r['_row'], r['Verification_Status'])))
     payload['experience'] = {'seasons':seasons, 'players':players,
         'scope':'巴塞隆納主表與正式採用逐季觀測；缺值不轉零，不從原始重複列重算生涯。'}
