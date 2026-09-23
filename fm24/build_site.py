@@ -1091,16 +1091,21 @@ def collect(archive: "Archive") -> dict:
     return integrate_comparison(archive, integrate_honour_review(archive, integrate_experience(archive, integrate_player_awards(archive, integrate_history(archive, integrate(archive, payload))))))
 
 
-def build(db_path: Path, out_path: Path, template_path: Path, standalone: bool = False, *, allow_degraded: bool = False) -> None:
-    payload = collect(Archive(db_path, allow_degraded=allow_degraded))
+def build(db_path: Path, out_path: Path, template_path: Path, standalone: bool = False, *, allow_degraded: bool = False, workbook_path: Path | None = None) -> None:
+    from archive_exchange import runtime, make_exchange, render_html, digest
+    archive = Archive(db_path, allow_degraded=allow_degraded)
+    try:
+        payload = collect(archive)
+    finally:
+        archive.con.close()
     data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).replace('<', '\\u003c')
-    html = template_path.read_text(encoding="utf-8")
-    for marker, filename in [('/*__EXPERIENCE_JS__*/', 'experience.js'), ('/*__EXPERIENCE_CSS__*/', 'experience.css'), ('/*__HONOUR_JS__*/', 'honour_features.js'), ('/*__COMPARISON_JS__*/', 'player_compare.js')]:
-        if marker in html:
-            html = html.replace(marker, (Path(__file__).parent / filename).read_text(encoding='utf-8'))
-    html = html.replace('"__ARCHIVE_DATA__"', data)
-    if standalone:
-        html = STANDALONE_SKELETON.format(body=html)
+    code = runtime()
+    code['files']['template.html'] = template_path.read_text(encoding='utf-8')
+    code['engine'] = digest(json.dumps(code['files'], ensure_ascii=False, separators=(',', ':')).replace('<', '\\u003c'))
+    packet = make_exchange(workbook_path, db_path, payload, code['engine']) if workbook_path else {
+        'format':'FM24_SNAPSHOT_V1', 'engine':code['engine'], 'payloadJSON':data,
+        'payloadSha256':digest(data), 'filename':'網站快照（未附 Excel）', 'manifest':None}
+    html = render_html(packet, code, portable=False, standalone=standalone)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html, encoding="utf-8")
     kind = "standalone" if standalone else "artifact fragment"
@@ -1124,6 +1129,7 @@ def main() -> None:
                          "(the default output is a fragment for the Artifact platform)")
     ap.add_argument("--allow-degraded", action="store_true",
                     help="承認簡繁轉換不可用，仍以不完整的結果執行")
+    ap.add_argument("--workbook", type=Path, help="附上與 SQLite 同版的原始 Excel，供完整往返；更新建議使用 archive_exchange.py")
     args = ap.parse_args()
     degraded = not require_script_conversion(args.allow_degraded)
     if degraded:
@@ -1131,7 +1137,7 @@ def main() -> None:
     if args.json:
         export_json(args.database, args.json, allow_degraded=args.allow_degraded)
         return
-    build(args.database, args.output, args.template, standalone=args.standalone, allow_degraded=args.allow_degraded)
+    build(args.database, args.output, args.template, standalone=args.standalone, allow_degraded=args.allow_degraded, workbook_path=args.workbook)
 
 
 if __name__ == "__main__":

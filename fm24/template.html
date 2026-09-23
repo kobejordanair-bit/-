@@ -432,8 +432,11 @@ textarea.paste:focus{outline:2px solid var(--garnet);outline-offset:1px}
   <main id="main"></main>
 </div>
 
-<script>
-const DATA = "__ARCHIVE_DATA__";
+<script type="application/json" id="fm24-exchange">"__ARCHIVE_EXCHANGE__"</script>
+<script type="application/json" id="fm24-runtime">"__ARCHIVE_RUNTIME__"</script>
+<script id="fm24-app">
+(async function startArchive() {
+let DATA = "__ARCHIVE_DATA__";
 
 /* ------------------------------------------------------------------ utils */
 const el = (tag, attrs = {}, ...kids) => {
@@ -473,6 +476,8 @@ const statusPill = s => {
 /*__EXPERIENCE_JS__*/
 /*__HONOUR_JS__*/
 /*__COMPARISON_JS__*/
+/*__WORKFLOW_JS__*/
+await wfRestore();
 
 /* ------------------------------------------------------------------ views */
 const VIEWS = [
@@ -500,7 +505,7 @@ const VIEWS = [
   { id: "review", group: "管理資料", label: "優先核對", render: renderHonourReview },
   { id: "clubs",     group: "管理資料", label: "俱樂部身分", render: renderClubs },
   { id: "comps",     group: "管理資料", label: "賽事身分",   render: renderComps },
-  { id: "import",    group: "管理資料", label: "匯入資料",   render: renderImport },
+  { id: "import",    group: "管理資料", label: "更新與備份",   render: renderImport },
   { id: "sources",   group: "管理資料", label: "來源與期間", render: renderSources },
   { id: "reference", group: "管理資料", label: "史料與查證", render: renderReference },
   { id: "integrity", group: "管理資料", label: "檔案完整性", render: renderIntegrity },
@@ -2457,11 +2462,9 @@ function buildRecords() {
 const LOCAL_PREFIX = "fm24:";
 
 function readLocal(collection) {
-  try {
-    return JSON.parse(localStorage.getItem(LOCAL_PREFIX + collection) || "{}");
-  } catch (e) {
-    return {};   // private window, blocked site data, or corrupted value
-  }
+  const value = JSON.parse(localStorage.getItem(LOCAL_PREFIX + collection) || "{}");
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('本機資料格式損壞，請先備份，沒有覆寫既有內容。');
+  return value;
 }
 function writeLocal(collection, map) {
   try {
@@ -2572,7 +2575,7 @@ async function loadBatches() {
   const db = await getDb();
   if (!db) { state.batches = "unavailable"; return; }
   try {
-    const docs = await db.collection("imports").orderBy("createdAt", "desc").limit(100).get();
+    const docs = await db.collection("imports").orderBy("createdAt", "desc").get();
     state.batches = docs.map(d => ({ id: d.id, ...d.data }));
   } catch (e) {
     state.batches = "unavailable";
@@ -2586,7 +2589,6 @@ async function writeBatch() {
   const btn = document.getElementById("writeBtn");
   if (btn) { btn.disabled = true; btn.textContent = "寫入中…"; }
   const now = new Date().toISOString();
-  const id = "imp-" + now.replace(/[^0-9]/g, "").slice(0, 14) + "-" + Math.random().toString(36).slice(2, 7);
   const matched = records.filter(r => r.identity?.status === "exact" && r.identity.match).length;
   const doc = {
     createdAt: now,
@@ -2606,6 +2608,14 @@ async function writeBatch() {
     verificationStatus: "使用者匯入（待併入工作簿）",
   };
   try {
+    const fingerprint = await wfHash(WFlow.batchContent(doc.kind,doc.rows));
+    const id = "imp-" + fingerprint;
+    await loadBatches();
+    if (!Array.isArray(state.batches)) throw new Error('無法核對既有批次，已停止寫入。');
+    if (state.batches.some(b => b.id === id || WFlow.batchContent(b.kind,b.rows) === WFlow.batchContent(doc.kind,doc.rows))) {
+      state.importError = '相同內容已在待併入區，沒有重複寫入。'; paint(); return;
+    }
+    doc.contentHash = fingerprint;
     await db.doc("imports/" + id).set(doc);
     state.importParsed = null;
     state.importMap = {};
@@ -2712,6 +2722,7 @@ function renderImport() {
   const totalRows = pending.reduce((a, b) => a + (b.stats?.total || 0), 0);
 
   return [
+    renderWorkflow(),
     el("div", { class: "view-head" },
       el("div", { class: "eyebrow" }, "Append-only　匯入不覆寫任何既有資料"),
       el("h2", {}, "匯入資料"),
@@ -3086,7 +3097,14 @@ function paint() {
         "⚠ 本頁在簡繁轉換不可用的環境建置。身分比對、參照欄位偵測與覆蓋率數字都不完整，"
         + "且無法與完整環境的結果比較。")
     : null;
-  main.replaceChildren(el("div", { class: "view" }, banner, view.render()));
+  const localVersion = wfPacket && wfBase && wfID(wfPacket)!==wfID(wfBase)
+    ? el('div',{class:'hint',style:'margin-bottom:16px'},'正在顯示本機匯入版本：'+wfPacket.filename+' · '+wfID(wfPacket).slice(0,10),
+      el('button',{class:'btn ghost',onClick:()=>go('import')},'版本與備份')) : null;
+  let content;
+  try { content=view.render(); }
+  catch(error) { content=el('div',{class:'note'},'此頁資料無法顯示：'+error.message,
+    el('button',{class:'btn ghost',onClick:()=>go('import')},'開啟更新與備份，回復版本')); }
+  main.replaceChildren(el("div", { class: "view" }, banner, localVersion, content));
   document.querySelectorAll("#nav button").forEach(b =>
     b.setAttribute("aria-current", String(b.dataset.view === state.view)));
   writeRoute(true);
@@ -3143,4 +3161,15 @@ addEventListener("hashchange", () => { if (readRoute()) paint(); });
 xInit();
 readRoute();
 paint();
+})().catch(error => {
+  const main=document.getElementById('main');
+  main.textContent='頁面啟動失敗：'+error.message+'。可回到這份網頁的基準版，本機歷史不會刪除。';
+  const button=document.createElement('button');button.textContent='回復網頁基準版';
+  button.onclick=()=>{
+    const meta=JSON.parse(document.getElementById('fm24-exchange').textContent);
+    const scope=meta.portable?'portable:'+(meta.workbookSha256||meta.payloadSha256):'website';
+    const request=indexedDB.open('fm24-workbook-versions',1);
+    request.onsuccess=()=>{const db=request.result;const tx=db.transaction('settings','readwrite');tx.objectStore('settings').delete('active:'+scope);tx.oncomplete=()=>{db.close();location.reload();};};
+  };main.append(button);
+});
 </script>

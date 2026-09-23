@@ -3,6 +3,8 @@
 把 `FM24_World_Master_v6.4.0_award_delta_2034_35.final` 的 122 張工作表、27,124 列資料轉成可查詢的 SQLite，
 再產出一個單檔的靜態檔案館網站。
 
+**新版更新流程**：網站左側「更新與備份」直接選 Excel／HTML／交換 JSON，預覽逐表差異後套用，保留五版本可回復；新版 HTML 能取回原始 Excel。完整操作、公開站發布與本機一鍵建置見 [更新流程](UPDATE_WORKFLOW.md)。
+
 新增 **總教練互動中心**：王朝實驗室、球員對決、足壇時光機、德比劇場、PNG／SVG 戰績海報、王朝夢幻 XI 與全站快速搜尋。
 使用方式、資料口徑與驗收見 [互動功能交付](INTERACTIVE_FEATURES.md)。
 `experience.js`、`experience.css` 是可維護的來源模組，建置時全部嵌入 `archive.html`，開啟網站不需要額外 JavaScript 套件。

@@ -14,6 +14,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
+import tempfile
 import datetime as dt
 import re
 import sqlite3
@@ -67,116 +69,138 @@ def normalise(value):
 
 
 def load(workbook_path: Path, db_path: Path) -> None:
+    """Build beside the destination; never destroy a good database on failure."""
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix=".fm24-", suffix=".sqlite", dir=db_path.parent)
+    os.close(fd)
+    staging = Path(name)
+    try:
+        _load(workbook_path, staging, previous=db_path)
+        os.replace(staging, db_path)
+    finally:
+        staging.unlink(missing_ok=True)
+
+
+def _load(workbook_path: Path, db_path: Path, previous: Path) -> None:
     print(f"reading {workbook_path.name} ...", file=sys.stderr)
     wb = openpyxl.load_workbook(workbook_path, read_only=True, data_only=True)
 
-    # Imported observations live in Import_* tables and are NOT in the workbook,
-    # so a rebuild must carry them across rather than drop them with everything else.
-    carried = []
-    if db_path.exists():
-        old = sqlite3.connect(db_path)
-        try:
-            names = [r[0] for r in old.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'Ingest|_%' ESCAPE '|'")]
-            for name in names:
-                ddl = old.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone()[0]
-                rows = list(old.execute(f'SELECT * FROM "{name}"'))
-                cols = [d[0] for d in old.execute(f'SELECT * FROM "{name}" LIMIT 0').description]
-                carried.append((name, ddl, cols, rows))
-        except sqlite3.Error:
-            carried = []
-        finally:
-            old.close()
-        db_path.unlink()
+    con = None
+    try:
+        # Imported observations live in Import_* tables and are NOT in the workbook,
+        # so a rebuild must carry them across rather than drop them with everything else.
+        carried = []
+        if previous.exists():
+            old = sqlite3.connect(previous)
+            try:
+                names = [r[0] for r in old.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'Ingest|_%' ESCAPE '|'")]
+                for name in names:
+                    ddl = old.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone()[0]
+                    rows = list(old.execute(f'SELECT * FROM "{name}"'))
+                    cols = [d[0] for d in old.execute(f'SELECT * FROM "{name}" LIMIT 0').description]
+                    carried.append((name, ddl, cols, rows))
+            finally:
+                old.close()
 
-    con = sqlite3.connect(db_path)
-    # PRAGMAs first: the carry-over inserts below open a transaction, and a
-    # safety-level change inside one is an error.
-    con.execute("PRAGMA journal_mode=OFF")
-    con.execute("PRAGMA synchronous=OFF")
-    for name, ddl, cols, rows in carried:
-        con.execute(ddl)
-        if rows:
-            marks = ", ".join("?" * len(cols))
-            con.executemany(f'INSERT INTO "{name}" VALUES ({marks})', rows)
-        print(f"  carried over {name:<30} {len(rows):>6} imported rows", file=sys.stderr)
-    con.execute(
-        """CREATE TABLE _sheets (
-               sheet_name TEXT PRIMARY KEY,
-               table_name TEXT NOT NULL,
-               row_count  INTEGER NOT NULL,
-               columns    TEXT NOT NULL
-           )"""
-    )
-
-    total_rows = 0
-    for ws in wb.worksheets:
-        table = slug_table(ws.title)
-        header_row = HEADER_ROW_OVERRIDES.get(ws.title, 1)
-
-        rows = ws.iter_rows(values_only=True)
-        header = None
-        for i, row in enumerate(rows, start=1):
-            if i == header_row:
-                header = row
-                break
-        if header is None:
-            print(f"  skip {ws.title}: no header", file=sys.stderr)
-            continue
-
-        seen: set[str] = set()
-        columns = [slug_column(h, i, seen) for i, h in enumerate(header)]
-        if not columns:
-            continue
-
-        # Every column is TEXT on purpose: the workbook mixes "0(2)" with 2 and
-        # "85%" with 0.85, and coercing here would silently destroy source form.
-        ddl = ", ".join(f'"{c}" TEXT' for c in columns)
-        con.execute(f'CREATE TABLE "{table}" ({ddl}, _row INTEGER)')
-
-        placeholders = ", ".join("?" * (len(columns) + 1))
-        insert = f'INSERT INTO "{table}" VALUES ({placeholders})'
-        batch, count = [], 0
-        for excel_row, row in enumerate(rows, start=header_row + 1):
-            values = [normalise(v) for v in row[: len(columns)]]
-            values += [None] * (len(columns) - len(values))
-            if all(v is None for v in values):
-                continue
-            batch.append([None if v is None else str(v) for v in values] + [excel_row])
-            count += 1
-            if len(batch) >= 2000:
-                con.executemany(insert, batch)
-                batch.clear()
-        if batch:
-            con.executemany(insert, batch)
-
+        con = sqlite3.connect(db_path)
+        # PRAGMAs first: the carry-over inserts below open a transaction, and a
+        # safety-level change inside one is an error.
+        con.execute("PRAGMA journal_mode=MEMORY")
+        con.execute("PRAGMA synchronous=OFF")
+        for name, ddl, cols, rows in carried:
+            con.execute(ddl)
+            if rows:
+                marks = ", ".join("?" * len(cols))
+                con.executemany(f'INSERT INTO "{name}" VALUES ({marks})', rows)
+            print(f"  carried over {name:<30} {len(rows):>6} imported rows", file=sys.stderr)
         con.execute(
-            "INSERT INTO _sheets VALUES (?,?,?,?)",
-            (ws.title, table, count, "\t".join(str(h) if h is not None else "" for h in header)),
+            """CREATE TABLE _sheets (
+                   sheet_name TEXT PRIMARY KEY,
+                   table_name TEXT NOT NULL,
+                   row_count  INTEGER NOT NULL,
+                   columns    TEXT NOT NULL
+               )"""
         )
-        total_rows += count
-        print(f"  {ws.title:<38} {count:>6} rows", file=sys.stderr)
 
-    # Indexes on the join keys that every downstream query reaches for.
-    for table, column in [
-        ("Player_Club_Season_Totals", "Player_ID"),
-        ("Player_Club_Competition_Stats", "Player_ID"),
-        ("Player_National_Team_Stats", "Player_ID"),
-        ("Player_League_Career", "Player_ID"),
-        ("Canonical_Award_Facts", "Player_ID"),
-        ("Record_Identity_Map", "Entity_ID"),
-        ("World_Timeline", "Period_ID"),
-        ("Domestic_League_Standings", "Season"),
-    ]:
-        try:
-            con.execute(f'CREATE INDEX "ix_{table}_{column}" ON "{table}" ("{column}")')
-        except sqlite3.OperationalError:
-            pass  # sheet or column absent in this workbook revision
+        total_rows = 0
+        tables = set()
+        if sum((ws.max_row or 0) * (ws.max_column or 0) for ws in wb) > 5_000_000:
+            raise ValueError('工作簿範圍超過 500 萬格；請移除空白格式延伸範圍後再匯入。')
+        for ws in wb.worksheets:
+            table = slug_table(ws.title)
+            if not table or table.lower() in tables or table.lower().startswith('ingest_'):
+                raise ValueError('工作表名稱無法唯一對應或使用待審保留名稱：' + ws.title)
+            tables.add(table.lower())
+            header_row = HEADER_ROW_OVERRIDES.get(ws.title, 1)
 
-    con.commit()
-    con.close()
-    wb.close()
-    print(f"\nwrote {db_path} ({total_rows:,} rows)", file=sys.stderr)
+            rows = ws.iter_rows(values_only=True)
+            header = None
+            for i, row in enumerate(rows, start=1):
+                if i == header_row:
+                    header = row
+                    break
+            if header is None:
+                print(f"  skip {ws.title}: no header", file=sys.stderr)
+                continue
+
+            seen: set[str] = set()
+            columns = [slug_column(h, i, seen) for i, h in enumerate(header)]
+            if not columns:
+                continue
+
+            # Every column is TEXT on purpose: the workbook mixes "0(2)" with 2 and
+            # "85%" with 0.85, and coercing here would silently destroy source form.
+            ddl = ", ".join(f'"{c}" TEXT' for c in columns)
+            con.execute(f'CREATE TABLE "{table}" ({ddl}, _row INTEGER)')
+
+            placeholders = ", ".join("?" * (len(columns) + 1))
+            insert = f'INSERT INTO "{table}" VALUES ({placeholders})'
+            batch, count = [], 0
+            for excel_row, row in enumerate(rows, start=header_row + 1):
+                values = [normalise(v) for v in row[: len(columns)]]
+                values += [None] * (len(columns) - len(values))
+                if all(v is None for v in values):
+                    continue
+                batch.append([None if v is None else str(v) for v in values] + [excel_row])
+                count += 1
+                if len(batch) >= 2000:
+                    con.executemany(insert, batch)
+                    batch.clear()
+            if batch:
+                con.executemany(insert, batch)
+
+            con.execute(
+                "INSERT INTO _sheets VALUES (?,?,?,?)",
+                (ws.title, table, count, "\t".join(str(h) if h is not None else "" for h in header)),
+            )
+            total_rows += count
+            print(f"  {ws.title:<38} {count:>6} rows", file=sys.stderr)
+
+        # Indexes on the join keys that every downstream query reaches for.
+        for table, column in [
+            ("Player_Club_Season_Totals", "Player_ID"),
+            ("Player_Club_Competition_Stats", "Player_ID"),
+            ("Player_National_Team_Stats", "Player_ID"),
+            ("Player_League_Career", "Player_ID"),
+            ("Canonical_Award_Facts", "Player_ID"),
+            ("Record_Identity_Map", "Entity_ID"),
+            ("World_Timeline", "Period_ID"),
+            ("Domestic_League_Standings", "Season"),
+        ]:
+            try:
+                con.execute(f'CREATE INDEX "ix_{table}_{column}" ON "{table}" ("{column}")')
+            except sqlite3.OperationalError:
+                pass  # sheet or column absent in this workbook revision
+
+        con.commit()
+        con.close()
+        wb.close()
+        print(f"\nwrote {db_path} ({total_rows:,} rows)", file=sys.stderr)
+    finally:
+        if con is not None:
+            con.close()
+        wb.close()
 
 
 def main() -> None:
