@@ -95,7 +95,8 @@ def norm_name(value: str | None) -> str:
 
 
 class Archive:
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path, *, allow_degraded: bool = False):
+        self.script_conversion = require_script_conversion(allow_degraded)
         self.con = sqlite3.connect(db_path)
         self.con.row_factory = sqlite3.Row
         self._column_cache: dict[str, set[str]] = {}
@@ -134,8 +135,9 @@ class Archive:
         schema = self.one("SELECT * FROM Workbook_Schema_Metadata") or {}
         return {
             "generated": dt.date.today().isoformat(),
-            "scriptConversion": SCRIPT_CONVERSION_AVAILABLE,
-            "degraded": not SCRIPT_CONVERSION_AVAILABLE,
+            "scriptConversion": self.script_conversion,
+            "degraded": not self.script_conversion,
+            "buildWarnings": [] if self.script_conversion else ["簡繁轉換不可用，身分與覆蓋率不可和完整建置比較。"],
             "sheet_count": len(sheets),
             "row_count": sum(s["row_count"] for s in sheets),
             "schema_version": schema.get("Workbook_Schema_Version", "—"),
@@ -1199,26 +1201,27 @@ STANDALONE_SKELETON = """<!doctype html>
 """
 
 
-def export_json(db_path: Path, out_path: Path) -> None:
+def export_json(db_path: Path, out_path: Path, *, allow_degraded: bool = False) -> None:
     """Dump the payload on its own, for handing to something that reads data.
 
     The site embeds this same structure inside a megabyte of page, which is the
     wrong shape for another program (or another model) to read: it has to get
     through the viewer to reach the archive. This writes the archive alone.
     """
-    payload = collect(Archive(db_path))
+    payload = collect(Archive(db_path, allow_degraded=allow_degraded))
     payload["_readme"] = {
         "source": "FM24 World Master workbook, mirrored to SQLite then derived",
         "generated": payload["meta"]["generated"],
-        "note": "所有數值保留來源原形；來源未提供者為 null，不以 0 代替。"
+        "note": "數值依既有頁面口徑衍生；新增來源核對欄位保留原文與 null。"
                 "identity/club/competition 區塊是待解析的積欠，不是已確認事實。",
         "sections": {
             "meta": "工作簿規模與結構版本",
             "world": "五大聯賽積分榜、歐冠與國際賽冠軍",
-            "people": "332 個受控球員身分與其獎項",
+            "people": "受控球員身分與其正式獎項紀錄（含名次及入選）",
             "seasons": "巴塞隆納 12 季主表",
             "players": "巴塞隆納球員生涯與能力值",
-            "chronicle": "1,334 筆已確認事件",
+            "chronicle": "工作簿的世界史事件",
+            "sources": "來源名冊、期間別名與未能唯一關聯的來源證據",
             "honours": "金球獎與各獎項歷屆得主",
             "resolution": "球員身分積欠與候選",
             "clubs": "俱樂部身分積欠與重複身分",
@@ -1234,7 +1237,8 @@ def export_json(db_path: Path, out_path: Path) -> None:
 
 
 def collect(archive: "Archive") -> dict:
-    return {
+    from evidence import integrate
+    payload = {
         "meta": archive.meta(),
         "world": archive.world(),
         "resolution": archive.resolution(),
@@ -1250,11 +1254,12 @@ def collect(archive: "Archive") -> dict:
         "integrity": archive.integrity(),
         "honours": archive.honours(),
     }
+    return integrate(archive, payload)
 
 
-def build(db_path: Path, out_path: Path, template_path: Path, standalone: bool = False) -> None:
-    payload = collect(Archive(db_path))
-    data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+def build(db_path: Path, out_path: Path, template_path: Path, standalone: bool = False, *, allow_degraded: bool = False) -> None:
+    payload = collect(Archive(db_path, allow_degraded=allow_degraded))
+    data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).replace('<', '\\u003c')
     html = template_path.read_text(encoding="utf-8").replace('"__ARCHIVE_DATA__"', data)
     if standalone:
         html = STANDALONE_SKELETON.format(body=html)
@@ -1286,9 +1291,9 @@ def main() -> None:
     if degraded:
         print("警告：以降級模式建置，簡繁轉換未啟用，身分相關數字不完整。", file=sys.stderr)
     if args.json:
-        export_json(args.database, args.json)
+        export_json(args.database, args.json, allow_degraded=args.allow_degraded)
         return
-    build(args.database, args.output, args.template, standalone=args.standalone)
+    build(args.database, args.output, args.template, standalone=args.standalone, allow_degraded=args.allow_degraded)
 
 
 if __name__ == "__main__":

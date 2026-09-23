@@ -23,8 +23,8 @@ from resolver import (COMPETITION_REFERENCE_COLUMNS, SCRIPT_CONVERSION_AVAILABLE
                       discover_competition_columns, require_script_conversion)
 
 
-def generate(db_path: Path) -> str:
-    archive = Archive(db_path)
+def generate(db_path: Path, *, allow_degraded: bool = False) -> str:
+    archive = Archive(db_path, allow_degraded=allow_degraded)
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
     def scalar(sql: str, *args):
@@ -58,7 +58,7 @@ def generate(db_path: Path) -> str:
     w(f"- 結構版本：`{meta['schema_version']}`")
     w(f"- 本清單產生於：{meta['generated']}")
     w("")
-    if not SCRIPT_CONVERSION_AVAILABLE:
+    if not archive.script_conversion:
         w("> ⚠ **本清單在簡繁轉換不可用的環境產生，所有身分相關數字都不完整，"
           "且無法與完整環境的結果比較。**")
         w("")
@@ -326,7 +326,7 @@ def generate(db_path: Path) -> str:
     w("")
     try:
         from coverage import scan
-        result = scan(db_path)
+        result = scan(db_path, allow_degraded=allow_degraded)
         club_cols = len(discover_club_columns(con))
         comp_cols = len(discover_competition_columns(con))
         w(f"- **俱樂部參照欄 {club_cols} 個、賽事參照欄 {comp_cols} 個**，由值是否真能對應到維度表"
@@ -363,7 +363,7 @@ def main() -> None:
     args = ap.parse_args()
     require_script_conversion(args.allow_degraded)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    text = generate(args.database)
+    text = generate(args.database, allow_degraded=args.allow_degraded)
     args.output.write_text(text, encoding="utf-8")
     print(f"wrote {args.output} ({len(text) / 1024:.0f} KB)")
 

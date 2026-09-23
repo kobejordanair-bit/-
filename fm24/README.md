@@ -1,7 +1,11 @@
 # 藍紅檔案館 — FM24 World Master 資料管線
 
-把 `FM24_World_Master_v6.4.0` 這份 116 張工作表的 Excel 檔，轉成可查詢的 SQLite，
+把 `FM24_World_Master_v6.4.0_award_delta_2034_35.final` 的 122 張工作表、27,124 列資料轉成可查詢的 SQLite，
 再產出一個單檔的靜態檔案館網站。
+
+目前已完成 8 張 P0 的讀者頁接入。來源關聯、欄位日期、逐季核對與測試結果見
+[P0 接入驗收](P0_INTEGRATION.md)。下方比對器研究中的舊統計屬歷史開發紀錄；
+目前數字以重新建置的輸出與 `coverage.py` 為準。工作簿是正式主檔，網站是衍生閱讀介面。
 
 ## 為什麼不直接開 Excel
 
@@ -19,7 +23,7 @@ Excel 能存這些，但不能查。這個管線讓 Excel 降級成「輸入格�
 ## 用法
 
 ```bash
-pip install openpyxl opencc-python-reimplemented
+pip install -r requirements.txt
 python3 etl.py path/to/FM24_World_Master_v6.4.0.xlsx    # -> data/fm24.sqlite
 python3 build_site.py                                    # -> dist/index.html（Artifact 用）
 python3 build_site.py --standalone \
@@ -78,8 +82,9 @@ git add fm24/archive.html && git commit && git push
 `archive.html` 是唯一需要進版控的產出物（約 1 MB）；`dist/` 與 `data/*.sqlite` 仍在 `.gitignore` 裡。
 
 
-`opencc` 只在 build time 需要（身分比對要正規化簡繁）。缺少時 `resolver.py` 會退化成
-不轉換直接比對，站台仍可產出，只是候選命中率會掉。
+`opencc` 在建置時必須可用。CLI 和直接呼叫建置 API 都預設拒絕缺少簡繁轉換的環境。
+僅明確使用 `--allow-degraded`（API 為 `allow_degraded=True`）時允許降級，
+HTML、JSON、稽核報告與覆蓋率結果會保留警示；降級数字不能與完整環境比較。
 
 回流（從站台匯出的 JSON 併回資料庫）：
 
@@ -113,9 +118,10 @@ python3 ingest.py fm24-identity-decisions-*.json --identity --commit # 身分決
 
 | 檔案 | 用途 |
 |---|---|
-| `etl.py` | xlsx → SQLite，1:1 鏡射 116 張表 |
+| `etl.py` | xlsx → SQLite，1:1 鏡射輸入工作簿 |
 | `resolver.py` | 三種實體的比對：簡繁正規化、球員姓氏否決制、俱樂部綴詞剝除、賽事層級否決、分群與重複偵測 |
-| `test_resolver.py` | 回歸測試（95 項），釘住每一條靠真實資料決定的規則 |
+| `test_resolver.py` / `test_evidence.py` | 身分解析、資料採用與 P0 來源關聯回歸測試 |
+| `evidence.py` | P0 來源關聯、期間別名、逐季核對與讀者頁補充資料 |
 | `build_site.py` | SQLite → 網站資料負載（JSON）並注入模板 |
 | `template.html` | 前端：無框架，手繪 SVG 圖表，深／淺色主題 |
 | `ingest.py` | 匯出的 JSON → SQLite，append-only 且冪等；`--identity`／`--clubs`／`--competitions` |
@@ -330,7 +336,10 @@ SELECT Competition_Raw   FROM UCL_Knockout_Results   -- 這才會報 no such col
 ## 測試
 
 ```bash
-python3 -m pytest test_resolver.py -q      # 95 passed
+pip install -r requirements-dev.txt
+python3 etl.py <最新版工作簿.xlsx>
+python3 -m pytest test_resolver.py test_evidence.py -q
+python3 coverage.py
 ```
 
 每個案例都是看真實資料決定的，其中好幾個記錄著實際出過的 bug——包含 OpenCC 冪等性、

@@ -65,6 +65,23 @@ def use(*roles, columns="", output="", direct=True, note="") -> Use:
 
 
 TABLE_USES: dict[str, Use] = {
+    "Award_Fact_Source_Links": use(SURFACED, PROVENANCE,
+        columns="Fact_Key/Origin_Sheet/Origin_Row/Source_ID/Link_Role/Verification_Status",
+        output="honours.facts[].evidence → 獎項與人物頁來源面板；sources.unlinkedAwardEvidence → 未唯一關聯證據"),
+    "Award_Index": use(SURFACED, columns="Category/Award/Worksheet/Data_Status/Record_Grain/Notes",
+        output="honours.index → 榮譽殿堂獎項目錄，不擴增獎項事實"),
+    "Season_Master_Field_Provenance": use(SURFACED, PROVENANCE,
+        columns="Season/Field_Group/Source_Sheet/Source_ID/Source_Date/Coverage/Final_Result_Status",
+        output="seasons[].provenance → 賽季欄位來源與採用狀態"),
+    "Barcelona_Player_Season_Stats": use(SURFACED, PROVENANCE,
+        columns="Player_ID/Season_ID/表現欄位/Source_ID/Verification_Status；無 Player_ID 的说明列另存",
+        output="players[].seasonVerification → 逐欄核對（不再加總）；sources.seasonStatsNotes → 說明列"),
+    "Barcelona_Player_Season_Honours": use(SURFACED, PROVENANCE,
+        columns="Player_ID/Season_ID/Apps/Attribution_Policy/五項冠軍/Authority_Lineage/Source_Reference",
+        output="players[].seasonHonours → 逐季冠軍歸屬；無世俱盃欄位，不補零"),
+    "Barcelona_Transfer_Totals": use(SURFACED, PROVENANCE,
+        columns="Season/Direction/Displayed_Total/Source_ID/Verification_Status/Notes",
+        output="seasons[].transferTotals → 原始顯示總額，與 netSpend 分列，不重算"),
     # --- figures presented as fact ----------------------------------------
     "Barcelona_Season_Master": use(
         ADOPTED, SURFACED, columns="名次、積分、勝和負、六項賽事結果、轉會摘要",
@@ -290,12 +307,6 @@ TABLE_USES: dict[str, Use] = {
 
 # Sheets awaiting integration, with the reviewer's priority and constraints.
 PENDING_INTEGRATION: dict[str, tuple[str, str]] = {
-    "Award_Fact_Source_Links": ("P0", "獎項詳情的來源證據，依 Fact_Key 關聯，多來源不得變多次得獎"),
-    "Award_Index": ("P0", "獎項目錄與涵蓋狀態，需區分得主／前三／最佳陣容粒度"),
-    "Season_Master_Field_Provenance": ("P0", "逐欄位來源日期與採用狀態，不得以單一季末日期套用整頁"),
-    "Barcelona_Player_Season_Honours": ("P0", "冠軍數逐季依據，遵守 Attribution_Policy，無世俱盃欄位不得補零"),
-    "Barcelona_Player_Season_Stats": ("P0", "巴薩逐季核對來源，不與 Club Season Totals 疊加"),
-    "Barcelona_Transfer_Totals": ("P0", "季度官方轉會總額，與淨支出分開交代"),
     "Barcelona_Club_Records": ("P1", "隊史紀錄，需顯示 As_Of 並區分存檔十二季與完整隊史"),
     "Barcelona_LaLiga_Best_XI": ("P1", "逐季西甲最佳陣容，不得假設全為巴薩球員"),
     "National_Tournament_Context": ("P1", "須與分組、賽程一併接入；明確更正優先於原始標題"),

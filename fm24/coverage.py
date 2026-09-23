@@ -38,7 +38,8 @@ def sheet_tables(con: sqlite3.Connection) -> dict[str, str]:
     return {r[0]: r[1] for r in con.execute("SELECT sheet_name, table_name FROM _sheets")}
 
 
-def scan(db_path: Path) -> dict:
+def scan(db_path: Path, *, allow_degraded: bool = False) -> dict:
+    conversion = require_script_conversion(allow_degraded)
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
     clubs = ClubResolver(con)
@@ -75,10 +76,11 @@ def scan(db_path: Path) -> dict:
                     missing_comps.append({"table": table, "column": column, "distinct": len(values),
                                           "matched": hits, "sample": values[:4]})
 
-    return {"clubs": missing_clubs, "competitions": missing_comps, "tables": sheet_tables(con)}
+    return {"clubs": missing_clubs, "competitions": missing_comps, "tables": sheet_tables(con),
+            "degraded": not conversion, "scriptConversion": conversion}
 
 
-def untouched_sheets(db_path: Path) -> list[dict]:
+def untouched_sheets(db_path: Path, *, allow_degraded: bool = False) -> list[dict]:
     """Sheets no query touches during a full build.
 
     Measured by recording the tables every statement names while the payload is
@@ -90,7 +92,7 @@ def untouched_sheets(db_path: Path) -> list[dict]:
     import build_site
 
     touched: set[str] = set()
-    archive = build_site.Archive(db_path)
+    archive = build_site.Archive(db_path, allow_degraded=allow_degraded)
     known = {r[1] for r in archive.con.execute("SELECT sheet_name, table_name FROM _sheets")}
 
     class Recording:
@@ -141,7 +143,7 @@ def main() -> None:
     if degraded:
         print("警告：簡繁轉換未啟用，以下覆蓋率數字偏高且不可與完整環境比較。\n")
 
-    result = scan(args.database)
+    result = scan(args.database, allow_degraded=args.allow_degraded)
     print(f"掃描 {len(result['tables'])} 張表\n")
 
     for label, rows in (("俱樂部", result["clubs"]), ("賽事", result["competitions"])):
@@ -161,7 +163,7 @@ def main() -> None:
     from table_roles import (ADOPTED, IDENTITY, PENDING_INTEGRATION, PRESERVED, PROVENANCE,
                              ROLE_LABELS, ROLE_MEANINGS, SURFACED, use_of)
 
-    unread = {x["sheet"] for x in untouched_sheets(args.database)}
+    unread = {x["sheet"] for x in untouched_sheets(args.database, allow_degraded=args.allow_degraded)}
     con = sqlite3.connect(args.database)
     tables = sheet_tables(con)
 

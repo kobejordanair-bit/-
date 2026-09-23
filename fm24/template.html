@@ -623,6 +623,60 @@ function renderDynasty() {
   ];
 }
 
+/* Evidence is expandable in place: opening it never loses the current fact. */
+function evidenceTable(headers, rows) {
+  return el("div", { class: "tblwrap" }, el("table", { class: "data" },
+    el("thead", {}, el("tr", {}, headers.map(h => el("th", {}, h)))),
+    el("tbody", {}, rows.map(row => el("tr", {}, row.map(v => el("td", {}, v ?? "—")))))));
+}
+function evidenceDetails(refs, label = "查看來源") {
+  return el("details", { class: "evidence" }, el("summary", {}, label),
+    refs.map(r => {
+      const s = DATA.sources.sources.find(x => x.id === r.source);
+      return el("div", { class: "note", style: "margin:10px 0;overflow-wrap:anywhere" },
+        el("strong", {}, s?.file || r.source || "工作簿衍生紀錄"),
+        el("p", {}, r.sheet ? `${r.sheet}${r.row ? ` · Excel 第 ${r.row} 列` : " · 未提供列號"}` : "來源未提供工作表定位"),
+        r.source ? el("p", { class: "mono" }, r.source) : null,
+        s ? el("p", {}, [s.domain, s.season, s.note].filter(Boolean).join(" · "))
+          : r.source ? el("p", {}, "來源名冊未登錄此識別；保留原始來源文字。") : null,
+        r.status ? el("p", {}, "驗證／採用：" + r.status) : null,
+        r.role ? el("p", {}, "證據用途：" + r.role) : null,
+        r.factKey ? el("p", { class: "mono" }, "Fact_Key：" + r.factKey) : null,
+        r.linkRow ? el("p", {}, `關聯表第 ${r.linkRow} 列 · ${r.match === "exact_source_locator" ? "來源識別、工作表與列號唯一對應" : "Fact_Key 關聯"}`) : null);
+    }));
+}
+function awardEvidence(f) {
+  return evidenceDetails([f.primary, ...f.evidence], `查看來源（${f.evidence.length} 筆關聯）`);
+}
+function seasonProvenance(s) {
+  return el("section", { class: "panel" }, el("h3", {}, "本季欄位的來源與採用狀態"),
+    el("p", { class: "cap" }, "日期與採用狀態依欄位群組記錄；未列出的欄位沒有獨立來源宣告。"),
+    evidenceTable(["欄位群組", "來源日期", "採用狀態", "涵蓋範圍", "證據"], s.provenance.map(r =>
+      [r.group, r.date, r.adoption, r.coverage, evidenceDetails([r.evidence,
+        {sheet:"Season_Master_Field_Provenance", row:r.row}])])));
+}
+function playerEvidence(p) {
+  const labels = {Apps:"出場",Starts:"先發",Goals:"進球",Assists:"助攻",Avg_Rating:"評分",MOTM:"MOTM",
+    Clean_Sheets:"零封",Yellow:"黃牌",Red:"紅牌",Goals_Conceded:"失球",Minutes:"分鐘",Major_Awards:"主要獎項",Squad_Role:"陣容角色"};
+  return [
+    el("section", { class: "panel" }, el("h3", {}, "逐季冠軍歸屬依據"),
+      el("p", { class: "cap" }, "依主檔 Attribution_Policy 與逐季正式歸屬呈現，包含出場 0 的成員列；不另推定資格。此表未提供世俱盃欄位。"),
+      evidenceTable(["賽季", "出場", "政策", "西甲", "歐冠", "國王盃", "西超盃", "歐超盃", "依據"],
+        p.seasonHonours.map(r => [r.season, r.apps, r.policy, ...Object.values(r.titles),
+          el("details", {}, el("summary", {}, "歸屬與來源"), el("p", {}, r.lineage),
+            el("p", {}, r.sourceTables), evidenceDetails([r.evidence]))]))),
+    el("section", { class: "panel" }, el("h3", {}, "逐季數據核對"),
+      el("p", { class: "cap" }, "比對巴薩逐季表與已採用的球員俱樂部總表。這些列僅供核對，不再次加進生涯總計；— 代表來源未提供。"),
+      evidenceTable(["賽季", "核對結果", "逐欄資料與來源"], p.seasonVerification.map(r => [r.season,
+        r.comparison === "consistent" ? "可比欄位一致" : r.comparison === "different" ? "有差異，維持總表採用值" : "無唯一採用列可核對",
+        el("details", {}, el("summary", {}, "展開逐欄核對"),
+          evidenceTable(["欄位", "巴薩逐季表原值"], Object.entries(r.fields).map(([k,v]) => [labels[k] || k, v])),
+          r.differences.length ? evidenceTable(["差異欄位", "逐季表", "正式採用值"],
+            r.differences.map(d => [labels[d.field],d.worksheet,d.adopted])) : null,
+          evidenceDetails([r.evidence, ...r.adoptedRows.map(row => ({sheet:"Player_Club_Season_Totals",row,status:"ADOPTED"}))]))]))),
+  ];
+}
+
 /* ---------------------------------------------------------- season detail */
 function renderSeasons() {
   const s = DATA.seasons.find(x => x.id === state.season) || DATA.seasons[0];
@@ -680,6 +734,12 @@ function renderSeasons() {
           el("div", { class: "leader" },
             el("div", { class: "who" }, el("div", { class: "role" }, role), el("div", { class: "nm" }, who)),
             el("div", { class: "v" }, dash(val))))))),
+    seasonProvenance(s),
+    el("section", { class: "panel" }, el("h3", {}, "來源顯示的轉會總額"),
+      el("p", { class: "cap" }, "直接採錄來源總額，與上方淨支出分開呈現；不從明細加總或補差額。"),
+      s.transferTotals.length ? evidenceTable(["方向", "來源顯示總額", "說明", "來源"],
+        s.transferTotals.map(r => [r.direction, r.total, r.note, evidenceDetails([r.evidence])]))
+        : el("p", {}, "本季尚未收錄來源顯示總額。")),
     el("div", { class: "two" },
       el("section", { class: "panel" },
         el("h3", {}, `轉入　${s.transfersIn.length}`),
@@ -784,7 +844,7 @@ function renderPlayer() {
     statLine,
     el("section", { class: "panel" },
       el("h3", {}, "團隊冠軍歸屬"),
-      el("p", { class: "cap" }, "A1 政策：該賽季具巴塞隆納出場紀錄即計入該季球隊冠軍。"),
+      el("p", { class: "cap" }, "生涯主表的正式冠軍總計；下方逐季表保留主檔 A1 歸屬依據。"),
       el("div", { class: "trophy-row" }, Object.entries(p.titles).map(([k, v]) =>
         el("div", { class: "trophy" + (v > 0 ? " has" : "") },
           el("div", { class: "n" }, v), el("div", { class: "l" }, k))))),
@@ -808,6 +868,7 @@ function renderPlayer() {
               el("td", { class: "num tnum" }, fmt(r.rating, 2)),
               el("td", {}, statusPill(r.status))))))),
     ) : null,
+    ...playerEvidence(p),
     p.attrs ? el("section", { class: "panel" },
       el("h3", {}, "能力值快照"),
       el("p", { class: "cap" }, `${p.attrs.date}　${p.attrs.schema === "GOALKEEPER" ? "門將" : "非門將"}屬性組`),
@@ -1155,15 +1216,20 @@ function repaintRecords() {
 
 function renderHonours() {
   const hs = DATA.honours;
-  const awards = Object.keys(hs.winners).sort();
-  const winners = hs.winners[state.award] || [];
+  const awards = Object.keys(hs.facts).sort();
+  if (!awards.includes(state.award)) state.award = awards[0];
+  const winners = (hs.facts[state.award] || []).filter(f => !state.awardKind || f.kind === state.awardKind);
   const unresolved = winners.filter(x => !x.resolved).length;
 
   return [
     el("div", { class: "view-head" },
       el("div", { class: "eyebrow" }, `${hs.awardCatalogue.length} 種獎項　${DATA.integrity.totalAwards.toLocaleString()} 筆事實列`),
       el("h2", {}, "榮譽殿堂"),
-      el("p", {}, "金球獎完整前三名，以及每個獎項的歷屆得主。未綁定 Player_ID 的得主會標示出來。")),
+      el("p", {}, "金球獎前三名、正式獎項名次與最佳陣容入選紀錄。每筆正式事實只列一次，多份來源可展開查證。")),
+    el("details", { class: "panel" }, el("summary", {}, `獎項目錄與收錄範圍（${hs.index.length} 筆）`),
+      el("p", { class: "cap" }, "目錄是工作簿的收錄宣告，不代表本站已展示全部原表。正式事實數依獎項原名精確對應，不自動合併異名；0 不代表未曾得獎。"),
+      evidenceTable(["獎項", "分類", "來源表", "資料狀態", "紀錄粒度", "正式事實列", "備註"],
+        hs.index.map(r => [r.award, r.category, r.sheet, r.status, r.grain, r.canonicalCount, r.note]))),
     el("section", {},
       el("h3", { style: "font-size:15px;margin-bottom:4px" }, "金球獎"),
       el("p", { class: "cap", style: "margin-bottom:14px" }, "來源：Ballon_dOr　每季前三名與當季數據。"),
@@ -1186,22 +1252,28 @@ function renderHonours() {
         })),
       el("div", { id: "recordPanel" }, recordsTable(hs.records))) : null,
     el("section", { class: "panel" },
-      el("h3", {}, "歷屆得主查詢"),
-      el("p", { class: "cap" }, "只列出 Rank = 1 的列。團隊型獎項（年度最佳陣容）每季有多名一位，屬正常。"),
+      el("h3", {}, "獎項事實與來源查詢"),
+      el("p", { class: "cap" }, "第一名、其餘名次及入選分開標示；SELECTION 編號只是來源入選順序，不代表排名或先發。"),
       el("div", { class: "filters", style: "margin-bottom:16px" },
         el("select", { id: "awardPick", onChange: e => { state.award = e.target.value; paint(); } },
-          awards.map(a => el("option", { value: a, selected: a === state.award }, a)))),
+          awards.map(a => el("option", { value: a, selected: a === state.award }, a))),
+        el("select", { id:"awardKind", "aria-label":"紀錄種類", onChange:e => {state.awardKind=e.target.value;paint();} },
+          [["","全部紀錄"],["winner","第一名"],["placing","其餘名次"],["selection","最佳陣容入選"]].map(([v,l]) =>
+            el("option",{value:v,selected:v===(state.awardKind || "")},l)))),
+      el("p", {class:"cap"}, `目前 ${winners.length} 筆正式事實`),
       unresolved ? el("div", { class: "note", style: "margin-bottom:14px" },
         `本獎項有 ${unresolved} 筆得主尚未綁定 Player_ID，以原始姓名呈現。`) : null,
       el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
-        el("thead", {}, el("tr", {}, ["賽季", "得主", "俱樂部", "身分"].map(x => el("th", {}, x)))),
+        el("thead", {}, el("tr", {}, ["賽季", "名次／入選", "球員／教練", "俱樂部", "身分", "來源"].map(x => el("th", {}, x)))),
         el("tbody", {}, winners.map(x => el("tr", {},
-          el("td", { class: "mono" }, dash(x.season)),
+          el("td", { class: "mono", title:x.season }, dash(x.periodDisplay)),
+          el("td", {}, x.kind === "selection" ? `入選（${x.rank}）` : `第 ${x.rank} 名`),
           el("td", { class: "name-cell" }, dash(x.player)),
           el("td", {}, dash(x.club)),
           el("td", {}, x.resolved
             ? el("span", { class: "pill ok" }, x.id)
-            : el("span", { class: "pill warn" }, "未解析")))))))),
+            : el("span", { class: "pill warn" }, "未解析")),
+          el("td", {}, awardEvidence(x)))))))),
   ];
 }
 
@@ -1316,19 +1388,20 @@ function renderPerson() {
         class: "btn", type: "button",
         onClick: () => { state.player = p.id; state.person = null; go("squad"); state.player = p.id; paint(); },
       }, "開啟巴薩生涯檔案 →")) : null,
+    ...(p.seasonHonours?.length || p.seasonVerification?.length ? playerEvidence(p) : []),
     Object.keys(byAward).length ? el("section", { class: "panel" },
       el("h3", {}, `獎項紀錄　${p.awards.length}`),
       el("p", { class: "cap" }, "來源：Canonical_Award_Facts（已綁定此 Player_ID 的列）"),
       el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
-        el("thead", {}, el("tr", {}, ["獎項", "賽季", "名次", "俱樂部"].map(x => el("th", {}, x)))),
+        el("thead", {}, el("tr", {}, ["獎項", "賽季", "名次／入選", "俱樂部", "來源"].map(x => el("th", {}, x)))),
         el("tbody", {}, p.awards.slice().sort((a, b) => String(b.season).localeCompare(String(a.season)))
           .map(a => el("tr", {},
             el("td", {}, a.award),
             el("td", { class: "mono" }, dash(a.season)),
-            el("td", {}, a.rank === 1
+            el("td", {}, a.rank === "1"
               ? el("span", { class: "pill win" }, "冠軍")
-              : el("span", { class: "pill flat" }, a.rank || "入選")),
-            el("td", {}, dash(a.club)))))))) : null,
+              : el("span", { class: "pill flat" }, a.kind === "selection" ? `入選（${a.rank}）` : a.rank)),
+            el("td", {}, dash(a.club)), el("td", {}, awardEvidence(a)))))))) : null,
   ];
 }
 
@@ -2769,7 +2842,7 @@ function renderSources() {
   const rows = s.sources.filter(x =>
     (!state.sourceDomain || x.domain === state.sourceDomain) &&
     (!q || (x.id + (x.file || "") + (x.note || "") + (x.season || "")).includes(q)));
-  const shown = rows.slice(0, 80);
+  const shown = rows;
 
   return [
     el("div", { class: "view-head" },
@@ -2781,8 +2854,8 @@ function renderSources() {
     el("div", { class: "strip" },
       el("div", { class: "garnet" }, el("div", { class: "n tnum" }, s.sources.length),
         el("div", { class: "l" }, "來源")),
-      el("div", {}, el("div", { class: "n tnum" }, s.citedSources), el("div", { class: "l" }, "已被事實引用")),
-      el("div", {}, el("div", { class: "n tnum" }, s.orphanSources), el("div", { class: "l" }, "尚未被引用")),
+      el("div", {}, el("div", { class: "n tnum" }, s.citedSources), el("div", { class: "l" }, "指定範圍有引用")),
+      el("div", {}, el("div", { class: "n tnum" }, s.orphanSources), el("div", { class: "l" }, "指定範圍無引用")),
       el("div", {}, el("div", { class: "n tnum" }, s.periods.length), el("div", { class: "l" }, "期間")),
       el("div", {}, el("div", { class: "n tnum" }, s.mergedPeriods.length),
         el("div", { class: "l" }, "有多種寫法")),
@@ -2795,7 +2868,7 @@ function renderSources() {
       el("p", { class: "cap" }, "同一個賽季在來源中的不同寫法，與它們收斂到的 Period_ID。"),
       el("div", { class: "tblwrap" }, el("table", { class: "data" },
         el("thead", {}, el("tr", {}, ["Period_ID", "正式顯示", "型態", "起迄", "來源寫法"].map(x => el("th", {}, x)))),
-        el("tbody", {}, s.periods.filter(p => p.type === "Season").map(p => {
+        el("tbody", {}, s.periods.map(p => {
           const merged = s.mergedPeriods.find(m => m.id === p.id);
           return el("tr", {},
             el("td", { class: "mono" }, p.id),
@@ -2808,13 +2881,14 @@ function renderSources() {
         }))))),
     el("section", { class: "panel" },
       el("h3", {}, "來源名冊"),
-      el("p", { class: "cap" }, "「已被事實引用」是指有資料列以此 Source_ID 記錄出處；"
-        + "尚未被引用者多為尚未接入的原始檔。"),
+      el("p", { class: "cap" }, "引用次數僅統計 " + s.citationScope.join("、")
+        + " 的資料列，不等於得獎次數，也不能據此認定其餘來源從未被使用。"),
       el("div", { class: "filters", style: "margin-bottom:14px" },
         el("input", {
           id: "sourceQ", type: "search", placeholder: "搜尋 Source_ID、檔名或說明…",
           value: state.sourceQuery,
-          onInput: e => { state.sourceQuery = e.target.value; paint(); },
+          onInput: e => { const pos=e.target.selectionStart; state.sourceQuery=e.target.value; paint();
+            const input=document.getElementById("sourceQ"); input.focus(); input.setSelectionRange(pos,pos); },
         }),
         el("select", { id: "sourceDomain", onChange: e => { state.sourceDomain = e.target.value; paint(); } },
           el("option", { value: "" }, "全部領域"),
@@ -2833,6 +2907,15 @@ function renderSources() {
           el("td", { class: "num tnum" }, x.citedBy || "—"),
           el("td", {}, dash(x.note))))))),
     ),
+    el("section", {class:"panel"}, el("h3",{},"獎項來源關聯核對"),
+      el("p",{},`${s.awardLinkSummary.total} 筆來源關聯中，${s.awardLinkSummary.linked} 筆已連到 ${s.awardLinkSummary.factsWithLinks} 筆正式事實；${s.awardLinkSummary.unlinked} 筆未能唯一關聯。`),
+      el("p",{class:"cap"},`${s.awardLinkSummary.factsWithoutLinks} 筆正式事實未附關聯表紀錄，仍可查看主來源。未能唯一關聯的證據保留如下，不增加獎項次數。`),
+      s.unlinkedAwardEvidence.length ? evidenceDetails(s.unlinkedAwardEvidence,"展開未能唯一關聯的證據") : null),
+    s.seasonStatsNotes.length ? el("details",{class:"panel"},el("summary",{},"逐季表的說明列"),
+      s.seasonStatsNotes.map(r => el("p",{},`Barcelona_Player_Season_Stats 第 ${r.row} 列：${r.text}`))) : null,
+    s.unassignedEvidence.length ? el("section",{class:"panel"},el("h3",{},"尚無對應頁面的證據"),
+      s.unassignedEvidence.map(r => el("details",{},el("summary",{},[r.sheet,r.playerId,r.periodId].filter(Boolean).join(" · ")),
+        el("pre",{style:"white-space:pre-wrap;overflow-wrap:anywhere"},JSON.stringify(r.records,null,2))))) : null,
   ];
 }
 
