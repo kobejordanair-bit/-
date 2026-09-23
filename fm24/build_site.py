@@ -20,6 +20,7 @@ import sqlite3
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+from data_rules import collective_host, host_parts, snapshot_order, snapshot_state, transfer_direction
 
 from resolver import (CATEGORY_LABELS, COMPETITION_REFERENCE_COLUMNS, SCRIPT_CONVERSION_AVAILABLE,
                       LEAGUE_LABELS, ClubResolver, CompetitionResolver, IdentityResolver,
@@ -146,17 +147,20 @@ class Archive:
             "player_count": as_int(self.one("SELECT COUNT(DISTINCT Player_ID) n FROM Player_Dim")["n"]),
             "alias_count": as_int(self.one("SELECT COUNT(*) n FROM Player_Dim")["n"]),
             "club_count": as_int(self.one("SELECT COUNT(DISTINCT Club_ID) n FROM Club_Dim")["n"]),
-            "nation_count": as_int(self.one("SELECT COUNT(DISTINCT National_Team_ID) n FROM Nation_Dim")["n"]),
+            "nation_count": len({r['National_Team_ID'] for r in self.q('SELECT * FROM Nation_Dim')
+                                 if not collective_host(r['Canonical_Display_Name'])}),
+            "nation_dimension_count": as_int(self.one("SELECT COUNT(DISTINCT National_Team_ID) n FROM Nation_Dim")["n"]),
             "identity_links": as_int(self.one("SELECT COUNT(*) n FROM Record_Identity_Map")["n"]),
         }
 
     # ------------------------------------------------------------- seasons --
     def seasons(self) -> list[dict]:
-        transfers = defaultdict(lambda: {"in": [], "out": []})
+        transfers = defaultdict(lambda: {"in": [], "out": [], "unknown": []})
         for row in self.q("SELECT * FROM Barcelona_Transfers"):
-            bucket = "in" if row["Direction"] in ("轉入", "IN") else "out"
+            bucket = transfer_direction(row['Direction']) or 'unknown'
             transfers[row["Season"]][bucket].append(
-                {"player": row["Player"], "club": row["Counterparty_Club"], "fee": row["Fee_Display"], "date": row["Date_Display"]}
+                {"player": row["Player"], "club": row["Counterparty_Club"], "fee": row["Fee_Display"], "date": row["Date_Display"],
+                 "directionRaw": row['Direction'], "row": row['_row']}
             )
 
         leaders = defaultdict(list)
@@ -194,6 +198,7 @@ class Archive:
                 "note": row["Historical_Note"],
                 "derivation": row["Derivation_Status"],
                 "transfersIn": transfers[season]["in"], "transfersOut": transfers[season]["out"],
+                "transfersUnknown": transfers[season]['unknown'],
                 "leaders": leaders[season],
                 "ballonDor": {"player": bdo["Player"], "club": bdo["Club"]} if bdo else None,
             })
@@ -214,7 +219,7 @@ class Archive:
         for row in self.q(
             "SELECT * FROM Player_Club_Season_Totals WHERE Club_ID=? ORDER BY Season_ID", BARCELONA_CLUB_ID
         ):
-            adoption = row["Statistical_Adoption_Status"] or "ADOPTED"
+            adoption = row["Statistical_Adoption_Status"] or "UNKNOWN_NOT_ADOPTED"
             record = {
                 "season": row["Season_Display"], "apps": as_int(row["Apps"]), "goals": as_int(row["Goals"]),
                 "assists": as_int(row["Assists"]), "motm": as_int(row["POTM"]), "rating": num(row["Rating"]),
@@ -309,6 +314,7 @@ class Archive:
         # and the final one is what the page opens on.
         snaps = defaultdict(list)
         snap_meta = {}
+        snap_statuses = defaultdict(set)
         for r in league_rows:
             key = f"{r['Competition_Raw']}|{r['Season']}|{r['Snapshot']}"
             snaps[key].append([
@@ -318,10 +324,13 @@ class Archive:
                 clean(r["Qualification_Raw"]) or clean(r["Info_Raw"]) or "",
             ])
             status = r["Season_Status"] or ""
+            snap_statuses[key].add(status)
+            state = snapshot_state(snap_statuses[key])
             snap_meta[key] = {
                 "snapshot": r["Snapshot"],
-                "status": status,
-                "final": status.startswith("FINAL") or "FINAL" in status,
+                "status": ' / '.join(sorted(snap_statuses[key])) or None,
+                "state": state,
+                "final": state == 'final',
             }
 
         # league|season -> the snapshots available, final first
@@ -330,10 +339,11 @@ class Archive:
             league, season, snapshot = key.split("|")
             snapshot_index[f"{league}|{season}"].append({
                 "key": key, "snapshot": snapshot, "status": meta["status"], "final": meta["final"],
+                "state": meta['state'],
                 "teams": len(snaps[key]),
             })
         for group in snapshot_index.values():
-            group.sort(key=lambda x: (not x["final"], x["snapshot"]), reverse=False)
+            group.sort(key=snapshot_order, reverse=True)
 
         standings = dict(snaps)
         leagues = sorted({r["Competition_Raw"] for r in league_rows})
@@ -343,6 +353,15 @@ class Archive:
         # snapshot without a FINAL marker does not make an already-recorded title
         # provisional — those are two different questions.
         confirmed = set()
+        club_res = ClubResolver(self.con)
+        from evidence import Periods
+        periods = Periods(self.q('SELECT * FROM Period_Dim'))
+        def champion_key(competition, season, club):
+            # Exact controlled aliases first. Corporate suffixes are comparison
+            # keys only: this never merges or rewrites Club_IDs.
+            cid = club_res.resolve(club)
+            name = club_res.canonical.get(cid, club)
+            return league_key(competition), periods.resolve(season) or season, club_key(name)
         for table, competition_col, season_col, club_col, rank_col in (
             ("Domestic_Leagues", "Competition", "Season", "Club", "Rank"),
         ):
@@ -352,21 +371,22 @@ class Archive:
                             f'FROM "{table}" WHERE "{rank_col}"=?', "1"):
                 key = league_key(r["c"])
                 if key and r["s"]:
-                    confirmed.add((key, str(r["s"]), normalise(r["k"])))
+                    confirmed.add(champion_key(r['c'], r['s'], r['k']))
 
         champions = {}
         for group_key, group in snapshot_index.items():
             league_name, season = group_key.split("|")
-            chosen = next((g for g in group if g["final"]), group[-1])
+            chosen = group[0]
             first = next((r for r in snaps[chosen["key"]] if r[0] == 1), None)
             if not first:
                 continue
-            elsewhere = (league_key(league_name), season, normalise(first[1])) in confirmed
+            elsewhere = champion_key(league_name, season, first[1]) in confirmed
             champions[group_key] = {
                 "club": first[1],
                 "final": chosen["final"],
                 "confirmedElsewhere": elsewhere,
                 "snapshot": chosen["snapshot"],
+                "state": chosen['state'],
             }
 
         club_res = ClubResolver(self.con)
@@ -395,7 +415,8 @@ class Archive:
         super_cup = [{"season": r["Season"], "winner": r["Winner"], "runnerUp": r["Runner_Up"]}
                      for r in self.q("SELECT * FROM UEFA_Super_Cup ORDER BY Season DESC")]
         intl = [{"tournament": r["Tournament"], "period": r["Period"], "winner": r["Winner"],
-                 "runnerUp": r["Runner_Up"], "third": r["Third_Place"], "host": r["Host"]}
+                 "runnerUp": r["Runner_Up"], "third": r["Third_Place"], "host": host_parts(r['Host'])[0],
+                 "venue": host_parts(r['Host'])[1], "hostRaw": r['Host']}
                 for r in self.q("SELECT * FROM Intl_Tournament_Results ORDER BY Period DESC")]
         cups = [{"season": r["Season"], "competition": r["Competition"], "rank": as_int(r["Rank"]), "club": r["Club"]}
                 for r in self.q("SELECT * FROM National_Tournaments WHERE Rank IN ('1','2') ORDER BY Season DESC")]
@@ -414,6 +435,7 @@ class Archive:
             "seasons": seasons,
             "standingsCols": ["名次", "球隊", "賽", "勝", "和", "負", "進", "失", "淨", "分", "備註"],
             "standings": standings,
+            "standingRows": len(league_rows),
             "snapshots": {k: v for k, v in snapshot_index.items()},
             "champions": champions,
             "ucl": ucl,
@@ -602,7 +624,7 @@ class Archive:
             season_col = ", Season" if has_season else ""
             rows = self.q(f'SELECT "{column}" v{season_col} FROM "{table}" WHERE "{column}" IS NOT NULL')
             for r in rows:
-                name = str(r["v"]).strip()
+                name = clean(r['v'])
                 if not name:
                     continue
                 bucket = refs[name]
@@ -643,7 +665,7 @@ class Archive:
             members = []
             for cid in dupe["ids"]:
                 used = Counter()
-                for table, column in reference_columns:
+                for table in sorted({t for t, _ in reference_columns}):
                     if not self.has(table, "Club_ID"):
                         continue
                     n = as_int(self.one(f'SELECT COUNT(*) n FROM "{table}" WHERE Club_ID=?', cid)["n"])
@@ -688,7 +710,7 @@ class Archive:
             if not self.has(table, column):
                 continue
             for r in self.q(f'SELECT "{column}" v, COUNT(*) n FROM "{table}" WHERE "{column}" IS NOT NULL GROUP BY 1'):
-                name = str(r["v"]).strip()
+                name = clean(r['v'])
                 if not name or name == "-":
                     continue
                 bucket = categories if competition_category(name) else refs
@@ -928,219 +950,8 @@ class Archive:
 
     # -------------------------------------------------------------- quality --
     def integrity(self) -> dict:
-        domains = Counter(r["Domain"] for r in self.q("SELECT Domain FROM Data_Issues") if r["Domain"])
-        resolution = Counter(r["Resolution_Status"] for r in self.q("SELECT Resolution_Status FROM Award_Resolution_Status"))
-
-        unresolved_awards = as_int(self.one("SELECT COUNT(*) n FROM Canonical_Award_Facts WHERE Player_ID IS NULL")["n"])
-        total_awards = as_int(self.one("SELECT COUNT(*) n FROM Canonical_Award_Facts")["n"])
-
-        top_unresolved = self.q(
-            """SELECT Player_Raw, COUNT(*) n, GROUP_CONCAT(DISTINCT Origin_Sheet) sheets
-               FROM Award_Resolution_Status WHERE Resolution_Status='UNRESOLVED_IDENTITY'
-               GROUP BY Player_Raw ORDER BY n DESC LIMIT 25"""
-        )
-
-        # Findings the ETL can prove from the data itself, rather than a hand-kept list.
-        findings = []
-
-        superseded = self.q(
-            """SELECT Statistical_Adoption_Status s, COUNT(*) n, COUNT(DISTINCT Player_ID) p
-               FROM Player_Club_Season_Totals WHERE Statistical_Adoption_Status != 'ADOPTED'
-               GROUP BY 1"""
-        )
-        if superseded:
-            total = sum(as_int(r["n"]) for r in superseded)
-            players = as_int(self.one(
-                "SELECT COUNT(DISTINCT Player_ID) n FROM Player_Club_Season_Totals "
-                "WHERE Statistical_Adoption_Status != 'ADOPTED'")["n"])
-            findings.append({
-                "severity": "medium",
-                "title": "部分賽季保留了已被取代的較早觀測",
-                "detail": f"{total} 列被標記為非正式採用（影響 {players} 名球員），"
-                          + "、".join(f"{r['s']} {r['n']} 列" for r in superseded)
-                          + "。這是工作簿刻意保留的證據，不是錯誤——但 Statistical_Adoption_Status "
-                            "必須納入條件，否則同一賽季會被算兩次。本站的逐季圖表與統計只採用 ADOPTED，"
-                            "被取代的列另區呈現。",
-                "where": "Player_Club_Season_Totals",
-                "sample": [r["s"] for r in superseded],
-            })
-
-        directions = Counter(r["Direction"] for r in self.q("SELECT Direction FROM Barcelona_Transfers"))
-        if len({d for d in directions if d in ("IN", "轉入")}) > 1 or len({d for d in directions if d in ("OUT", "轉出")}) > 1:
-            findings.append({
-                "severity": "medium",
-                "title": "轉會方向欄位混用中英文編碼",
-                "detail": "Direction 同時出現 " + "、".join(f"{k}（{v}）" for k, v in directions.most_common())
-                          + "。以字串比對過濾轉入／轉出的查詢會漏掉一半資料。",
-                "where": "Barcelona_Transfers",
-                "sample": list(directions),
-            })
-
-        clubs = Counter()
-        for r in self.q("SELECT Club_Raw FROM Player_Club_Season_Totals WHERE Club_ID=?", BARCELONA_CLUB_ID):
-            if r["Club_Raw"]:
-                clubs[r["Club_Raw"]] += 1
-        if len(clubs) > 1:
-            findings.append({
-                "severity": "low",
-                "title": "同一 Club_ID 對應多種原始寫法",
-                "detail": f"C-0030 的 Club_Raw 有 {len(clubs)} 種寫法："
-                          + "、".join(f"{k}（{v}）" for k, v in clubs.most_common()) + "。Club_ID 已正確收斂，原始字串保留無誤，僅提醒不要直接以 Club_Raw 分組。",
-                "where": "Player_Club_Season_Totals",
-                "sample": list(clubs),
-            })
-
-        multi_snap = self.q(
-            """SELECT Competition_Raw, Season, COUNT(DISTINCT Snapshot) n
-               FROM Domestic_League_Standings GROUP BY 1,2 HAVING n > 1"""
-        )
-        if multi_snap:
-            findings.append({
-                "severity": "high",
-                "title": "聯賽積分榜同賽季存在多份快照",
-                "detail": f"{len(multi_snap)} 個聯賽賽季同時有 PROVISIONAL（賽季中）與 FINAL（賽季末）兩份積分榜。"
-                          "不看 Season_Status 直接查詢會得到兩倍的隊伍數與錯誤的冠軍。本站已只採 FINAL 快照。",
-                "where": "Domestic_League_Standings",
-                "sample": [f"{r['Competition_Raw']} {r['Season']}" for r in multi_snap[:6]],
-            })
-
-        null_strings = as_int(self.one(
-            "SELECT COUNT(*) n FROM Domestic_League_Standings WHERE Qualification_Raw='NULL' OR Info_Raw='NULL'")["n"])
-        if null_strings:
-            findings.append({
-                "severity": "medium",
-                "title": "資格欄位以字串 'NULL' 表示空值",
-                "detail": f"{null_strings} 列的 Qualification_Raw／Info_Raw 內容是四個字元的字串 'NULL'，不是真正的空值。"
-                          "任何 IS NULL 判斷都會漏掉這些列。本站顯示時視為空白，來源值未更動。",
-                "where": "Domestic_League_Standings",
-                "sample": ["NULL"],
-            })
-
-        bang = as_int(self.one(
-            "SELECT COUNT(*) n FROM Domestic_League_Standings WHERE Qualification_Raw='!'")["n"])
-        spelled = as_int(self.one(
-            "SELECT COUNT(*) n FROM Domestic_League_Standings WHERE Qualification_Raw LIKE '%降级%' "
-            "OR Qualification_Raw LIKE '%降級%'")["n"])
-        if bang:
-            findings.append({
-                "severity": "medium",
-                "title": "降級以兩種記法並存",
-                "detail": f"{bang} 列用單一驚嘆號 '!' 標示降級，另有 {spelled} 列明寫「降级」。"
-                          "'!' 的每一列都落在該賽季墊底三名之內，無一例外，與明寫「降级」者位於同一名次區間。"
-                          "只比對文字「降级」的查詢會漏掉前者。",
-                "where": "Domestic_League_Standings",
-                "sample": ["!", "降级"],
-            })
-
-        # comparing canonical names alone finds only the exact-duplicate pairs;
-        # the club key also strips the corporate affix, which is what actually
-        # splits '里爾' from '里爾足球俱樂部'
-        club_report = self.clubs()
-        dupes = club_report["duplicates"]
-        if dupes:
-            risky = [d for d in dupes if d["bothCarryData"]]
-            findings.append({
-                "severity": "high" if risky else "medium",
-                "title": "同一間俱樂部持有多個 Club_ID",
-                "detail": f"{len(dupes)} 組俱樂部身分在去除「足球俱樂部」等綴詞後指向同一隊。"
-                          + (f"其中 {len(risky)} 組的兩個 ID 都有資料列（"
-                             + "、".join(f"{d['members'][0]['name']} {'/'.join(m['id'] for m in d['members'])}"
-                                        for d in risky)
-                             + "），依 Club_ID 分組會把同一間俱樂部算成兩間。"
-                             if risky else "目前沒有任何一組兩邊都持有資料列。"),
-                "where": "Club_Dim",
-                "sample": [d["members"][0]["name"] for d in dupes[:8]],
-            })
-
-        unresolved_clubs = club_report["unresolved"]
-        if unresolved_clubs:
-            findings.append({
-                "severity": "medium",
-                "title": "俱樂部字串未對應到 Club_ID",
-                "detail": f"{len(unresolved_clubs)} 個俱樂部字串（{club_report['unresolvedRows']} 列）"
-                          f"在 Club_Dim 中找不到對應身分，多數是從未建檔的球隊。詳見「俱樂部身分」控制台。",
-                "where": "Club_Dim",
-                "sample": [u["raw"] for u in unresolved_clubs[:6]],
-            })
-
-        comp_report = self.competitions()
-        if comp_report["clusters"]:
-            top = comp_report["clusters"][0]
-            findings.append({
-                "severity": "high",
-                "title": "同一賽事有多種寫法且都未受控",
-                "detail": f"{len(comp_report['unresolved'])} 個賽事名稱（{comp_report['unresolvedRows']} 列）"
-                          f"對不到 Competition_Dim，而其中 {len(comp_report['clusters'])} 組彼此是同一賽事的不同寫法"
-                          f"（贊助商名、中英並列、淘汰賽輪次）。最大一組是 "
-                          + "、".join(m["raw"] for m in top["members"]) + f"，共 {top['rows']} 列。"
-                          f"Competition_Dim 目前只收錄 {comp_report['controlled']} 個賽事。",
-                "where": "Competition_Dim",
-                "sample": [c["suggested"] for c in comp_report["clusters"][:6]],
-            })
-
-        bilingual = [c for c in comp_report["categories"] if len(c["spellings"]) > 1]
-        if bilingual:
-            findings.append({
-                "severity": "high",
-                "title": "出賽分類以中英兩種語言記錄",
-                "detail": "Player_Club_Competition_Stats.Competition_Raw 同時存放賽事名稱與出賽分類，"
-                          + "且分類有中英兩套寫法："
-                          + "、".join(f"{c['label']}（{' / '.join(s['raw'] + ' ' + str(s['rows']) for s in c['spellings'])}）"
-                                     for c in bilingual)
-                          + "。依此欄分組會把每個分類拆成兩半。",
-                "where": "Player_Club_Competition_Stats",
-                "sample": [s["raw"] for c in bilingual for s in c["spellings"]][:6],
-            })
-
-        host_venues = [r["Host"] for r in self.q(
-            "SELECT DISTINCT Host FROM Intl_Tournament_Results WHERE Host LIKE '%；%'")]
-        if host_venues:
-            findings.append({
-                "severity": "medium",
-                "title": "主辦欄位混入球場資訊",
-                "detail": f"{len(host_venues)} 個 Host 值把國家與球場寫在同一欄（以全形分號分隔），"
-                          "例如「" + host_venues[0] + "」。國家名在分號前，其餘是場館，"
-                          "直接拿 Host 當國家參照會對不到 Nation_Dim。",
-                "where": "Intl_Tournament_Results",
-                "sample": [h.split("；")[0] for h in host_venues[:5]],
-            })
-
-        cohosts = [r for r in self.q(
-            "SELECT National_Team_ID, Canonical_Display_Name FROM Nation_Dim "
-            "WHERE Canonical_Display_Name LIKE '%聯辦%' OR Canonical_Display_Name LIKE '%聯合主辦%'")]
-        if len(cohosts) > 1:
-            findings.append({
-                "severity": "medium",
-                "title": "非國家的值被建成了國家隊身分",
-                "detail": "、".join(f"{r['National_Team_ID']}「{r['Canonical_Display_Name']}」" for r in cohosts)
-                          + " 描述的是世界盃由多國共同主辦，既不是國家隊，彼此也是同一件事的兩種寫法。"
-                          "它們佔用了 Nation_Dim 的身分編號。",
-                "where": "Nation_Dim",
-                "sample": [r["Canonical_Display_Name"] for r in cohosts],
-            })
-
-        missing_gf = [s["Season"] for s in self.q("SELECT Season, LaLiga_GF FROM Barcelona_Season_Master WHERE LaLiga_GF IS NULL")]
-        if missing_gf:
-            findings.append({
-                "severity": "low",
-                "title": "賽季主表存在來源未提供的空值",
-                "detail": f"{'、'.join(missing_gf)} 的西甲進球／失球未填。依 append-only 政策保持未知而非補 0，屬正確處理，列此僅供追蹤補資料。",
-                "where": "Barcelona_Season_Master",
-                "sample": missing_gf,
-            })
-
-        order = {"high": 0, "medium": 1, "low": 2}
-        findings.sort(key=lambda f: order.get(f["severity"], 3))
-
-        return {
-            "issueTotal": sum(domains.values()),
-            "domains": [{"domain": k, "count": v} for k, v in domains.most_common()],
-            "resolution": [{"status": k, "count": v} for k, v in resolution.most_common()],
-            "unresolvedAwards": unresolved_awards,
-            "totalAwards": total_awards,
-            "topUnresolved": [{"name": r["Player_Raw"], "count": as_int(r["n"]), "sheets": r["sheets"]} for r in top_unresolved],
-            "findings": findings,
-        }
+        from integrity import report
+        return report(self)
 
     # -------------------------------------------------------------- honours --
     def honours(self) -> dict:
@@ -1229,7 +1040,7 @@ def export_json(db_path: Path, out_path: Path, *, allow_degraded: bool = False) 
             "clubs": "俱樂部身分積欠與重複身分",
             "competitions": "賽事身分積欠與同賽事異寫",
             "timetravel": "檔案認知史：哪一天知道了什麼",
-            "integrity": "ETL 自動偵測的資料缺陷",
+            "integrity": "完整性檢查、處理狀態與完整來源問題歷史",
         },
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)

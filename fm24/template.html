@@ -762,6 +762,9 @@ function renderSeasons() {
         s.transfersOut.length
           ? el("div", {}, s.transfersOut.map(t => xferRow(t, "out")))
           : el("p", { class: "cap" }, "本季無轉出紀錄。"))),
+    s.transfersUnknown?.length ? el('section',{class:'panel'},el('h3',{},'轉會方向待核對'),
+      evidenceTable(['球員','對方俱樂部','原始方向','費用','來源列'],s.transfersUnknown.map(t=>
+        [t.player,t.club,t.directionRaw,t.fee,`Barcelona_Transfers 第 ${t.row} 列`]))) : null,
   ];
 }
 const xferRow = (t, dir) => el("div", { class: "xfer" },
@@ -1028,9 +1031,9 @@ function renderWorld() {
             return el("td", {}, el("span", {
               class: (isBarca(c.club) ? "barca" : "") + (provisional ? " prov" : ""),
               title: `${s} ${lg}：${c.club}`
-                + (c.final ? "（季末定版）" : c.confirmedElsewhere ? "（積分榜為季中快照，但冠軍已由其他來源確認）" : "（季中快照，冠軍尚未確認）")
+                + (c.final ? "（季末定版）" : c.confirmedElsewhere ? "（冠軍已由主檔其他來源確認）" : "（來源尚未確認冠軍）")
                 + `　快照 ${c.snapshot}`,
-            }, c.club + (provisional ? "（暫）" : "")));
+              }, c.club + (provisional ? (c.state === 'provisional' ? "（暫）" : "（未確認）") : "")));
           }))))));
 
   const uclRows = w.ucl.filter(r => r.winner);
@@ -1050,8 +1053,8 @@ function renderWorld() {
       el("div", {}, el("div", { class: "n tnum" }, DATA.chronicle.length.toLocaleString()), el("div", { class: "l" }, "編年史事件"))),
     el("section", { class: "panel" },
       el("h3", {}, "五大聯賽冠軍版圖"),
-      el("p", { class: "cap" }, "取自各季積分榜第一名。標「（暫）」者是積分榜仍為季中快照、"
-        + "且工作簿其他表也未記載該季冠軍；若他表已確認則不標。滑鼠停留可看快照日期。"),
+      el("p", { class: "cap" }, "取自選定快照第一名，並以受控俱樂部與期間核對主檔冠軍紀錄。"
+        + "「暫」為明示季中；「未確認」為來源未確認冠軍，不能視為季中。滑鼠停留可看快照日期。"),
       grid),
     el("div", { class: "two" },
       el("section", { class: "panel" },
@@ -1081,14 +1084,15 @@ function renderWorld() {
       el("h3", {}, "國際賽事"),
       el("p", { class: "cap" }, "來源：Intl_Tournament_Results"),
       el("div", { class: "tblwrap" }, el("table", { class: "data" },
-        el("thead", {}, el("tr", {}, ["賽事", "年份", "冠軍", "亞軍", "季軍", "主辦"].map(x => el("th", {}, x)))),
+        el("thead", {}, el("tr", {}, ["賽事", "年份", "冠軍", "亞軍", "季軍", "主辦", "場館原文"].map(x => el("th", {}, x)))),
         el("tbody", {}, w.intl.map(r => el("tr", {},
           el("td", {}, dash(r.tournament)),
           el("td", { class: "mono" }, dash(r.period)),
           el("td", { class: "name-cell" }, dash(r.winner)),
           el("td", {}, dash(r.runnerUp)),
           el("td", {}, dash(r.third)),
-          el("td", { class: "mono" }, dash(r.host)))))))),
+          el("td", { class: "mono", title:r.hostRaw || '' }, dash(r.host)),
+          el("td", {}, dash(r.venue)))))))),
     el("div", { class: "two" },
       el("section", { class: "panel" },
         el("h3", {}, "歐洲超級盃"),
@@ -1141,7 +1145,7 @@ function renderLeagues() {
   const w = DATA.world;
   const group = w.snapshots[`${state.league}|${state.leagueSeason}`] || [];
   /* default to the adopted final table; a provisional one is opt-in and labelled */
-  const chosen = group.find(g => g.key === state.snapshot) || group.find(g => g.final) || group[group.length - 1];
+  const chosen = group.find(g => g.key === state.snapshot) || group[0];
   const rows = chosen ? (w.standings[chosen.key] || []) : [];
 
   /* Qualification_Raw is free text; classify by keyword so the rail colour means something */
@@ -1157,7 +1161,7 @@ function renderLeagues() {
 
   return [
     el("div", { class: "view-head" },
-      el("div", { class: "eyebrow" }, "Domestic_League_Standings　1,303 列"),
+      el("div", { class: "eyebrow" }, `Domestic_League_Standings　${w.standingRows.toLocaleString()} 列`),
       el("h2", {}, "聯賽積分榜"),
       el("p", {}, "五大聯賽 × 十二季的積分榜。部分賽季來源只提供賽季中的暫定表，"
         + "頁面會標明所看的是哪一份快照；左側色條依來源的資格說明文字分類。")),
@@ -1169,12 +1173,12 @@ function renderLeagues() {
       group.length > 1 ? el("select", {
         id: "lgSnap", onChange: e => { state.snapshot = e.target.value; paint(); },
       }, group.map(g => el("option", { value: g.key, selected: chosen && g.key === chosen.key },
-        `${g.snapshot}　${g.final ? "最終" : "賽季中"}`))) : null),
+        `${g.snapshot}　${{final:'最終',provisional:'賽季中',unknown:'來源未標註',mixed:'狀態混合待核對'}[g.state]}`))) : null),
     rows.length ? el("section", { class: "panel" },
       el("h3", {}, `${state.league}　${state.leagueSeason}`),
       el("p", { class: "cap" }, `${rows.length} 隊　·　快照 ${chosen.snapshot}　·　${chosen.status || "狀態未標註"}`),
       chosen.final ? null : el("div", { class: "note", style: "margin-bottom:14px" },
-        "這是賽季進行中的暫定積分榜，來源尚未提供最終名次。"
+        (chosen.state === 'provisional' ? "來源明示這是季中暫定積分榜。" : "來源未一致明示季末狀態，不能據此斷言是季中或季末。")
         + (group.some(g => g.final) ? "可用上方選單切換到最終版。" : "")),
       el("div", { class: "tblwrap" }, el("table", { class: "data" },
         el("thead", {}, el("tr", {}, w.standingsCols.map((c, i) =>
@@ -1471,64 +1475,62 @@ function repaintChronicle() {
 
 /* -------------------------------------------------------------- integrity */
 function renderIntegrity() {
-  const g = DATA.integrity;
-  const resolvedPct = Math.round(((g.totalAwards - g.unresolvedAwards) / g.totalAwards) * 100);
-  const maxDomain = Math.max(...g.domains.map(d => d.count), 1);
-  const maxName = Math.max(...g.topUnresolved.map(d => d.count), 1);
-
+  const g=DATA.integrity;
+  const labels={review:'需主檔核對',source_limit:'依來源保留未知',handled:'網站已處理'};
+  const bucketLabels={review:'待核對／尚未修正',resolved:'主檔已處理／已確認',preserved:'來源限制／備註保留'};
+  const filter=state.integrityFilter || 'all';
+  const findings=g.findings.filter(f=>filter==='all' || f.status===filter);
+  const q=(state.issueQuery || '').trim().toLowerCase(), bucket=state.issueBucket || 'all';
+  const issues=g.issueRows.filter(r=>(bucket==='all' || r.bucket===bucket) &&
+    (!q || String(r.row)===q || Object.values(r.values).some(v=>String(v??'').toLowerCase().includes(q))));
+  const shown=issues.slice(0,state.issueLimit || 60);
   return [
-    el("div", { class: "view-head" },
-      el("div", { class: "eyebrow" }, "Append-only 觀測／事實模型"),
-      el("h2", {}, "檔案完整性報告"),
-      el("p", {}, "這份工作簿的政策是保留來源、不補值、不覆寫。以下是 ETL 直接從資料本身驗證出的結果，不是人工維護的清單。")),
-    el("div", { class: "strip" },
-      el("div", {}, el("div", { class: "n tnum" }, g.totalAwards.toLocaleString()), el("div", { class: "l" }, "獎項事實列")),
-      el("div", { class: "garnet" }, el("div", { class: "n tnum" }, g.unresolvedAwards), el("div", { class: "l" }, "身分未解析")),
-      el("div", {}, el("div", { class: "n tnum" }, resolvedPct + "%"), el("div", { class: "l" }, "已綁定 Player_ID")),
-      el("div", {}, el("div", { class: "n tnum" }, g.issueTotal), el("div", { class: "l" }, "Data_Issues 列")),
-      el("div", {}, el("div", { class: "n tnum" }, DATA.meta.identity_links.toLocaleString()), el("div", { class: "l" }, "身分對照連結")),
-    ),
-    el("section", { style: "display:flex;flex-direction:column;gap:12px" },
-      el("h3", { style: "font-size:15px" }, `ETL 自動偵測　${g.findings.length} 項`),
-      g.findings.map(f => el("div", { class: "finding " + f.severity },
-        el("div", { class: "meta" },
-          el("span", { class: "pill " + (f.severity === "high" ? "bad" : f.severity === "medium" ? "warn" : "flat") },
-            f.severity === "high" ? "高" : f.severity === "medium" ? "中" : "低"),
-          el("span", { class: "mono" }, f.where)),
-        el("h4", {}, f.title),
-        el("p", {}, f.detail),
-        f.sample.length ? el("div", { class: "mono" }, "樣本：" + f.sample.join("、")) : null))),
-    el("div", { class: "two" },
-      el("section", { class: "panel" },
-        el("h3", {}, "待解析身分排行"),
-        el("p", { class: "cap" }, "同一原始姓名在多張獎項表重複出現，優先處理可一次消掉最多列。"),
-        el("div", { class: "bars" }, g.topUnresolved.slice(0, 14).map(d =>
-          el("div", { class: "brow" },
-            el("div", { class: "lb" },
-              el("span", { title: d.sheets }, d.name),
-              el("span", { class: "tr" }, el("i", { style: `width:${(d.count / maxName) * 100}%;background:var(--garnet)` }))),
-            el("div", { class: "vv" }, d.count))))),
-      el("section", { class: "panel" },
-        el("h3", {}, "Data_Issues 分佈"),
-        el("p", { class: "cap" }, "依 Domain 統計，全數為「已保存、未修正」的來源限制紀錄。"),
-        el("div", { class: "bars" }, g.domains.slice(0, 14).map(d =>
-          el("div", { class: "brow" },
-            el("div", { class: "lb" },
-              el("span", { class: "mono" }, d.domain),
-              el("span", { class: "tr" }, el("i", { style: `width:${(d.count / maxDomain) * 100}%` }))),
-            el("div", { class: "vv" }, d.count)))))),
-    el("section", { class: "panel" },
-      el("h3", {}, "工作簿來源規模"),
-      el("p", { class: "cap" }, `結構版本 ${DATA.meta.schema_version}　·　遷移 ${DATA.meta.migration_id}`),
-      el("div", { class: "tblwrap" },
-        el("table", { class: "data" },
-          el("thead", {}, el("tr", {}, el("th", {}, "工作表"), el("th", { class: "num" }, "資料列"))),
-          el("tbody", {}, DATA.meta.biggest_sheets.map(s =>
-            el("tr", {}, el("td", { class: "mono" }, s.sheet_name),
-              el("td", { class: "num tnum" }, s.row_count.toLocaleString()))))))),
+    el('div',{class:'view-head'},el('div',{class:'eyebrow'},'來源可追溯 · 狀態分開計數'),
+      el('h2',{},'檔案完整性報告'),
+      el('p',{},'網站已處理的讀取與顯示問題、需主檔核對的身分／矛盾，以及依來源保留的未知值分開列示。來源問題歷史筆數不等於現在的錯誤數。')),
+    el('div',{class:'strip'},Object.entries(labels).map(([key,label])=>
+      el('div',{},el('div',{class:'n tnum'},g.findingCounts[key]),el('div',{class:'l'},label))),
+      el('div',{},el('div',{class:'n tnum'},g.issueTotal),el('div',{class:'l'},'來源問題歷史列'))),
+    el('div',{class:'filters'},el('select',{id:'integrityFilter','aria-label':'完整性處理狀態',onChange:e=>{state.integrityFilter=e.target.value;paint();}},
+      [['all','全部檢查'],...Object.entries(labels)].map(([value,label])=>el('option',{value,selected:value===filter},label)))),
+    el('section',{style:'display:flex;flex-direction:column;gap:12px'},
+      el('h3',{},`檢查與處理結果 · ${findings.length} 項`),
+      findings.map(f=>el('div',{class:'finding '+(f.status==='review'?f.severity:'low')},
+        el('div',{class:'meta'},el('span',{class:'pill '+(f.status==='handled'?'ok':f.status==='review'?'warn':'flat')},labels[f.status]),
+          el('span',{class:'mono'},f.where)),
+        el('h4',{},f.title),el('p',{},f.detail),
+        f.sample.length ? el('p',{class:'cap'},'樣本：'+f.sample.join('、')) : null,
+        f.action ? el('button',{class:'btn ghost',onClick:()=>go(f.view)},f.action) : null,
+        f.evidence.length ? evidenceDetails(f.evidence,`來源定位（${f.evidence.length} 列）`) : null))),
+    el('section',{class:'panel'},el('h3',{},'獎項身分核對'),
+      el('p',{},`${g.totalAwards} 筆正式獎項事實中，${g.unresolvedAwards} 筆在 Master 尚未綁定 Player_ID。下列 ${g.aliasMatches.length} 筆可連到主檔已接受的唯一別名，供核對；不改寫獎項事實或增加次數。`),
+      evidenceTable(['原始姓名','受控身分','賽季／獎項','依據'],g.aliasMatches.map(r=>[
+        r.name,el('button',{class:'btn ghost',onClick:()=>{go('people');state.person=r.playerId;paint();writeRoute(false);}},`${r.playerId} · ${r.canonical}`),
+        `${r.season} · ${r.award}`,el('div',{},el('p',{class:'cap'},r.basis),evidenceDetails([r.evidence]))])),
+      el('details',{},el('summary',{},'待解析姓名排行（以正式事實列計數）'),
+        evidenceTable(['姓名','正式事實列','來源表'],g.topUnresolved.map(r=>[r.name,r.count,r.sheets])))),
+    el('section',{class:'panel'},el('h3',{},'Data_Issues 完整來源紀錄'),
+      el('p',{class:'cap'},'以下分類只整理來源明示狀態，沒有修改工作簿。新狀態或空白預設待核對；來源限制仍需保留，不能因列在這裡就當成未修復程式錯誤。'),
+      evidenceTable(['狀態分類','來源列數'],g.issueBuckets.map(r=>[r.label,r.count])),
+      el('details',{},el('summary',{},'查看原始 Status 分佈'),evidenceTable(['原始狀態','列數'],g.issueStatuses.map(r=>[r.status,r.count]))),
+      el('div',{class:'filters'},
+        el('select',{id:'issueBucket','aria-label':'來源問題狀態',onChange:e=>{state.issueBucket=e.target.value;state.issueLimit=60;paint();}},
+          [['all','全部來源紀錄'],...Object.entries(bucketLabels)].map(([value,label])=>el('option',{value,selected:value===bucket},label))),
+        el('input',{id:'issueQuery',type:'search','aria-label':'搜尋來源問題',placeholder:'搜尋 Issue、Status、來源 ID 或列號…',value:state.issueQuery || '',onInput:e=>{
+          const pos=e.target.selectionStart;state.issueQuery=e.target.value;state.issueLimit=60;paint();
+          const input=document.getElementById('issueQuery');input.focus();input.setSelectionRange(pos,pos);
+        }})),
+      el('p',{id:'issueCount',class:'cap'},`符合 ${issues.length} 筆，顯示 ${shown.length} 筆。`),
+      evidenceTable(['ID／Excel 列','分類／來源狀態','範圍','問題原文','來源'],shown.map(r=>[
+        `${r.values.Issue_ID || '—'} · 第 ${r.row} 列`,el('div',{},bucketLabels[r.bucket],el('p',{class:'cap'},r.values.Status)),
+        [r.values.Domain,r.values.Season,r.values.Field].filter(Boolean).join(' · '),
+        el('div',{},el('p',{style:'white-space:pre-wrap;overflow-wrap:anywhere'},r.values.Issue),rawRecord(r)),evidenceDetails([r.source])])),
+      shown.length<issues.length ? el('button',{class:'btn',onClick:()=>{state.issueLimit=issues.length;paint();}},'顯示全部符合問題') : null),
+    el('section',{class:'panel'},el('h3',{},'工作簿來源規模'),
+      el('p',{class:'cap'},`${DATA.meta.sheet_count} 表 · ${DATA.meta.row_count.toLocaleString()} 列 · ${DATA.meta.schema_version}`),
+      evidenceTable(['工作表','來源資料列'],DATA.meta.biggest_sheets.map(r=>[r.sheet_name,r.row_count])))
   ];
 }
-
 
 
 /* ===================================================================
@@ -1812,18 +1814,18 @@ function renderClubs() {
       el("div", { class: "eyebrow" },
         `${c.totalRefs} 個俱樂部字串　·　已解析 ${c.resolvedRefs}　·　${c.controlled} 個受控身分`),
       el("h2", {}, "俱樂部身分"),
-      el("p", {}, "兩件不同的事：有些字串對不到任何 Club_ID，有些俱樂部則被記成了兩個 Club_ID。"
-        + "俱樂部名的差異來自綴詞而非音譯——「里爾」與「里爾足球俱樂部」是同一隊——所以比對前先去掉綴詞。")),
+      el("p", {}, "列出尚無唯一 Club_ID 的字串，以及名稱相近、可能重複的受控身分。"
+        + "去除常見綴詞只用來找候選；同名命中多個 ID 時仍須核對，不會任選一個。")),
     el("div", { class: "strip" },
       el("div", { class: "garnet" }, el("div", { class: "n tnum" }, c.unresolved.length),
         el("div", { class: "l" }, "未解析字串")),
-      el("div", {}, el("div", { class: "n tnum" }, c.unresolvedRows), el("div", { class: "l" }, "受影響列")),
+      el("div", {}, el("div", { class: "n tnum" }, c.unresolvedRows), el("div", { class: "l" }, "待核對參照次數")),
       el("div", {}, el("div", { class: "n tnum" }, (byVerdict.strong || 0) + (byVerdict.exact || 0)),
         el("div", { class: "l" }, "高可信候選")),
       el("div", {}, el("div", { class: "n tnum" }, byVerdict.no_candidate || 0),
         el("div", { class: "l" }, "需建新身分")),
       el("div", { class: risky.length ? "garnet" : "" }, el("div", { class: "n tnum" }, c.duplicates.length),
-        el("div", { class: "l" }, "重複身分")),
+        el("div", { class: "l" }, "疑似重複身分")),
     ),
     state.clubError ? el("div", { class: "note" }, state.clubError) : null,
     state.clubDecisions === "unavailable" ? el("div", { class: "hint" }, STORAGE_NOTE.none) : storageHint(),
@@ -1847,7 +1849,7 @@ function renderClubs() {
 function renderClubDupes(c, decided, risky) {
   return [
     el("p", { class: "cap" }, risky.length
-      ? `${risky.length} 組的兩個 ID 都有資料列——依 Club_ID 分組會把同一間俱樂部算成兩間，這幾組排在最前面。`
+      ? `${risky.length} 組的兩個 ID 都有資料列，若確為同隊可能造成統計拆分，優先核對。名稱相近本身不是合併依據。`
       : "沒有任何一組的兩個 ID 同時持有資料列。"),
     el("div", { class: "queue" }, c.duplicates.map(d => {
       const key = "dupe:" + d.key;
@@ -1959,7 +1961,7 @@ function renderClubRefs(c, decided) {
                             clubId: x.id, clubName: x.name, rows: i.rows, score: x.score,
                           }),
                         }, "確認")))))
-                : el("div", { class: "ctx" }, "受控名錄中沒有相近的俱樂部，需要建立新的 Club_ID。"),
+                : el("div", { class: "ctx" }, "目前比對規則未找到候選，請先核對名錄與別名，再決定是否建立 Club_ID。"),
               el("div", { class: "btnrow", style: "margin-top:12px" },
                 el("button", { class: "btn ghost", type: "button",
                   onClick: () => decideClub(i.raw, "new", { rows: i.rows }) }, "建立新俱樂部"),
@@ -2048,9 +2050,9 @@ function renderComps() {
         el("div", { class: "l" }, "未受控名稱")),
       el("div", {}, el("div", { class: "n tnum" }, c.unresolvedRows.toLocaleString()),
         el("div", { class: "l" }, "受影響列")),
-      el("div", {}, el("div", { class: "n tnum" }, c.clusters.length), el("div", { class: "l" }, "同賽事異寫組")),
+      el("div", {}, el("div", { class: "n tnum" }, c.clusters.length), el("div", { class: "l" }, "疑似同賽事組")),
       el("div", {}, el("div", { class: "n tnum" }, clustered.toLocaleString()),
-        el("div", { class: "l" }, "可一次收斂的列")),
+        el("div", { class: "l" }, "候選涉及列")),
       el("div", {}, el("div", { class: "n tnum" }, c.categoryRows.toLocaleString()),
         el("div", { class: "l" }, "分類列（非賽事）")),
     ),
@@ -2081,8 +2083,8 @@ function renderComps() {
 
 function renderCompClusters(c, decided) {
   return [
-    el("p", { class: "cap" }, "每組是同一個賽事的不同寫法。選一個當正式名稱，其餘記為別名——"
-      + "一次決定就能收斂整組的所有列。"),
+    el("p", { class: "cap" }, "每組是名稱相近的候選，須先確認賽事、級別與年代是否一致。"
+      + "確認為同一賽事後，才選正式名稱並記錄別名；網站不自動合併主檔。"),
     el("div", { class: "queue" }, c.clusters.map(group => {
       const key = "cluster:" + group.suggested;
       const decision = decided[key];
@@ -3119,7 +3121,7 @@ document.getElementById("railFoot").replaceChildren(
   el("div", {}, el("b", {}, DATA.meta.player_count.toLocaleString()), " 名球員",
     el("span", { style: "opacity:.6" }, ` / ${DATA.meta.alias_count} 別名`)),
   el("div", {}, el("b", {}, DATA.meta.club_count.toLocaleString()), " 間俱樂部"),
-  el("div", {}, el("b", {}, DATA.meta.nation_count.toLocaleString()), " 個國家"),
+    el("div", {}, el("b", {}, DATA.meta.nation_count.toLocaleString()), " 個國家／地區身分"),
   el("div", { style: "margin-top:8px;opacity:.7" }, "建置 " + DATA.meta.generated));
 
 const themer = document.getElementById("themer");

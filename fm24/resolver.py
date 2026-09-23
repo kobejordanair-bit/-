@@ -559,6 +559,7 @@ class ClubResolver:
         con.row_factory = sqlite3.Row
         self.canonical: dict[str, str] = {}
         self.exact: dict[str, str] = {}
+        self.exact_ids: dict[str, set[str]] = defaultdict(set)
         self.stripped: dict[str, set[str]] = defaultdict(set)
         self.club_leagues: dict[str, set[str]] = defaultdict(set)
         self.full_keys: dict[str, str] = {}
@@ -578,6 +579,7 @@ class ClubResolver:
                 key = normalise(value)
                 if key:
                     self.exact.setdefault(key, cid)
+                    self.exact_ids[key].add(cid)
                 loose = club_key(value)
                 if loose:
                     self.stripped[loose].add(cid)
@@ -588,8 +590,8 @@ class ClubResolver:
         # resolver uses; the standings name clubs without any Club_ID at all
         for r in self.con.execute("SELECT DISTINCT Club_Raw, Competition_Raw FROM Domestic_League_Standings"):
             key = league_key(r["Competition_Raw"])
-            cid = self.exact.get(normalise(r["Club_Raw"])) or next(
-                iter(self.stripped.get(club_key(r["Club_Raw"]), ())), None)
+            hits = self.stripped.get(club_key(r['Club_Raw']), set())
+            cid = self.resolve(r['Club_Raw']) or (next(iter(hits)) if len(hits)==1 else None)
             if key and cid:
                 self.club_leagues[cid].add(key)
         try:
@@ -603,7 +605,8 @@ class ClubResolver:
     def resolve(self, raw: str | None) -> str | None:
         """The Club_ID this string already maps to, if any."""
         key = normalise(raw)
-        return self.exact.get(key) if key else None
+        hits = self.exact_ids.get(key, set())
+        return next(iter(hits)) if len(hits) == 1 else None
 
     def candidates(self, raw: str, league: str | None = None, limit: int = 5) -> list[dict]:
         key = normalise(raw)
@@ -611,8 +614,7 @@ class ClubResolver:
         scored: dict[str, float] = {}
         reasons: dict[str, list[str]] = defaultdict(list)
 
-        if key and key in self.exact:
-            cid = self.exact[key]
+        for cid in sorted(self.exact_ids.get(key, ())):
             scored[cid] = 1.0
             reasons[cid].append("正規化後完全相同")
 

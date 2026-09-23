@@ -67,7 +67,7 @@ def generate(db_path: Path, *, allow_degraded: bool = False) -> str:
     w("")
     w("如果時間有限，看這三條就好——它們是最可能錯、而且錯了影響最大的。")
     w("")
-    w("1. **欄位白名單是否漏了或多了。** 本管線靠人工列舉「哪些欄位裝的是俱樂部／賽事」，")
+    w("1. **參照欄位偵測是否漏了或多了。** 本管線依維度對應比例偵測，另保留種子與排除清單，")
     w("   列錯就會漏算或灌水。第 4 節有完整清單，請對照工作簿確認。")
     w("2. **比對門檻是否合理。** 姓氏否決線、聯賽扣分、分群門檻都是看資料調出來的經驗值，")
     w("   沒有理論依據。第 5 節列出每個數字與它擋掉／放行的實例。")
@@ -99,12 +99,12 @@ def generate(db_path: Path, *, allow_degraded: bool = False) -> str:
         ("未解析的相異姓名", resolution["totalNames"], "同上，取 Player_Raw 相異值"),
         ("Data_Issues 列", integrity["issueTotal"], "`Data_Issues` 列數"),
         ("俱樂部字串（相異）", clubs["totalRefs"], "第 4 節欄位清單的聯集，取相異值"),
-        ("其中對不到 Club_ID", len(clubs["unresolved"]), f"涵蓋 {clubs['unresolvedRows']} 列"),
-        ("俱樂部重複身分", len(clubs["duplicates"]),
+        ("其中無唯一 Club_ID", len(clubs["unresolved"]), f"涵蓋 {clubs['unresolvedRows']} 次參照，同列多欄分別計數"),
+        ("俱樂部疑似重複身分", len(clubs["duplicates"]),
          "去掉「足球俱樂部」等綴詞後，同名卻有兩個以上 Club_ID"),
         ("賽事名稱（相異，不含分類）", comps["totalRefs"], "第 4 節欄位清單"),
-        ("其中未受控", len(comps["unresolved"]), f"涵蓋 {comps['unresolvedRows']} 列"),
-        ("同賽事異寫組", len(comps["clusters"]), "例如 LaLiga / LaLiga EA Sports / 西甲 LaLiga"),
+        ("其中未受控", len(comps["unresolved"]), f"涵蓋 {comps['unresolvedRows']} 次參照"),
+        ("疑似同賽事候選組", len(comps["clusters"]), "例如 LaLiga / LaLiga EA Sports / 西甲 LaLiga；需核對後才可合併"),
         ("出賽分類列（非賽事名稱）", f"{comps['categoryRows']:,}",
          "`Player_Club_Competition_Stats.Competition_Raw` 中值為聯賽/杯赛/League/Cup… 的列"),
     ]
@@ -113,7 +113,7 @@ def generate(db_path: Path, *, allow_degraded: bool = False) -> str:
     w("")
 
     # ------------------------------------------------------------- findings
-    w("## 2. 本管線宣稱的資料缺陷")
+    w("## 2. 完整性檢查與處理狀態")
     w("")
     w("這些是程式從資料本身推出來的，不是人工清單。**請特別檢查有沒有誤判**——")
     w("有些可能是來源刻意保留的原貌，不該被當成錯誤。")
@@ -122,6 +122,7 @@ def generate(db_path: Path, *, allow_degraded: bool = False) -> str:
         w(f"### {i}. [{f['severity'].upper()}] {f['title']}")
         w("")
         w(f"- **位置**：`{f['where']}`")
+        w(f"- **處理狀態**：{f['status']}（handled＝網站已處理，review＝需主檔核對，source_limit＝依來源保留未知）")
         w(f"- **主張**：{f['detail']}")
         if f.get("sample"):
             w(f"- **樣本**：{'、'.join(str(x) for x in f['sample'])}")
@@ -237,7 +238,7 @@ def generate(db_path: Path, *, allow_degraded: bool = False) -> str:
     w("- **不補值。** 來源未提供即為 null，不以 0 代替。")
     w("- **不自動套用配對。** 所有候選都需人工確認。")
     w(f"- 球員積欠中 {sum(1 for i in resolution['items'] if i['verdict'] == 'no_candidate')} 個姓名**查無候選**，")
-    w("  代表這些球員從未被工作簿收錄，需要建立新身分而非配對。")
+    w("  只代表現有規則沒有候選；需核對名錄與別名後，才可決定是否建立新身分。")
     w(f"- 俱樂部積欠中 {sum(1 for u in clubs['unresolved'] if not u['candidates'])} 個字串同上。")
     w("")
 
