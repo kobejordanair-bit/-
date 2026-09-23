@@ -1,3 +1,5 @@
 data/*.sqlite
-dist/
+dist/*
+!dist/honour-review.json
+!dist/honour-review.csv
 *.xlsx

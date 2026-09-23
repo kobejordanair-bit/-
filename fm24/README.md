@@ -319,18 +319,27 @@ SELECT Competition_Raw   FROM UCL_Knockout_Results   -- 這才會報 no such col
 
 ## 資料採用與已知缺口
 
-目前檢查結果見 [完整性修正報告](INTEGRITY_REPAIR.md) 與 [全頁檢查報告](ALL_PAGES_REVIEW.md)。
+目前檢查結果見 [完整性修正報告](INTEGRITY_REPAIR.md)、[全頁檢查報告](ALL_PAGES_REVIEW.md) 與 [高影響缺口核對](PRIORITY_REVIEW.md)。
 季中／季末快照分開展示；只採明示 ADOPTED 的球員逐季觀測。缺值保持未知，俱樂部、賽事及球員身份歧義仍列待核對。
 球員榮譽明細、巴薩個人頁與榮譽比較共用同一份去重結果；全站目錄保留未綁定原始姓名，沒有按近似度猜測入帳。
 匯入的 `fuzzy` 僅是候選，不能寫入已確認 Player_ID；`ingest.py --commit` 只寫待審表，不自動改寫 Excel。
+
+## 世界榮譽與核對工作台
+
+新增世界球員榮譽比較、得獎時間軸與三種配色的榮譽卡；涵蓋主檔全部受控球員。
+得獎、最佳陣容入選與其他名次分開計算，支援曆年／跨年球季、期間、獎項、結果篩選；分享網址保留選擇。
+優先核對工作台按來源衝突及影響排序，展開即可查看原始來源、受控別名線索及失效列號對照。
+本機筆記不會更改主檔或獎項統計。完整說明見 [榮譽功能交付](HONOUR_FEATURES.md)。
+
+JSON 建置後執行 `python3 honour_report.py`，產生與網站同源的 `PRIORITY_REVIEW.md`、`dist/honour-review.json` 和 `dist/honour-review.csv`。
 
 ## 測試
 
 ```bash
 pip install -r requirements-dev.txt
 python3 etl.py <最新版工作簿.xlsx>
-python3 -m pytest test_resolver.py test_evidence.py test_history.py test_integrity.py test_experience.py test_player_awards.py -q
-node --test test_experience.js
+python3 -m pytest test_resolver.py test_evidence.py test_history.py test_integrity.py test_experience.py test_player_awards.py test_honour_review.py -q
+node --test test_experience.js test_honour_features.js
 python3 coverage.py
 ```
 

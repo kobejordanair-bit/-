@@ -471,12 +471,15 @@ const statusPill = s => {
 };
 
 /*__EXPERIENCE_JS__*/
+/*__HONOUR_JS__*/
 
 /* ------------------------------------------------------------------ views */
 const VIEWS = [
   { id: "hub", group: "總教練互動中心", label: "互動中心", render: renderHub },
   { id: "lab", group: "總教練互動中心", label: "王朝實驗室", render: renderLab },
   { id: "duel", group: "總教練互動中心", label: "球員對決", render: renderDuel },
+  { id: "honourlab", group: "總教練互動中心", label: "世界榮譽對決", render: renderHonourLab },
+  { id: "honourtime", group: "總教練互動中心", label: "榮譽時間軸", render: renderHonourTime },
   { id: "atlas", group: "總教練互動中心", label: "足壇時光機", render: renderAtlas },
   { id: "derby", group: "總教練互動中心", label: "國家德比劇場", render: renderDerby },
   { id: "studio", group: "總教練互動中心", label: "戰績製卡室", render: renderStudio },
@@ -494,6 +497,7 @@ const VIEWS = [
   { id: "clubhistory", group: "閱讀檔案", label: "俱樂部史料", render: renderClubHistory },
   { id: "retirements", group: "閱讀檔案", label: "退役檔案", render: renderRetirements },
   { id: "resolve",   group: "管理資料", label: "球員身分",   render: renderResolve },
+  { id: "review", group: "管理資料", label: "優先核對", render: renderHonourReview },
   { id: "clubs",     group: "管理資料", label: "俱樂部身分", render: renderClubs },
   { id: "comps",     group: "管理資料", label: "賽事身分",   render: renderComps },
   { id: "import",    group: "管理資料", label: "匯入資料",   render: renderImport },
@@ -670,6 +674,7 @@ function personalHonours(p) {
   if(!p)return null;
   const c=p.awardCounts;
   return el('section',{class:'panel'},el('h3',{},`獎項紀錄　${p.awards.length}`),
+    el('div',{class:'btnrow'},el('button',{class:'btn ghost',onClick:()=>hOpenTimeline(p.id)},'開啟榮譽時間軸'),el('button',{class:'btn ghost',onClick:()=>{state.hA=p.id;go('honourlab');}},'世界榮譽比較'),el('button',{class:'btn ghost',onClick:()=>hCardJump(p.id)},'製作個人榮譽卡')),
     el('div',{class:'chips'},el('span',{class:'chip'},`得獎 ${c.winner}`),el('span',{class:'chip'},`入選 ${c.selection}`),el('span',{class:'chip'},`其他名次 ${c.placing}`)),
     el('p',{class:'cap'},'已收錄的全生涯個人榮譽，與球員名錄及比較頁使用同一份去重明細。多份來源只計一次；入選序號不當名次。0 表示未收錄，不代表從未得獎。'),
     p.awards.length?evidenceTable(['獎項','期間','結果','俱樂部','來源'],p.awards.map(a=>[

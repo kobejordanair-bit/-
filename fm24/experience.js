@@ -56,7 +56,7 @@ const XMath = {
 };
 
 const X_ROUTES={hub:[],lab:['labA','labB','labMetric'],duel:['duelA','duelB','duelScope','duelRate','duelHonourScope'],
-  atlas:['atlasSeason'],derby:['derbyComp','derbyVenue','derbyIndex'],studio:['studioKind','studioItem','studioStyle'],
+  atlas:['atlasSeason'],derby:['derbyComp','derbyVenue','derbyIndex'],studio:['studioKind','studioItem','studioStyle','cardClock','cardPeriod','cardAward','cardKind'],
   eleven:['xiFormation','xiRoster']};
 function xPick(key,items,fallback){if(!items.includes(state[key]))state[key]=fallback??items[0];return state[key];}
 function xSelect(label,key,options){return el('label',{class:'x-control'},el('span',{},label),el('select',{'aria-label':label,onChange:e=>{state[key]=e.target.value;if(key==='studioKind')state.studioItem=null;if(key==='derbyComp'||key==='derbyVenue')state.derbyIndex=0;paint();}},options.map(([v,l])=>el('option',{value:v,selected:String(state[key])===String(v)},l))));}
@@ -88,6 +88,7 @@ function renderHub(){
   const ss=DATA.seasons,metrics=DATA.experience.seasons,latest=ss[ss.length-1],best=ss.reduce((a,b)=>metrics[a.id].points>=metrics[b.id].points?a:b);
   const trophies=ss.reduce((n,s)=>n+(metrics[s.id].trophies??0),0);
   const tiles=[['eleven','06 / DREAM ELEVEN','王朝夢幻 XI','跨年代排出你的十一人、自由換位，保存並分享陣容圖。'],['lab','01 / SEASON LAB','王朝實驗室','兩季並排、勝率與積分效率、十二季趨勢。'],['duel','02 / HEAD TO HEAD','球員對決','生涯與同季比較，出場效率、實際屬性與來源日期。'],['atlas','03 / WORLD ATLAS','足壇時光機','滑動年份，打開五大聯賽冠軍版圖與爭冠差距。'],['derby','04 / EL CLÁSICO','國家德比劇場','逐場走過宿敵交鋒，切換賽事與主客場紀錄。'],['studio','05 / POSTER STUDIO','戰績製卡室','把球季、球員或德比變成可下載的專屬海報。']];
+  tiles.unshift(['honourlab','WORLD HONOURS','世界榮譽對決',`${DATA.people.players.length} 個受控身分，比得獎、入選與逐期榮譽。`],['honourtime','HONOUR TIMELINE','榮譽時間軸','走過每個得獎年份，把目前範圍做成分享卡。'],['review','EVIDENCE DESK','優先核對工作台','按影響排序資料缺口、查看證據、記錄核對筆記。']);
   return [el('section',{class:'x-hero x-enter'},el('div',{class:'eyebrow'},'THE MANAGER’S ROOM / INTERACTIVE ARCHIVE'),el('h2',{},`${ss.length} 季，`,el('br'), '把王朝拿出來玩。'),el('p',{},'不只翻紀錄。把球季拉到同一張圖，把兩名球員放上擂台，再把你最得意的那一刻做成海報。'),el('div',{class:'btnrow'},el('button',{class:'btn',onClick:()=>go('lab')},'進入王朝實驗室 →'),el('button',{class:'btn ghost',onClick:()=>go('studio')},'製作我的戰績卡')),el('small',{},`${ss[0].season} — ${latest.season} · WORLD MASTER v6.4.0 · 資料留在本機`)),
     el('div',{class:'strip x-strip'},xMetric('主表團隊冠軍',trophies),xMetric('巴薩生涯檔案',DATA.players.length),xMetric('國家德比紀錄',DATA.clasico.length),xMetric('最高聯賽積分',metrics[best.id].points)),
     el('div',{class:'x-grid'},tiles.map(([view,kicker,title,text])=>el('button',{class:'x-tile',onClick:()=>go(view)},el('span',{class:'eyebrow'},kicker),el('span',{class:'x-icon'},view==='lab'?'↗':view==='duel'?'VS':view==='atlas'?'◎':view==='derby'?String(DATA.clasico.length):'▧'),el('h3',{},title),el('p',{},text))),el('section',{class:'x-side',style:'grid-column:1/-1'},el('div',{class:'eyebrow'},'THE SEASON TO BEAT'),el('h3',{},best.season),el('div',{class:'x-big'},`${metrics[best.id].points} 分`),el('p',{class:'x-muted'},`主檔十二季中聯賽積分最高；同分時顯示較早球季。${best.titles.join('、')||'未列冠軍'}`),el('button',{class:'btn ghost',onClick:()=>{state.labA=best.id;go('lab');}},'用這季接受挑戰'))),
@@ -199,8 +200,13 @@ function renderDerby(){
 }
 
 function xPosterModel(){
-  xPick('studioKind',['season','player','match'],'season');xPick('studioStyle',['midnight','garnet','paper'],'midnight');
+  xPick('studioKind',['season','player','match','honour'],'season');xPick('studioStyle',['midnight','garnet','paper'],'midnight');
   const kind=state.studioKind;
+  if(kind==='honour'){
+    xPick('studioItem',DATA.people.players.map(p=>p.id),'P-0060');const p=DATA.people.players.find(p=>p.id===state.studioItem),f=hFilters('card',[p]);
+    const facts=HMath.filter(p,f.filters),honour=HMath.card(p,facts,f.filters,DATA.meta.generated);
+    return {title:p.name,honour,source:null};
+  }
   if(kind==='season'){
     const ss=DATA.seasons;xPick('studioItem',ss.map(s=>s.id),ss[ss.length-1].id);const s=ss.find(r=>r.id===state.studioItem),m=DATA.experience.seasons[s.id];
     return {kicker:'FC BARCELONA / SEASON ARCHIVE',title:s.season,subtitle:'巴塞隆納 · 賽季典藏',hero:fmt(m.points),unit:'西甲積分',stats:[['勝',fmt(m.w)],['和',fmt(m.d)],['負',fmt(m.l)],['冠軍',fmt(m.trophies)],['聯賽進球',fmt(m.gf)],['聯賽失球',fmt(m.ga)]],ribbon:s.titles.join(' · ')||'主檔未列團隊冠軍',scope:'Barcelona_Season_Master · 球季主表',source:m.source};
@@ -213,6 +219,7 @@ function xPosterModel(){
   return {kicker:'EL CLÁSICO / MATCH ARCHIVE',title:m.date||'日期未提供',subtitle:m.competition,hero:m.score||'—',unit:'主隊比分在前',stats:[],ribbon:`${m.home} vs ${m.away}`,match:m,scope:'El_Clasico_Match_History · '+(m.decider==='pens'?'點球註記；不推定晉級':m.decider==='aet'?'含延長賽比分':'逐場紀錄'),source:m.source};
 }
 function xPosterSVG(model,style){
+  if(model.honour)return hCardSVG(model.honour,style);
   const palettes={midnight:['#101a30','#263a64','#edc580','#f7f5f2','#adb9d1'],garnet:['#330f22','#791932','#e8c681','#fff5ed','#d5aaba'],paper:['#f2eee5','#e6dfd0','#936425','#152b4d','#5e6976']};
   const [bg,accent,gold,fg,muted]=palettes[style]||palettes.midnight,esc=XMath.xml;
   const text=(x,y,size,value,color=fg,extra='')=>`<text x="${x}" y="${y}" fill="${color}" font-size="${size}" font-family="Arial, Noto Sans TC, Microsoft JhengHei, sans-serif" ${extra}>${esc(value)}</text>`;
@@ -240,12 +247,15 @@ async function xExportPoster(format){
 }
 function renderStudio(){
   const model=xPosterModel(),kind=state.studioKind;
-  const options=kind==='season'?DATA.seasons.map(s=>[s.id,s.season]):kind==='player'?DATA.players.map(p=>[p.id,p.name]):DATA.clasico.map((m,i)=>[String(i),`${m.date||'日期未提供'} · ${m.result}`]);
+  const options=kind==='season'?DATA.seasons.map(s=>[s.id,s.season]):kind==='honour'?hPeople().map(p=>[p.id,p.name]):kind==='player'?DATA.players.map(p=>[p.id,p.name]):DATA.clasico.map((m,i)=>[String(i),`${m.date||'日期未提供'} · ${m.result}`]);
   return [xHeader('05 / POSTER STUDIO','戰績製卡室','挑一個值得留下的球季、球員或德比。海報保留統計範圍與資料版本，直接在瀏覽器產生。'),
-    el('div',{class:'x-controls'},xSelect('海報類型','studioKind',[['season','球季戰績'],['player','球員生涯'],['match','國家德比']]),xSelect('海報主角','studioItem',options),xSelect('海報配色','studioStyle',[['midnight','午夜歐冠'],['garnet','藍紅榮耀'],['paper','典藏羊皮紙']])),
+    el('div',{class:'x-controls'},xSelect('海報類型','studioKind',[['season','球季戰績'],['player','球員生涯'],['match','國家德比'],['honour','世界球員榮譽卡']]),kind==='honour'?hPicker('海報主角','studioItem','P-0060'):xSelect('海報主角','studioItem',options),xSelect('海報配色','studioStyle',[['midnight','午夜歐冠'],['garnet','藍紅榮耀'],['paper','典藏羊皮紙']])),
+    model.honour?hFilters('card',[DATA.people.players.find(p=>p.id===state.studioItem)]).ui:null,
     el('div',{class:'btnrow'},el('button',{class:'btn',onClick:()=>xExportPoster('png')},'下載 PNG · 高清圖片'),el('button',{class:'btn ghost',onClick:()=>xExportPoster('svg')},'下載 SVG · 向量海報')),
     el('p',{id:'posterStatus',class:'x-status','aria-live':'polite'},'720 × 900 預覽 · PNG 輸出 1440 × 1800 · 無浮水印'),
-    el('div',{class:'x-poster x-enter',html:xPosterSVG(model,state.studioStyle)}),xSource(model.source),el('p',{class:'x-muted'},'圖片在本機生成，不上傳任何資料。分享連結會保留主角與配色；SVG 的字型外觀依開啟裝置而異。')];
+    el('div',{class:'x-poster x-enter',html:xPosterSVG(model,state.studioStyle)}),xSource(model.source),
+    model.honour?el('details',{class:'panel'},el('summary',{},`${model.honour.total} 筆製卡依據與來源`),hFactsTable(HMath.filter(DATA.people.players.find(p=>p.id===state.studioItem),model.honour.filters))):null,
+    el('p',{class:'x-muted'},'圖片在本機生成，不上傳任何資料。分享連結會保留主角、篩選範圍與配色；SVG 的字型外觀依開啟裝置而異。')];
 }
 
 const X_FORMATIONS={

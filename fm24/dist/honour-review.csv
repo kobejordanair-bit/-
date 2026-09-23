@@ -1,0 +1,275 @@
+﻿優先,類別,項目,影響列或引用,狀態,原因,建議,證據位置
+P0,club,波爾圖二隊,31,需主檔指定主 ID,多個 Club_ID 均承載資料，合併前需核對引用,核對各 ID 的來源、球隊級別及歷年身份；確認主 ID 與轉向關係後才遷移引用。,Club_Dim:281; Club_Dim:282
+P0,club,南安普頓,25,需主檔指定主 ID,多個 Club_ID 均承載資料，合併前需核對引用,核對各 ID 的來源、球隊級別及歷年身份；確認主 ID 與轉向關係後才遷移引用。,Club_Dim:153; Club_Dim:272
+P0,club,多特蒙德,17,需主檔指定主 ID,多個 Club_ID 均承載資料，合併前需核對引用,核對各 ID 的來源、球隊級別及歷年身份；確認主 ID 與轉向關係後才遷移引用。,Club_Dim:24; Club_Dim:165
+P0,tournament,2026 伊朗,2,來源直接矛盾,同隊在同屆賽事出現在多個小組,回查對應分組截圖或原始文字，確認兩列的球隊名稱；不自行刪除任何一列。,National_Tournament_Groups:97; National_Tournament_Groups:120
+P0,tournament,2034 新西兰,2,來源直接矛盾,同隊在同屆賽事出現在多個小組,回查對應分組截圖或原始文字，確認兩列的球隊名稱；不自行刪除任何一列。,National_Tournament_Groups:16; National_Tournament_Groups:29
+P1,player,贡萨洛·拉莫斯,14,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Golden_Shoe:4; Ligue1_UNFP_Best_XI:12; Ligue1_UNFP_Best_XI:23; Ligue1_UNFP_Best_XI:34; Ligue1_UNFP_Best_XI:67; Ligue1_UNFP_Best_XI:78; Ligue1_UNFP_Best_XI:122; Ligue1_Golden_Boot:37; Ligue1_Golden_Boot:2; Ligue1_Golden_Boot:5; Ligue1_Golden_Boot:8; Ligue1_Golden_Boot:17; Ligue1_Golden_Boot:23; Ligue1_Golden_Boot:32
+P1,player,拉斯马斯·温特·霍兰德,9,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Golden_Shoe:3; Premier_League_Golden_Boot:2; Premier_League_Golden_Boot:6; Premier_League_Golden_Boot:8; Premier_League_Golden_Boot:15; Premier_League_Golden_Boot:18; PL_PFA_Team_of_Year:11; PL_PFA_Team_of_Year:33; PL_PFA_Team_of_Year:56
+P1,player,凯南·伊尔迪斯,6,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:33; Serie_A_Team_of_Year:55; Serie_A_Team_of_Year:77; Serie_A_Team_of_Year:88; Serie_A_MVP_Young:9; Serie_A_MVP_Young:10
+P1,player,哈里·凯恩,6,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Golden_Shoe:34; Bundesliga_Elf_des_Jahres:100; Bundesliga_Elf_des_Jahres:122; Bundesliga_Torjagerkanone:26; Bundesliga_Torjagerkanone:31; Bundesliga_Torjagerkanone:32
+P1,player,Vitinha,4,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Golden_Shoe:25; Serie_A_Team_of_Year:43; Serie_A_Capocannoniere:11; Serie_A_Capocannoniere:23
+P1,player,费尔·尼尼奥,3,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:14; Ligue1_Golden_Boot:22; Ligue1_Golden_Boot:26
+P1,player,瓦伦丁·卡波尼,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Golden_Shoe:8; Serie_A_Capocannoniere:8
+P1,player,伊莱耶·瓦希,5,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:23; Bundesliga_Torjagerkanone:5; Bundesliga_Torjagerkanone:13; Bundesliga_Torjagerkanone:24; Bundesliga_Torjagerkanone:28
+P1,player,尼科,5,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:29; Ligue1_UNFP_Best_XI:40; Ligue1_UNFP_Best_XI:51; Ligue1_UNFP_Best_XI:62; Ligue1_UNFP_MVP:5
+P1,player,尼科洛·巴雷拉,5,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:53; Serie_A_Team_of_Year:63; Serie_A_Team_of_Year:85; Serie_A_Team_of_Year:118; Serie_A_MVP_Player:12
+P1,player,拉斐尔·莱昂,4,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:44; Serie_A_Team_of_Year:66; Serie_A_Team_of_Year:121; Serie_A_MVP_Player:5
+P1,player,拉菲乌·杜罗辛米,4,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:78; Bundesliga_Torjagerkanone:12; Bundesliga_Torjagerkanone:18; Bundesliga_Torjagerkanone:20
+P1,player,若纳桑·大卫,4,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Golden_Shoe:12; Ligue1_UNFP_Best_XI:45; Ligue1_Golden_Boot:11; Ligue1_Golden_Boot:21
+P1,player,里卡多·佩皮,4,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Golden_Shoe:13; Bundesliga_Elf_des_Jahres:45; Bundesliga_Torjagerkanone:11; Bundesliga_Torjagerkanone:15
+P1,player,Yan Diomande,3,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:130; Bundesliga_Elf_des_Jahres:9; Bundesliga_VDV_Player:2
+P1,player,埃尔林·哈兰德,3,既有別名可核對,個人頁尚未計入得獎紀錄,逐列核對原名、期間與俱樂部後，由主檔採用既有 ID；網站尚未因此增加得獎。,Premier_League_Golden_Boot:36; PL_PFA_Team_of_Year:133; UCL_Golden_Boot:15
+P1,player,艾萨克·罗梅罗,3,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Golden_Shoe:16; Bundesliga_Elf_des_Jahres:56; Bundesliga_Torjagerkanone:14
+P1,player,菲利普·蒂茨,3,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:111; Bundesliga_Torjagerkanone:29; Bundesliga_Torjagerkanone:34
+P1,player,马科斯·莱昂纳多,3,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:11; Premier_League_Golden_Boot:16; PL_PFA_Team_of_Year:44
+P1,player,乔丹·佩罗特,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:133; Serie_A_Capocannoniere:35
+P1,player,亚历杭德罗·加尔纳楚,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Young_POTY:9; PL_PFA_Team_of_Year:18
+P1,player,克里斯琴·博里斯,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_MVP_Young:7; Serie_A_Capocannoniere:7
+P1,player,斯捷潘·赫里什丘克,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:128; Serie_A_MVP_Young:13
+P1,player,普雷斯拉夫·伯洛科夫,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:16; Ligue1_Golden_Boot:20
+P1,player,梅森·格林伍德,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:76; Ligue1_UNFP_MVP:8
+P1,player,维克托·格约克雷斯,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:32; PL_PFA_Team_of_Year:121
+P1,player,维托尔·罗克,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:23; PL_PFA_Team_of_Year:88
+P1,player,范德森,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:102; Serie_A_MVP_Young:11
+P1,player,莱安德罗·特罗萨尔德,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:99; Serie_A_MVP_Player:10
+P1,player,蒂埃诺·巴里,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:67; Bundesliga_Torjagerkanone:17
+P1,player,诺亚·朗,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:109; Serie_A_MVP_Player:11
+P1,player,阿代莫拉·卢克曼,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:87; Serie_A_MVP_Player:9
+P1,player,阿延达·西舒巴,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:35; Ligue1_Golden_Boot:3
+P1,player,马泰伊·科瓦,2,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,LaLiga_Team_Season_Raw:71; LaLiga_Awards_RAW:12
+P1,player,乔尔杰·科瓦切维奇,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_MVP_Young:4
+P1,player,卢姆·查乌奈,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:23
+P1,player,奥斯卡·莫雷诺,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:5
+P1,player,奥马里·哈钦森,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Young_POTY:10
+P1,player,弗拉基米尔·苏希,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:34
+P1,player,弗朗奇斯科·孔塞桑,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:28
+P1,player,本·多克,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Young_POTY:8
+P1,player,柯尼·德温特,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_MVP_Young:12
+P1,player,沙奎尔·范·佩西,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Torjagerkanone:8
+P1,player,法坤多·马尔多纳多,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:11
+P1,player,法比奥·比埃拉,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:31
+P1,player,简菲力浦·克拉索,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:29
+P1,player,若昂·费尔南德斯,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:8
+P1,player,豪尔赫·博霍盖斯,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_MVP_Young:2
+P1,player,贾萨洛·萨门托,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_MVP_Young:3
+P1,player,阿克塞尔·卡永博,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:17
+P1,player,阿尔弗雷德·罗巴斯特,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:2
+P1,player,阿玛拉·迪乌夫,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_MVP_Young:6
+P1,player,马丁纳·戈约吉伊夫,1,既有別名可核對,個人頁尚未計入得獎紀錄,逐列核對原名、期間與俱樂部後，由主檔採用既有 ID；網站尚未因此增加得獎。,PL_PFA_Young_POTY:13
+P1,player,马特斯·汉森,1,需新增主檔證據,個人頁尚未計入得獎紀錄,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:25
+P1,mapping,Barcelona_Season_Leaders,11,網站已拒用，主檔待修,舊列號對照的姓名／期間與來源列不符,以來源列現有姓名及期間重建對照，不能只移動列號；網站已避免使用不符的舊 ID。,Barcelona_Season_Leaders:35; Barcelona_Season_Leaders:36; Barcelona_Season_Leaders:37; Barcelona_Season_Leaders:39; Barcelona_Season_Leaders:40; Barcelona_Season_Leaders:41; Barcelona_Season_Leaders:42; Barcelona_Season_Leaders:43; Barcelona_Season_Leaders:44; Barcelona_Season_Leaders:45; Barcelona_Season_Leaders:59
+P1,player,威廉·帕库,10,需新增主檔證據,影響至少五列獎項,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:126; Ligue1_UNFP_Best_XI:27; Ligue1_UNFP_Best_XI:38; Ligue1_UNFP_Best_XI:49; Ligue1_UNFP_Best_XI:60; Ligue1_UNFP_Best_XI:70; Ligue1_UNFP_Best_XI:81; Ligue1_UNFP_Best_XI:93; Ligue1_UNFP_Best_XI:104; Ligue1_UNFP_Best_XI:115
+P1,player,Kim Min-Jae,7,既有別名可核對,影響至少五列獎項,逐列核對原名、期間與俱樂部後，由主檔採用既有 ID；網站尚未因此增加得獎。,Bundesliga_Elf_des_Jahres:49; Bundesliga_Elf_des_Jahres:60; Bundesliga_Elf_des_Jahres:71; Bundesliga_Elf_des_Jahres:81; Bundesliga_Elf_des_Jahres:92; Bundesliga_Elf_des_Jahres:103; Bundesliga_Elf_des_Jahres:115
+P1,player,达约特·乌帕梅克诺,7,需新增主檔證據,影響至少五列獎項,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:16; Bundesliga_Elf_des_Jahres:59; Bundesliga_Elf_des_Jahres:70; Bundesliga_Elf_des_Jahres:82; Bundesliga_Elf_des_Jahres:93; Bundesliga_Elf_des_Jahres:104; Bundesliga_Elf_des_Jahres:114
+P1,mapping,PL_PFA_Team_of_Year,6,網站已拒用，主檔待修,舊列號對照的姓名／期間與來源列不符,以來源列現有姓名及期間重建對照，不能只移動列號；網站已避免使用不符的舊 ID。,PL_PFA_Team_of_Year:112; PL_PFA_Team_of_Year:114; PL_PFA_Team_of_Year:117; PL_PFA_Team_of_Year:119; PL_PFA_Team_of_Year:120; PL_PFA_Team_of_Year:122
+P1,player,穆罕默德·库杜斯,6,需新增主檔證據,影響至少五列獎項,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:43; Ligue1_UNFP_Best_XI:63; Ligue1_Golden_Boot:13; Ligue1_Golden_Boot:19; Ligue1_Golden_Boot:24; Ligue1_Golden_Boot:28
+P1,player,马特乌斯,6,需新增主檔證據,影響至少五列獎項,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:58; PL_PFA_Team_of_Year:69; PL_PFA_Team_of_Year:80; PL_PFA_Team_of_Year:91; PL_PFA_Team_of_Year:102; PL_PFA_Team_of_Year:113
+P1,mapping,Barcelona_LaLiga_Best_XI,5,網站已拒用，主檔待修,舊列號對照的姓名／期間與來源列不符,以來源列現有姓名及期間重建對照，不能只移動列號；網站已避免使用不符的舊 ID。,Barcelona_LaLiga_Best_XI:75; Barcelona_LaLiga_Best_XI:86; Barcelona_LaLiga_Best_XI:96; Barcelona_LaLiga_Best_XI:108; Barcelona_LaLiga_Best_XI:117
+P1,mapping,Ligue1_UNFP_Best_XI,5,網站已拒用，主檔待修,舊列號對照的姓名／期間與來源列不符,以來源列現有姓名及期間重建對照，不能只移動列號；網站已避免使用不符的舊 ID。,Ligue1_UNFP_Best_XI:117; Ligue1_UNFP_Best_XI:118; Ligue1_UNFP_Best_XI:119; Ligue1_UNFP_Best_XI:120; Ligue1_UNFP_Best_XI:121
+P1,player,亚历山德罗·巴斯托尼,5,需新增主檔證據,影響至少五列獎項,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:38; Serie_A_Team_of_Year:49; Serie_A_Team_of_Year:60; Serie_A_Team_of_Year:81; Serie_A_Team_of_Year:114
+P1,player,努诺·门德斯,5,需新增主檔證據,影響至少五列獎項,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:127; Ligue1_UNFP_Best_XI:17; Ligue1_UNFP_Best_XI:28; Ligue1_UNFP_Best_XI:39; Ligue1_UNFP_Best_XI:72
+P1,player,杨科托,5,需新增主檔證據,影響至少五列獎項,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:3; Bundesliga_Elf_des_Jahres:25; Bundesliga_Elf_des_Jahres:58; Bundesliga_Elf_des_Jahres:113; Bundesliga_VDV_Newcomer:32
+P1,player,费代里科·迪马科,5,需新增主檔證據,影響至少五列獎項,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:61; Serie_A_Team_of_Year:72; Serie_A_Team_of_Year:82; Serie_A_Team_of_Year:105; Serie_A_Team_of_Year:116
+P1,player,路易斯·迪亚斯,5,需新增主檔證據,影響至少五列獎項,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:66; Bundesliga_Elf_des_Jahres:77; Bundesliga_Elf_des_Jahres:88; Bundesliga_Elf_des_Jahres:110; Bundesliga_Elf_des_Jahres:121
+P1,player,迪恩·豪耶森,5,需新增主檔證據,影響至少五列獎項,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:125; Ligue1_UNFP_Best_XI:4; Ligue1_UNFP_Best_XI:16; Ligue1_UNFP_Best_XI:26; Ligue1_UNFP_Best_XI:59
+P1,mapping,Bundesliga_Elf_des_Jahres,2,網站已拒用，主檔待修,舊列號對照的姓名／期間與來源列不符,以來源列現有姓名及期間重建對照，不能只移動列號；網站已避免使用不符的舊 ID。,Bundesliga_Elf_des_Jahres:116; Bundesliga_Elf_des_Jahres:119
+P1,mapping,Serie_A_Capocannoniere,2,網站已拒用，主檔待修,舊列號對照的姓名／期間與來源列不符,以來源列現有姓名及期間重建對照，不能只移動列號；網站已避免使用不符的舊 ID。,Serie_A_Capocannoniere:32; Serie_A_Capocannoniere:33
+P1,mapping,Serie_A_Team_of_Year,2,網站已拒用，主檔待修,舊列號對照的姓名／期間與來源列不符,以來源列現有姓名及期間重建對照，不能只移動列號；網站已避免使用不符的舊 ID。,Serie_A_Team_of_Year:112; Serie_A_Team_of_Year:122
+P1,player,佩德罗·坎波斯,2,既有別名可核對,已有唯一受控別名線索,逐列核對原名、期間與俱樂部後，由主檔採用既有 ID；網站尚未因此增加得獎。,Barcelona_LaLiga_Best_XI:131; Pichichi_Award:16
+P1,mapping,Bundesliga_VDV_Newcomer,1,網站已拒用，主檔待修,舊列號對照的姓名／期間與來源列不符,以來源列現有姓名及期間重建對照，不能只移動列號；網站已避免使用不符的舊 ID。,Bundesliga_VDV_Newcomer:33
+P1,mapping,Golden_Shoe,1,網站已拒用，主檔待修,舊列號對照的姓名／期間與來源列不符,以來源列現有姓名及期間重建對照，不能只移動列號；網站已避免使用不符的舊 ID。,Golden_Shoe:32
+P1,mapping,Ligue1_UNFP_MVP,1,網站已拒用，主檔待修,舊列號對照的姓名／期間與來源列不符,以來源列現有姓名及期間重建對照，不能只移動列號；網站已避免使用不符的舊 ID。,Ligue1_UNFP_MVP:12
+P1,mapping,PL_PFA_Young_POTY,1,網站已拒用，主檔待修,舊列號對照的姓名／期間與來源列不符,以來源列現有姓名及期間重建對照，不能只移動列號；網站已避免使用不符的舊 ID。,PL_PFA_Young_POTY:12
+P1,mapping,Premier_League_PFA_POTY,1,網站已拒用，主檔待修,舊列號對照的姓名／期間與來源列不符,以來源列現有姓名及期間重建對照，不能只移動列號；網站已避免使用不符的舊 ID。,Premier_League_PFA_POTY:12
+P1,player,伊利亚·扎巴尔尼,1,既有別名可核對,已有唯一受控別名線索,逐列核對原名、期間與俱樂部後，由主檔採用既有 ID；網站尚未因此增加得獎。,PL_PFA_Team_of_Year:126
+P1,player,布卡约·萨卡,1,既有別名可核對,已有唯一受控別名線索,逐列核對原名、期間與俱樂部後，由主檔採用既有 ID；網站尚未因此增加得獎。,PL_PFA_Team_of_Year:131
+P1,player,若奥·卡瓦略·德·苏萨,1,既有別名可核對,已有唯一受控別名線索,逐列核對原名、期間與俱樂部後，由主檔採用既有 ID；網站尚未因此增加得獎。,Bundesliga_VDV_Newcomer:15
+P1,player,萨米赫·克利奇索伊,1,既有別名可核對,已有唯一受控別名線索,逐列核對原名、期間與俱樂部後，由主檔採用既有 ID；網站尚未因此增加得獎。,Barcelona_LaLiga_Best_XI:130
+P1,player,谢赫·桑内赫,1,既有別名可核對,已有唯一受控別名線索,逐列核對原名、期間與俱樂部後，由主檔採用既有 ID；網站尚未因此增加得獎。,Barcelona_LaLiga_Best_XI:122
+P1,player,里科·刘易斯,1,既有別名可核對,已有唯一受控別名線索,逐列核對原名、期間與俱樂部後，由主檔採用既有 ID；網站尚未因此增加得獎。,PL_PFA_Team_of_Year:124
+P2,source,賽事名稱尚未受控,2485,待核對,61 個名稱、2485 次參照待核對；11 組是相似寫法候選，不當成已證實同一賽事。新增賽事或別名需主檔建立正式 ID；網站保留原文與候選。,核對賽事與層級,
+P2,source,俱樂部參照尚無唯一受控身分,993,待核對,81 個原始字串、993 次參照仍需核對，包含未建檔、截斷或多個 ID 的情況；相似候選不是已確認身分。,查看逐項候選與出處,
+P2,club,法蘭克福,57,需主檔指定主 ID,受控俱樂部身分可能重複,核對各 ID 的來源、球隊級別及歷年身份；確認主 ID 與轉向關係後才遷移引用。,Club_Dim:49; Club_Dim:195
+P2,club,摩納哥,31,需主檔指定主 ID,受控俱樂部身分可能重複,核對各 ID 的來源、球隊級別及歷年身份；確認主 ID 與轉向關係後才遷移引用。,Club_Dim:42; Club_Dim:169
+P2,club,裏爾,27,需主檔指定主 ID,受控俱樂部身分可能重複,核對各 ID 的來源、球隊級別及歷年身份；確認主 ID 與轉向關係後才遷移引用。,Club_Dim:72; Club_Dim:115
+P2,club,波鴻,20,需主檔指定主 ID,受控俱樂部身分可能重複,核對各 ID 的來源、球隊級別及歷年身份；確認主 ID 與轉向關係後才遷移引用。,Club_Dim:205; Club_Dim:246
+P2,club,艾斯特拉阿馬多拉,6,需主檔指定主 ID,受控俱樂部身分可能重複,核對各 ID 的來源、球隊級別及歷年身份；確認主 ID 與轉向關係後才遷移引用。,Club_Dim:256; Club_Dim:297
+P2,club,馬賽,5,需主檔指定主 ID,受控俱樂部身分可能重複,核對各 ID 的來源、球隊級別及歷年身份；確認主 ID 與轉向關係後才遷移引用。,Club_Dim:80; Club_Dim:270
+P2,player,乔吉·马马达什维利,4,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:13; Bundesliga_Elf_des_Jahres:35; Bundesliga_Elf_des_Jahres:68; Bundesliga_Elf_des_Jahres:79
+P2,player,伯纳多·席尔瓦,4,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:86; PL_PFA_Team_of_Year:96; PL_PFA_Team_of_Year:108; PL_PFA_Team_of_Year:118
+P2,player,布拉德利·巴科拉,4,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:56; Ligue1_UNFP_Best_XI:89; Ligue1_Golden_Boot:15; Ligue1_Golden_Boot:25
+P2,player,托恩·克普迈纳斯,4,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:75; Serie_A_Team_of_Year:84; Serie_A_Team_of_Year:97; Serie_A_Team_of_Year:107
+P2,player,米卡·马尔莫尔,4,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:4; Bundesliga_Elf_des_Jahres:26; Bundesliga_Elf_des_Jahres:37; Bundesliga_Elf_des_Jahres:50
+P2,player,阿什拉夫·哈基米,4,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:58; Ligue1_UNFP_Best_XI:80; Ligue1_UNFP_Best_XI:91; Ligue1_UNFP_Best_XI:102
+P2,player,马尔基尼奥斯,4,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:71; Ligue1_UNFP_Best_XI:92; Ligue1_UNFP_Best_XI:103; Ligue1_UNFP_Best_XI:114
+P2,player,伊利亚·卡普里莱,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:2; Bundesliga_Elf_des_Jahres:24; Bundesliga_Elf_des_Jahres:46
+P2,player,伊布拉西马·科纳特,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:38; PL_PFA_Team_of_Year:82; PL_PFA_Team_of_Year:93
+P2,player,卢卡斯·埃尔南德斯-卡斯坎特,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:94; Ligue1_UNFP_Best_XI:105; Ligue1_UNFP_Best_XI:116
+P2,player,哈康·阿尔纳·拉拉尔松,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:8; Ligue1_UNFP_Best_XI:19; Ligue1_UNFP_Best_XI:53
+P2,player,基利安·恩尔迪里亚,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:14; Bundesliga_Elf_des_Jahres:36; Bundesliga_Elf_des_Jahres:47
+P2,player,安德鲁·罗伯特松,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:83; PL_PFA_Team_of_Year:94; PL_PFA_Team_of_Year:116
+P2,player,尼科尔·特雷索尔迪,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:32; Bundesliga_Torjagerkanone:4; Bundesliga_Torjagerkanone:9
+P2,player,布莱梅,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:70; Serie_A_Team_of_Year:92; Serie_A_Team_of_Year:103
+P2,club,拜仁慕尼黑,3,需主檔指定主 ID,受控俱樂部身分可能重複,核對各 ID 的來源、球隊級別及歷年身份；確認主 ID 與轉向關係後才遷移引用。,Club_Dim:40; Club_Dim:41; Club_Dim:266
+P2,player,昆腾·玛杜罗,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:8; Bundesliga_Elf_des_Jahres:40; Bundesliga_Elf_des_Jahres:62
+P2,player,梅尔文·巴德,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:6; Ligue1_UNFP_Best_XI:61; Ligue1_UNFP_Best_XI:83
+P2,player,穆哈默德·阿里·楚,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:4; Premier_League_Golden_Boot:13; PL_PFA_Team_of_Year:23
+P2,player,若纳唐·科雷亚,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:133; Ligue1_Golden_Boot:36; Ligue1_Golden_Boot:4
+P2,player,达维德·法拉特西,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:41; Serie_A_Team_of_Year:52; Serie_A_Team_of_Year:64
+P2,player,马克·安德雷·特尔·施特根,3,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:79; Ligue1_UNFP_Best_XI:90; Ligue1_UNFP_Best_XI:101
+P2,player,亚历山德罗·布翁乔尔诺,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:48; Serie_A_Team_of_Year:59
+P2,player,伊斯梅尔·加尔比,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:31; Bundesliga_Elf_des_Jahres:42
+P2,player,何塞·马丁内斯,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:38; Bundesliga_VDV_Newcomer:29
+P2,player,來源未填姓名,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,LaLiga_Team_Season_Raw:180; LaLiga_Team_Season_Raw:184
+P2,player,保罗·哈特曼,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:133; Bundesliga_Torjagerkanone:37
+P2,player,华金·莫拉,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:127; Bundesliga_Elf_des_Jahres:6
+P2,player,古格列莫·维卡里奥,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:46; PL_PFA_Team_of_Year:68
+P2,player,埃万·恩迪卡,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:28; Serie_A_Team_of_Year:37
+P2,player,奥斯卡·佩里亚,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:21; Ligue1_UNFP_Best_XI:32
+P2,player,安吉洛,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:131; Bundesliga_VDV_Player:3
+P2,player,尼古拉斯·赛瓦尔德,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:19; Bundesliga_Elf_des_Jahres:30
+P2,player,尼尔·马乌佩,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:27; Ligue1_Golden_Boot:31
+P2,player,尼科·施洛特贝克,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:27; Bundesliga_Elf_des_Jahres:48
+P2,player,希拉里特·西林,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Barcelona_LaLiga_Best_XI:126; LaLiga_Player_of_Year:17
+P2,player,帕斯卡尔·盖,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:107; Bundesliga_Elf_des_Jahres:118
+P2,player,德尼茨·乌达夫,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Torjagerkanone:19; Bundesliga_Torjagerkanone:30
+P2,player,法比奥·席尔瓦,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:6; Ligue1_Golden_Boot:12
+P2,player,泰隆·科斯塔,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:20; Serie_A_Team_of_Year:42
+P2,player,洛伦佐·卢卡,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Capocannoniere:12; Serie_A_Capocannoniere:31
+P2,player,爱德华多·博韦,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:130; Ligue1_UNFP_Best_XI:9
+P2,player,爱德华多·卡马温加,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:31; PL_PFA_Team_of_Year:75
+P2,player,约翰·巴卡约科,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:10; Ligue1_UNFP_Best_XI:54
+P2,player,维科托·久卡诺维奇,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:33; Bundesliga_Elf_des_Jahres:44
+P2,player,耶霍尔·亚尔莫柳克,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:21; Bundesliga_Elf_des_Jahres:51
+P2,player,胡里奥·恩西索,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:132; Serie_A_Team_of_Year:22
+P2,player,若奥·帕尔辛哈,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:74; Bundesliga_Elf_des_Jahres:96
+P2,player,西奥·埃尔南德斯-卡斯坎特,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:37; Ligue1_UNFP_Best_XI:50
+P2,player,费代里科·夏缇,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:71; Serie_A_Team_of_Year:93
+P2,player,里斯·詹姆斯,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:3; PL_PFA_Team_of_Year:14
+P2,player,阿尔曼·阿斯卡罗夫,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:43; Bundesliga_Elf_des_Jahres:54
+P2,player,阿提姆·多夫比科,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Capocannoniere:16; Serie_A_Capocannoniere:19
+P2,player,雷纳托·韦加,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:5; Serie_A_Team_of_Year:17
+P2,player,马尔钦·布卡,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:123; Bundesliga_Elf_des_Jahres:57
+P2,player,马库斯·奎伦,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Golden_Shoe:27; Golden_Shoe:33
+P2,player,马泰斯·德·莱特,2,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:49; PL_PFA_Team_of_Year:71
+P2,player,Dominik Sukiennicki,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:7
+P2,player,Jorthy Mokio,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:13
+P2,player,Lucá Williams-Barnett,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Capocannoniere:3
+P2,player,丹尼尔·埃万斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:129
+P2,player,丹尼尔·赫卢赛维奇,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:36
+P2,player,丹尼尔·里特尔,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Torjagerkanone:3
+P2,player,丹泽尔·邓弗里斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:80
+P2,player,乔·戈麦斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:105
+P2,player,乔纳斯·温德,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Torjagerkanone:21
+P2,player,乔纳赫·库斯-奥萨雷,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:7
+P2,player,亚历克斯·格里马尔多,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:94
+P2,player,亚历克斯·梅雷特,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:35
+P2,player,亚历山德罗·希尔卡迪,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:5
+P2,player,亚历山德罗·比安科,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:29
+P2,player,亨里克·姆希塔良,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:119
+P2,player,伊万·普安德,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:90
+P2,player,伊戈尔·斯塔扎勒克,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:27
+P2,player,伊萨克·汉内松,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:73
+P2,player,伊诺克·马斯托拉斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:21
+P2,player,克里斯托弗·恩昆库,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:120
+P2,player,凯·哈弗茨,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Golden_Shoe:19
+P2,player,利昂·格雷茨卡,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:117
+P2,player,利桑德罗·马丁内斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:48
+P2,player,加布里埃尔·泰奥多罗·马丁内利·席尔瓦,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:76
+P2,player,卢卡斯·伯格瓦尔,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:128
+P2,player,卢卡斯·赫拉德茨基,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:112
+P2,player,卢特沙雷尔·海特勒伊达,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:47
+P2,player,吉奥瓦尼·迪洛伦索,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:91
+P2,player,哈姆扎·布哈里,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:7
+P2,player,哈康·阿纳尔·哈拉尔德松,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:129
+P2,player,哈比卜·贡萨,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:34
+P2,player,图尔坎·冈萨雷斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:15
+P2,player,图尔坎·古铁雷斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:29
+P2,player,圣马洛·古斯托,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:3
+P2,player,埃里克·马特尔,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:7
+P2,player,埃马努埃莱·巴莱里,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:50
+P2,player,塞尔希·沃洛辛,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:4
+P2,player,塞萨尔·阿劳霍,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:62
+P2,player,多米尼克·索博斯洛伊,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:42
+P2,player,多米尼克·索朗克,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:30
+P2,player,安德烈亚·坎比亚索,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:94
+P2,player,安特·布迪米尔,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Golden_Shoe:31
+P2,player,尤素夫·恩达伊什米耶,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:95
+P2,player,尼基塔·萨尔特科夫,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:9
+P2,club,布萊頓,1,需主檔指定主 ID,受控俱樂部身分可能重複,核對各 ID 的來源、球隊級別及歷年身份；確認主 ID 與轉向關係後才遷移引用。,Club_Dim:36; Club_Dim:241
+P2,player,布里安·克里斯坦特,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:106
+P2,player,布里安·姆贝乌莫,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:34
+P2,player,布雷恩·布洛贝,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:22
+P2,player,德乔·卡瓦略,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:9
+P2,player,托马斯·特路,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:36
+P2,player,扬·索默,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:79
+P2,player,拉斐尔·路易斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:130
+P2,player,拉斐尔·马丁斯·马奎斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:22
+P2,player,斯特拉辛加·帕夫洛维奇,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:26
+P2,player,昆滕·玛杜罗,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:126
+P2,player,曼努埃尔·诺伊尔,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:112
+P2,player,曼努埃尔·阿坎吉,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:115
+P2,player,本·穆勒,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:5
+P2,player,本杰明·塔希罗维奇,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:128
+P2,player,本杰明·帕瓦尔,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:113
+P2,player,朱利亚诺·卡萨,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:9
+P2,player,朱利安·布兰特,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:120
+P2,player,杰森·范道芬,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:30
+P2,player,松田昌伊茨,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:35
+P2,player,比伊·吉尔摩,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:95
+P2,player,法比奥·米雷蒂,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:86
+P2,player,法里斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:10
+P2,player,特雷姆·莫菲,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:33
+P2,player,瓦伦丁·巴科,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:30
+P2,player,皮埃尔·卡卢卢,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:104
+P2,player,穆罕默德·桑西·西马坎,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:50
+P2,player,米基·范德文,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:37
+P2,player,米歇尔·迪·格雷戈里奥,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:101
+P2,player,米洛斯·克尔克兹,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:124
+P2,player,约瑟夫·朱尔莱德,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:10
+P2,player,约翰尼·贝迪尼,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:19
+P2,player,纳乔·菲力,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Golden_Shoe:6
+P2,player,维尔弗里德·辛戈,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:25
+P2,player,维尼修斯·儒尼奥尔,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:109
+P2,player,罗梅·杰登·奥乌苏·奥杜路,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:123
+P2,player,罗梅卢·卢卡库,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Capocannoniere:34
+P2,player,胡利安·瑞尔森,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:102
+P2,player,艾伦·奥班多,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:10
+P2,player,若奥·费雷拉,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:69
+P2,player,若昂·佩德罗,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:21
+P2,player,若泽·古斯塔沃·赫南德斯·雷亚,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:18
+P2,player,莱昂纳多·门迪奇诺,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:8
+P2,player,菲利普·塔姆克,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Torjagerkanone:6
+P2,player,萨穆埃尔·楚库泽,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:86
+P2,player,萨艾·恩塞克,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:124
+P2,player,蒂姆·克莱因丁斯特,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Torjagerkanone:33
+P2,player,蒂诺·利夫拉曼托,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:47
+P2,player,詹卢卡·斯卡马卡,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Capocannoniere:21
+P2,player,詹姆斯·加纳,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:20
+P2,player,谢尔盖·平亚戈夫,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:20
+P2,source,賽季主表的進失球缺值,1,需新增來源,1 季的 GF 或 GA 未提供；依主檔逐欄採用限制保留未知。積分榜旁證可查閱，但不越過採用政策回填主表。,查看賽季欄位來源及採用範圍,Barcelona_Season_Master:13
+P2,player,贾洛德·博文,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:33
+P2,player,达米恩·唐斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Torjagerkanone:10
+P2,player,里卡尔多·卡拉菲奥里,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:6
+P2,player,阿利·阿尔·穆斯拉蒂,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:117
+P2,player,阿卜杜勒·法塔乌,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:131
+P2,player,阿瑙德·卡里姆恩多,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:31
+P2,player,阿瑟德·卡里姆恩多,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Premier_League_Golden_Boot:27
+P2,player,阿莱西奥·罗马格诺里,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:115
+P2,player,阿里永·伊布拉希莫维奇,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:10
+P2,player,雅各布·扬诺斯基,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:124
+P2,player,雅各布·拉姆塞,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:54
+P2,player,雅辛·艾德利,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:63
+P2,player,马丁纳·特伦斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:99
+P2,player,马克·弗莱肯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:90
+P2,player,马克·苏亚雷斯,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:6
+P2,player,马努·科内,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,PL_PFA_Team_of_Year:63
+P2,player,马塞尔·雷巴科夫,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:19
+P2,player,马尔科·米洛瓦诺维奇,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_Golden_Boot:18
+P2,player,马泰奥·达米安,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:113
+P2,player,马特·特纳,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Ligue1_UNFP_Best_XI:68
+P2,player,马蒂亚斯·苏莱,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_Elf_des_Jahres:53
+P2,player,马蒂厄·帕杜耶,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Serie_A_Team_of_Year:13
+P2,player,马里奥·佩亚兹奇,1,需新增主檔證據,未唯一綁定的個人榮譽,取得同期球員檔案或明確受控別名；不得只按近似姓名採用。,Bundesliga_VDV_Newcomer:24
+P2,club,勒沃庫森,0,需主檔指定主 ID,受控俱樂部身分可能重複,核對各 ID 的來源、球隊級別及歷年身份；確認主 ID 與轉向關係後才遷移引用。,Club_Dim:19; Club_Dim:20; Club_Dim:223
