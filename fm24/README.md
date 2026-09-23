@@ -370,6 +370,13 @@ SQLite 雙引號行為、以及那個 `路易斯·迪亞斯` / `路易斯·蘇�
 
 ## 下一步候選
 
+截圖更新已有獨立的 [Hermes 單一入口](hermes/README.md)：原圖留存、內部轉錄核對、
+固定匯入器、整批驗證、Excel／HTML 同步產出與回復。安裝器只接既有 ACTIVE registry，
+不會把網頁上的 Ingest 待審紀錄自動視為正式主檔資料。
+
+[下載 Hermes 安裝包](downloads/fm24-hermes-flow-v1.zip) · [本機驗收與尚未驗證範圍](hermes/VALIDATION.md)
+
+
 - 把匯入的觀測與身分決定直接併回 .xlsx，讓工作簿與 SQLite 雙向同步
 - 認知史加上「以當日認知重算排行榜」，而不只是統計當日學到什麼
 - 把 `Ingest_*` 的決定實際套用回 `.xlsx`，完成雙向同步

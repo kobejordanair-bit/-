@@ -1,0 +1,26 @@
+{
+  "source": "FM_World_Import_Repair_v1.zip",
+  "source_sha256": "6073e922504aa586b736ea0dab5f4fcc93e4995c908d1cacb8047df7a5c4215f",
+  "original_files": {
+    "ICU_DATA_LICENSE.txt": "5bbff5f646ce750ac0a347e7f91793279b7422a1119820b5f75d98879c201c68",
+    "attribute_backfill_v11.py": "36458aa5d1fdf3e0bcd3f6aee0e12d0007494a1d0577638e2deeb44d1bf18989",
+    "barcelona_honours_sync_v1.py": "bbe88b9f82166b2e2cdd0bf2e3d9e9103811e12efd5cff86761fef06a5f2632f",
+    "career_honours_enrichment.py": "183360b65d3a446edf0f193448b8ffd4f02a27fc8e62159bb6df5690d68f3530",
+    "derived_rebuild.py": "a1d3226ce3dd70f2b52407e4f42d0a84fc336c2d44cbfc13b4ee9ff2df77ee05",
+    "full_player_import_v11.py": "3b90ac2dca7a95911285a0cb62b8a2d5c3d1c2c9514dccd1975112c1536a4be6",
+    "full_player_import_v11_attributes.py": "44eef6dbc4a68b7813683bb8f410e1846729acb55b7525e4ee943e8283d10bdf",
+    "full_player_import_v11_attributes_prototype.py": "44eef6dbc4a68b7813683bb8f410e1846729acb55b7525e4ee943e8283d10bdf",
+    "full_player_import_v1_core.py": "04b91785f0925b92c0707ddbf2becf08e9986244601837edbc66b51d58f4d11c",
+    "generic_importer.py": "04d2c2ab3253d57fef40f862c24db3144537c3206f1f884414f7047401632b2d",
+    "global_validation.py": "c4f2cbf802b91748f2fc9aa0e29d2a80157a04655c80b0e712a3a111d421f271",
+    "governance_migration.py": "a6c0e2c137f53aaff1302676671cf94b90c81729aa4b55f622166d5008ed21e0",
+    "governed_identity.py": "112528052d20a363ff0fdf17763388b2bb47572af501b286074e64cade410780",
+    "identity_refresh.py": "c3241142c43c7637c0fdda99394d4b1811d3c3a65387b12a7851ce9b571b95b6",
+    "import_policy.py": "b74f928ed7696966d987047e8ad2b974312e8901fb6eca43210e4b41e4947eea",
+    "production_importer.py": "d467f20a7ac2979cd209992ede46f5cc10e7447fe6677acca454a573120954cf",
+    "semantic_guard.py": "123fe881e1d3db5cd730eee73f0cdfb3072dd2395bc61952a0383a9a9f65fded",
+    "stabilized_importer.py": "78e767729dcfe433e4a24fd2578d5aa53666a240a252127591dd179549a9a83b",
+    "t2s_icu74.json": "b4be18c13eb88d10cd249d37c332efe44a51bb0c768fd198c1b1755f35718f83",
+    "v11_validation.py": "8aaea9c22b97f2f368bc558569ac4cdb97822fbecabf6cb0bd1ed8d27bd8e836"
+  }
+}
