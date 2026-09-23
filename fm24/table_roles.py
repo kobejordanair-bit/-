@@ -343,6 +343,15 @@ for _table, (_priority, _constraint) in COMPLETED_P1_P2.items():
 
 PENDING_INTEGRATION: dict[str, tuple[str, str]] = {}
 
+# Independent structured award authorities now reach each player's ledger.
+from player_awards import AWARD_SHEETS
+for _table in AWARD_SHEETS:
+    _previous = TABLE_USES.get(_table, use())
+    TABLE_USES[_table] = use(*(_previous.roles | {SURFACED, PROVENANCE}),
+        columns=_previous.columns + '；獎項／期間／名次／球員／表現欄位／來源列',
+        output=_previous.output + '；people.players[].awards → 球員獎項及逐筆來源；reference.tables → 原始列',
+        note='依受控身分及期間去重；生涯摘要與統計領先者不新增獎項。')
+
 
 def use_of(table: str) -> Use:
     return TABLE_USES.get(table, use(PRESERVED))

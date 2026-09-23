@@ -1060,6 +1060,7 @@ def collect(archive: "Archive") -> dict:
     from evidence import integrate
     from history import integrate_history
     from experience import integrate_experience
+    from player_awards import integrate_player_awards
     payload = {
         "meta": archive.meta(),
         "world": archive.world(),
@@ -1076,7 +1077,7 @@ def collect(archive: "Archive") -> dict:
         "integrity": archive.integrity(),
         "honours": archive.honours(),
     }
-    return integrate_experience(archive, integrate_history(archive, integrate(archive, payload)))
+    return integrate_experience(archive, integrate_player_awards(archive, integrate_history(archive, integrate(archive, payload))))
 
 
 def build(db_path: Path, out_path: Path, template_path: Path, standalone: bool = False, *, allow_degraded: bool = False) -> None:

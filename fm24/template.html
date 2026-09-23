@@ -661,10 +661,10 @@ function evidenceDetails(refs, label = "查看來源") {
     }));
 }
 function awardEvidence(f) {
-  return el("div",{}, f.performance ? el("div",{class:"cap"},
+  return el("div",{}, f.performance && Object.values(f.performance).some(v=>v!=null) ? el("div",{class:"cap"},
     `${dash(f.performance.apps)} 場 · ${dash(f.performance.goals)} 球 · ${dash(f.performance.assists)} 助 · 評分 ${dash(f.performance.rating)}`,
     el("p",{},[f.performance.nationality,f.performance.age ? f.performance.age+" 歲" : null,f.performance.position].filter(Boolean).join(" · "))) : null,
-    evidenceDetails([f.primary, ...f.evidence], `查看來源（${f.evidence.length} 筆關聯）`));
+    evidenceDetails([f.primary, ...f.evidence], "查看獎項來源"));
 }
 function seasonProvenance(s) {
   return el("section", { class: "panel" }, el("h3", {}, "本季欄位的來源與採用狀態"),
@@ -1322,7 +1322,12 @@ function renderPeople() {
       el("div", { class: "eyebrow" },
         `${DATA.people.players.length} 個受控身分　${DATA.people.withAwards} 有獎項　${DATA.people.withStats} 有數據`),
       el("h2", {}, "球員名錄"),
-      el("p", {}, "Player_Dim 的全部受控身分。多數只在獎項表中出現過姓名，沒有數據列——這是來源的實況，不是缺漏。")),
+      el("p", {}, "Player_Dim 的全部受控身分，整合已收錄的個人獎項、最佳陣容與其他名次。各球員可展開逐筆來源與主檔生涯摘要。")),
+    el("details", {class:"panel"}, el("summary", {}, "獎項涵蓋範圍與待核對來源"),
+      el("p", {class:"cap"}, DATA.people.awardCoverage.policy),
+      el("p", {}, `${DATA.people.awardCoverage.records} 筆去重紀錄；${DATA.people.awardCoverage.unassigned.length} 筆來源尚不能唯一掛入球員頁。`),
+      evidenceDetails(DATA.people.awardCoverage.unassigned.map(x=>({...x.evidence, role:x.reason})), "查看未掛入的來源"),
+      el("p", {class:"cap"}, `另有 ${DATA.people.awardCoverage.identityIssues.length} 次舊列號對照不符，已拒用該對照；僅在既有名稱完全一致且唯一時重新關聯。`)),
     el("div", { class: "filters" },
       el("input", {
         id: "personQ", type: "search", placeholder: "搜尋姓名、別名、俱樂部或 Player_ID…",
@@ -1345,7 +1350,7 @@ function peopleTable(rows) {
       el("thead", {}, el("tr", {},
         el("th", {}, "球員"), el("th", {}, "國籍"), el("th", {}, "俱樂部"),
         el("th", { class: "num" }, "聯賽出場"), el("th", { class: "num" }, "聯賽進球"),
-        el("th", { class: "num" }, "聯賽助攻"), el("th", { class: "num" }, "獎項"))),
+        el("th", { class: "num" }, "聯賽助攻"), el("th", { class: "num" }, "獎項紀錄"))),
       el("tbody", {}, shown.map(p =>
         el("tr", { class: "click", onClick: () => { state.person = p.id; paint(); writeRoute(false); } },
           el("td", { class: "name-cell" }, p.name,
@@ -1400,7 +1405,7 @@ function renderPerson() {
       el("div", {}, el("div", { class: "n tnum" }, p.seasonCount), el("div", { class: "l" }, "在檔賽季")),
       el("div", {}, el("div", { class: "n tnum" }, p.awards.length), el("div", { class: "l" }, "獎項紀錄")),
     ) : el("div", { class: "hint" },
-      "這個身分在檔案中只出現於獎項紀錄，沒有任何出場數據列。來源未提供即保持未知，不補值。"),
+      "此身分沒有可供彙總的聯賽出場數據。來源未提供即保持未知，不補值。"),
     retirementLink(p),
     p.clubs.length ? el("section", { class: "panel" },
       el("h3", {}, "效力俱樂部"),
@@ -1414,9 +1419,16 @@ function renderPerson() {
         onClick: () => { state.player = p.id; state.person = null; go("squad"); state.player = p.id; paint(); },
       }, "開啟巴薩生涯檔案 →")) : null,
     ...(p.seasonHonours?.length || p.seasonVerification?.length ? playerEvidence(p) : []),
+    p.awardSummary ? el("details", {class:"panel"}, el("summary", {}, "主檔生涯榮譽摘要"),
+      el("p", {class:"cap"}, "保留 Master 摘要原文供交叉核對；不把摘要再加進下方獎項次數。"),
+      el("p", {}, p.awardSummary.text), evidenceDetails([p.awardSummary.evidence])) : null,
     Object.keys(byAward).length ? el("section", { class: "panel" },
       el("h3", {}, `獎項紀錄　${p.awards.length}`),
-      el("p", { class: "cap" }, "來源：Canonical_Award_Facts（已綁定此 Player_ID 的列）"),
+      el("div", {class:"chips"},
+        el("span", {class:"chip"}, `得獎 ${p.awardCounts.winner}`),
+        el("span", {class:"chip"}, `入選 ${p.awardCounts.selection}`),
+        el("span", {class:"chip"}, `其他名次 ${p.awardCounts.placing}`)),
+      el("p", { class: "cap" }, "來源：正式獎項表＋金球、FIFA、青年獎、歐冠、聯賽與球迷獎等結構化來源。依主檔受控身分關聯，同一獎項、期間、名次合併來源；入選序號不當名次。僅反映已收錄且能唯一對應的紀錄。"),
       el("div", { class: "tblwrap" }, el("table", { class: "data", style: "min-width:0" },
         el("thead", {}, el("tr", {}, ["獎項", "賽季", "名次／入選", "俱樂部", "來源"].map(x => el("th", {}, x)))),
         el("tbody", {}, p.awards.slice().sort((a, b) => String(b.season).localeCompare(String(a.season)))
@@ -1424,8 +1436,8 @@ function renderPerson() {
             el("td", {}, a.award),
             el("td", { class: "mono" }, dash(a.season)),
             el("td", {}, a.rank === "1"
-              ? el("span", { class: "pill win" }, "冠軍")
-              : el("span", { class: "pill flat" }, a.kind === "selection" ? `入選（${a.rank}）` : a.rank)),
+              ? el("span", { class: "pill win" }, "得獎")
+              : el("span", { class: "pill flat" }, a.kind === "selection" ? "入選" : `第 ${a.rank} 名`)),
             el("td", {}, dash(a.club)), el("td", {}, awardEvidence(a)))))))) : null,
   ];
 }

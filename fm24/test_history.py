@@ -35,8 +35,9 @@ def test_every_source_cell_is_preserved(archive,payload,table):
 
 def test_plan_is_completed_without_claiming_all_tables_adopted(payload):
     assert not PENDING_INTEGRATION
-    assert len(payload['reference']['tables'])==24
-    assert payload['reference']['rowCount']==707
+    assert set(COMPLETED_P1_P2) <= payload['reference']['tables'].keys()
+    assert sum(len(payload['reference']['tables'][t]['rows']) for t in COMPLETED_P1_P2)==707
+    assert payload['reference']['rowCount']==sum(len(t['rows']) for t in payload['reference']['tables'].values())
 
 
 def test_explicit_world_cup_context_overrides_raw_heading(payload):
