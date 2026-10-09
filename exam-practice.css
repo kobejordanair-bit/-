@@ -7,14 +7,20 @@
 .exam-status { border-top: 1px dotted #888; margin: 0 14px; padding: 10px 0; display: flex; flex-wrap: wrap; gap: 14px; }
 .exam-status span { padding-right: 12px; border-right: 1px solid #bbb; }
 .exam-status b { color: #ff0055; font-family: sans-serif; }
-.exam-controls, .exam-setup { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 0; }
-.exam-controls button, .exam-setup button, .exam-dialog button { background: linear-gradient(#eee, #aaa, #ccc); border: 1px solid #888; border-radius: 5px; box-shadow: 1px 1px 4px #aaa; padding: 5px 10px; font-size: 14px; cursor: pointer; }
+.exam-controls, .exam-setup, .exam-saved-work { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 0; }
+.exam-controls button, .exam-setup button, .exam-saved-work button, .exam-dialog button { background: linear-gradient(#eee, #aaa, #ccc); border: 1px solid #888; border-radius: 5px; box-shadow: 1px 1px 4px #aaa; padding: 5px 10px; font-size: 14px; cursor: pointer; }
 .exam-practice button:disabled { opacity: .4; cursor: default; }
 .exam-practice button:focus-visible, .exam-practice select:focus-visible, .exam-practice input:focus-visible { outline: 2px solid #0077df; outline-offset: 2px; }
 .exam-controls .exam-help-button { background: #aedc6d; border: 0; box-shadow: none; border-radius: 16px; font-size: 18px; }
 .exam-controls select { border: 1px solid #888; font-family: serif; padding: 1px 4px; background: white; }
 .exam-setup { font-family: sans-serif; font-size: 13px; background: #f4f6ef; padding: 10px; }
 .exam-setup input { width: 65px; border: 1px solid #aaa; background: white; padding: 3px; }
+.exam-saved-work { font-family: sans-serif; font-size: 14px; background: #eef6e8; padding: 10px; border-bottom: 1px solid #c6d8bd; }
+.exam-saved-work label { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.exam-saved-work select { max-width: min(480px, 100%); border: 1px solid #999; padding: 4px; background: white; }
+.exam-saved-work small { flex-basis: 100%; color: #555; }
+.exam-save-status { color: #226426; }
+.exam-save-failed { color: #ae1534; font-weight: bold; }
 .exam-notice { font-size: 14px; padding: 8px; background: #edf6e4; }
 .exam-overflow-warning { color: #aa1742; font-family: sans-serif; font-size: 14px; padding: 8px; background: #fff0f0; }
 .exam-question { padding: 14px 0 4px; }
@@ -27,6 +33,10 @@
 .exam-editor-toolbar button { padding: 2px 4px; min-width: 22px; font-size: 16px; border: 1px solid transparent; cursor: pointer; line-height: 24px; }
 .exam-editor-toolbar button:hover:enabled { background: #eaf5d5; border-color: #8bad5c; }
 .exam-tool-separator { height: 23px; border-left: 1px solid #9ab879; margin: 0 3px; }
+.exam-format-toolbar { background: #e7f2d9; border-top: 1px solid #b2cb96; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 8px; font-family: sans-serif; font-size: 13px; }
+.exam-format-toolbar button { border: 1px solid #9ab879; border-radius: 3px; background: white; padding: 4px 7px; cursor: pointer; }
+.exam-format-toolbar button:hover:enabled { background: #d8edbc; }
+.exam-format-toolbar small { flex-basis: 100%; color: #425434; margin-top: 3px; }
 .exam-paper { width: 744px; position: relative; border: 2px solid #0075df; box-sizing: content-box; }
 .exam-paper-background { position: absolute; inset: 0; }
 .exam-paper-page { height: 900px; position: relative; background: repeating-linear-gradient(to bottom, white 0, white 34px, #7db3ec 34px, #7db3ec 36px); border-bottom: 2px solid #0075df; box-sizing: border-box; }

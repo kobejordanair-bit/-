@@ -5,13 +5,15 @@ import shutil
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / 'dist' / 'lawtype'
 FILES = (
-    'index.html', 'exam-practice.css', 'exam-practice.mjs', 'exam-tools.mjs',
+    'index.html', 'exam-practice.css', 'exam-practice.mjs', 'exam-tools.mjs', 'exam-storage.mjs',
     'typing-metrics.mjs', 'essay-tools.mjs', 'legal-import.mjs',
     'cloud-sync.mjs', 'supabase-sync.mjs', 'supabase-config.mjs',
 )
 
 
 def main():
+    if OUTPUT.resolve() != (ROOT.resolve() / 'dist' / 'lawtype'):
+        raise ValueError('Build output must stay inside this repository')
     for name in FILES:
         if not (ROOT / name).is_file():
             raise FileNotFoundError(name)

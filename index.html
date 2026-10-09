@@ -19,7 +19,9 @@
     import { buildEssayQuestion, buildEssayRecord } from './essay-tools.mjs';
     import { ExamPractice } from './exam-practice.mjs';
     import { decodeSession } from './exam-tools.mjs';
+    import * as ExamStorage from './exam-storage.mjs';
     window.ExamTools = { decodeSession };
+    window.ExamStorage = ExamStorage;
     window.ExamPractice = ExamPractice;
     window.dispatchEvent(new Event('exam-practice-ready'));
     window.LegalImport = { buildImportedDocument, normalizeApiBase, DEFAULT_LEGAL_API_BASE };
@@ -550,8 +552,11 @@
 
       const exportData = () => {
         const data = { customTexts, history, essayQuestions, essayHistory };
-        window.dispatchEvent(new Event('exam-save'));
-        try { data.examSession = window.ExamTools?.decodeSession(JSON.parse(localStorage.getItem('legalExamPracticeV1'))); } catch { /* No saved exam. */ }
+        window.dispatchEvent(new CustomEvent('exam-save', { detail: data }));
+        try {
+          if (!data.examSession) data.examSession = window.ExamTools?.decodeSession(JSON.parse(localStorage.getItem('legalExamPracticeV1')));
+          if (!data.examNotebook) data.examNotebook = window.ExamStorage?.decodeNotebook(JSON.parse(localStorage.getItem('legalExamNotebookV1')));
+        } catch { /* The active component already supplied the latest answers. */ }
         const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -560,7 +565,7 @@
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
         showToast('備份檔已匯出下載');
       };
 
@@ -571,6 +576,7 @@
         if (data.essayQuestions !== undefined && !Array.isArray(data.essayQuestions)) return false;
         if (data.essayHistory !== undefined && !Array.isArray(data.essayHistory)) return false;
         if (data.examSession != null && !window.ExamTools?.decodeSession(data.examSession)) return false;
+        if (data.examNotebook != null && !window.ExamStorage?.decodeNotebook(data.examNotebook)) return false;
         if (Array.isArray(data.customTexts)) {
           if (data.customTexts.some(d => !d.id || !d.title || !d.content)) return false;
         }
@@ -589,6 +595,11 @@
               showToast('匯入失敗：備份檔案格式不正確');
               return;
             }
+            if (data.examSession || data.examNotebook) {
+              const result = { ok: false };
+              window.dispatchEvent(new CustomEvent('exam-restore', { detail: { examSession: data.examSession, examNotebook: data.examNotebook, result } }));
+              if (!result.ok) { showToast('作答備份未能儲存，請確認瀏覽器儲存空間後重試。'); return; }
+            }
             if (data.customTexts) {
               setCustomTexts(data.customTexts);
               localStorage.setItem('legalTypingCustomTexts', JSON.stringify(data.customTexts));
@@ -604,10 +615,6 @@
             if (data.essayHistory) {
               setEssayHistory(data.essayHistory);
               localStorage.setItem('legalEssayHistory', JSON.stringify(data.essayHistory));
-            }
-            if (data.examSession) {
-              localStorage.setItem('legalExamPracticeV1', JSON.stringify(data.examSession));
-              window.dispatchEvent(new CustomEvent('exam-restore', { detail: data.examSession }));
             }
             showToast('備份資料匯入成功！');
           } catch (err) {

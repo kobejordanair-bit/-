@@ -21,16 +21,60 @@ export function parseNumberedLine(line) {
   if (!match) return null;
   const marker = match[2];
   const level = marker.startsWith('（') ? 1 : /^\d/.test(marker) ? 2 : /^\(\d/.test(marker) ? 3 : /^[A-Z]/.test(marker) ? 4 : /^[a-z]/.test(marker) ? 5 : 6;
-  return { level, prefix: match[0], content: line.slice(match[0].length) };
+  const label = marker.replace(/[（）().]/g, '');
+  let ordinal;
+  if (/^\d+$/.test(label)) ordinal = Number(label);
+  else if (level === 1) {
+    const parts = label.split('十');
+    ordinal = parts.length === 1 ? CHINESE_DIGITS.indexOf(label)
+      : (parts[0] ? CHINESE_DIGITS.indexOf(parts[0]) : 1) * 10 + (parts[1] ? CHINESE_DIGITS.indexOf(parts[1]) : 0);
+  } else ordinal = Array.from(label.toUpperCase()).reduce((value, letter) => value * 26 + letter.charCodeAt(0) - 64, 0);
+  if (!Number.isSafeInteger(ordinal) || ordinal < 0) return null;
+  return { level, ordinal, prefix: match[0], content: line.slice(match[0].length) };
 }
 function ordinalBefore(text, position, level) {
-  let count = 0;
   for (const line of text.slice(0, position).split('\n').reverse()) {
     const item = parseNumberedLine(line);
     if (item?.level < level) break;
-    if (item?.level === level) count++;
+    if (item?.level === level) return item.ordinal + 1;
   }
-  return count + 1;
+  return 1;
+}
+// Chinese numerals and fullwidth parentheses occupy two columns in the paper's
+// CJK monospace font; aligning by JavaScript string length puts text too far left.
+const continuationPrefix = prefix => prefix.match(/^\t*/)[0] + ' '.repeat(
+  Array.from(prefix.replace(/^\t*/, '')).reduce((columns, char) => columns + (char.charCodeAt(0) > 127 ? 2 : 1), 0),
+);
+
+// Only run after an explicit outline edit, never while loading a saved answer.
+// Starting with the actual preceding labels preserves deliberately chosen first
+// numbers, while insertion/removal keeps later siblings and child blocks coherent.
+function repairFollowing(text, caret, scopeLevel, continuation = null) {
+  const lines = text.split('\n');
+  const anchor = text.slice(0, caret).split('\n').length - 1;
+  const ordinals = Array(7).fill(0);
+  const remember = item => {
+    ordinals[item.level] = item.ordinal;
+    ordinals.fill(0, item.level + 1);
+  };
+  for (let index = 0; index <= anchor; index++) {
+    const item = parseNumberedLine(lines[index]);
+    if (item) remember(item);
+  }
+  for (let index = anchor + 1; index < lines.length; index++) {
+    const item = parseNumberedLine(lines[index]);
+    if (item) {
+      if (item.level < scopeLevel) break;
+      const ordinal = ordinals[item.level] + 1;
+      const prefix = item.prefix.match(/^\t*/)[0] + numbering(item.level, ordinal) + ' ';
+      lines[index] = prefix + item.content;
+      continuation = { before: continuationPrefix(item.prefix), after: continuationPrefix(prefix) };
+      remember({ level: item.level, ordinal });
+    } else if (continuation && lines[index].startsWith(continuation.before)) {
+      lines[index] = continuation.after + lines[index].slice(continuation.before.length);
+    } else continuation = null;
+  }
+  return { text: lines.join('\n'), caret };
 }
 export function replaceSelection(text, start, end, insertion) {
   return { text: text.slice(0, start) + insertion + text.slice(end), caret: start + insertion.length };
@@ -41,13 +85,20 @@ export function changeNumbering(text, position, action) {
   const line = text.slice(start, end < 0 ? text.length : end);
   const current = parseNumberedLine(line);
   let level = current?.level || 1;
+  if (Number.isInteger(action) && action >= 0 && action <= 6) level = action;
   if (action === 'toggle' && current) level = 0;
   if (action === 'outdent') level = Math.max(1, level - 1);
   if (action === 'indent') level = Math.min(6, level + 1);
   const body = current ? current.content : line.replace(/^\t+/, '');
-  const prefix = level ? '\t'.repeat(level - 1) + numbering(level, ordinalBefore(text, start, level)) + ' ' : '';
+  const ordinal = current?.level === level ? current.ordinal : ordinalBefore(text, start, level);
+  const prefix = level ? '\t'.repeat(level - 1) + numbering(level, ordinal) + ' ' : '';
   const replacement = prefix + body;
-  return { text: text.slice(0, start) + replacement + text.slice(end < 0 ? text.length : end), caret: Math.max(start + prefix.length, position + prefix.length - (current?.prefix.length || 0)) };
+  const updated = text.slice(0, start) + replacement + text.slice(end < 0 ? text.length : end);
+  const caret = Math.min(start + replacement.length, Math.max(start + prefix.length, position + prefix.length - (current?.prefix.length || line.length - body.length)));
+  if (!current && !level) return { text: updated, caret };
+  return repairFollowing(updated, caret, Math.min(current?.level || 7, level || 7), current ? {
+    before: continuationPrefix(current.prefix), after: prefix ? continuationPrefix(prefix) : '',
+  } : null);
 }
 export function enterParagraph(text, start, end, soft = false) {
   const lineStart = text.lastIndexOf('\n', start - 1) + 1;
@@ -67,9 +118,12 @@ export function enterParagraph(text, start, end, soft = false) {
     if (current.level > 1) return changeNumbering(text, start, 'outdent');
     return changeNumbering(text, start, 'toggle');
   }
-  const prefix = soft ? '\t'.repeat(current.level - 1) + ' '.repeat(current.prefix.trimStart().length)
+  const prefix = soft ? continuationPrefix(current.prefix)
     : '\t'.repeat(current.level - 1) + numbering(current.level, ordinalBefore(text, start, current.level)) + ' ';
-  return replaceSelection(text, start, end, '\n' + prefix);
+  const result = replaceSelection(text, start, end, '\n' + prefix);
+  return soft ? result : repairFollowing(result.text, result.caret, current.level, {
+    before: continuationPrefix(current.prefix), after: continuationPrefix(prefix),
+  });
 }
 
 // Measure each grapheme with the same font as the paper. Every explicit newline
