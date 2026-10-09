@@ -44,6 +44,24 @@ class FakeDocumentClient:
         }
 
 
+def test_custom_typing_domain_is_allowed_by_default_cors(monkeypatch):
+    monkeypatch.delenv('CORS_ORIGINS', raising=False)
+    client = TestClient(create_app(search_client=FakeSearchClient(), document_client=FakeDocumentClient()))
+    allowed = client.options('/api/judgments/search', headers={
+        'Origin': 'https://lawtype.piamamba.com',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'content-type',
+    })
+    assert allowed.status_code == 200
+    assert allowed.headers['access-control-allow-origin'] == 'https://lawtype.piamamba.com'
+    denied = client.options('/api/judgments/search', headers={
+        'Origin': 'https://unrelated.example',
+        'Access-Control-Request-Method': 'POST',
+    })
+    assert denied.status_code == 400
+    assert 'access-control-allow-origin' not in denied.headers
+
+
 def test_root_explains_that_this_is_an_api_service():
     app = create_app(search_client=FakeSearchClient(), document_client=FakeDocumentClient())
     client = TestClient(app)

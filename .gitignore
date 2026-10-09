@@ -7,3 +7,6 @@ backend/*.db
 
 # Editor and OS files
 .DS_Store
+
+# Generated Cloudflare Pages frontend
+dist/

@@ -9,4 +9,4 @@ services:
     healthCheckPath: /health
     envVars:
       - key: CORS_ORIGINS
-        value: https://kobejordanair-bit.github.io
+        value: https://kobejordanair-bit.github.io,https://lawtype.piamamba.com

@@ -1,0 +1,46 @@
+.exam-practice { color: #111; font-family: "PMingLiU", "新細明體", serif; background: white; padding: 16px; }
+.exam-practice[hidden] { display: none; }
+.exam-summary { background: #eee; border: 1px solid #bbc9b6; border-radius: 5px 5px 0 0; }
+.exam-summary h2 { background: linear-gradient(white, #b9e3a5, #eef8e8); border-bottom: 1px solid #b3d0a5; font-size: 18px; font-weight: bold; padding: 4px 10px; margin: 0; }
+.exam-identity { display: flex; flex-wrap: wrap; gap: 40px; padding: 6px 14px; font-size: 18px; }
+.exam-summary > p { padding: 0 14px 12px; margin: 0; font-size: 18px; }
+.exam-status { border-top: 1px dotted #888; margin: 0 14px; padding: 10px 0; display: flex; flex-wrap: wrap; gap: 14px; }
+.exam-status span { padding-right: 12px; border-right: 1px solid #bbb; }
+.exam-status b { color: #ff0055; font-family: sans-serif; }
+.exam-controls, .exam-setup { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 0; }
+.exam-controls button, .exam-setup button, .exam-dialog button { background: linear-gradient(#eee, #aaa, #ccc); border: 1px solid #888; border-radius: 5px; box-shadow: 1px 1px 4px #aaa; padding: 5px 10px; font-size: 14px; cursor: pointer; }
+.exam-practice button:disabled { opacity: .4; cursor: default; }
+.exam-practice button:focus-visible, .exam-practice select:focus-visible, .exam-practice input:focus-visible { outline: 2px solid #0077df; outline-offset: 2px; }
+.exam-controls .exam-help-button { background: #aedc6d; border: 0; box-shadow: none; border-radius: 16px; font-size: 18px; }
+.exam-controls select { border: 1px solid #888; font-family: serif; padding: 1px 4px; background: white; }
+.exam-setup { font-family: sans-serif; font-size: 13px; background: #f4f6ef; padding: 10px; }
+.exam-setup input { width: 65px; border: 1px solid #aaa; background: white; padding: 3px; }
+.exam-notice { font-size: 14px; padding: 8px; background: #edf6e4; }
+.exam-overflow-warning { color: #aa1742; font-family: sans-serif; font-size: 14px; padding: 8px; background: #fff0f0; }
+.exam-question { padding: 14px 0 4px; }
+.exam-question h3 { font-size: 21px; margin: 0 0 6px; }
+.exam-question p { white-space: pre-wrap; font-size: 16px; line-height: 20px; margin: 5px 0; }
+.exam-question summary { cursor: pointer; }
+.exam-paper-scroll { overflow-x: auto; padding: 0 24px; }
+.exam-paper-shell { width: 744px; margin: 0 auto; }
+.exam-editor-toolbar { background: #cfe8a6; min-height: 42px; display: flex; align-items: center; flex-wrap: wrap; padding: 4px 9px; gap: 2px; }
+.exam-editor-toolbar button { padding: 2px 4px; min-width: 22px; font-size: 16px; border: 1px solid transparent; cursor: pointer; line-height: 24px; }
+.exam-editor-toolbar button:hover:enabled { background: #eaf5d5; border-color: #8bad5c; }
+.exam-tool-separator { height: 23px; border-left: 1px solid #9ab879; margin: 0 3px; }
+.exam-paper { width: 744px; position: relative; border: 2px solid #0075df; box-sizing: content-box; }
+.exam-paper-background { position: absolute; inset: 0; }
+.exam-paper-page { height: 900px; position: relative; background: repeating-linear-gradient(to bottom, white 0, white 34px, #7db3ec 34px, #7db3ec 36px); border-bottom: 2px solid #0075df; box-sizing: border-box; }
+.exam-paper-overflow { background: repeating-linear-gradient(to bottom, #aaa 0, #aaa 34px, #777 34px, #777 36px); }
+.exam-page-label, .exam-page-instruction { position: absolute; top: 4px; color: #0081ff; writing-mode: vertical-rl; font-size: 16px; letter-spacing: 3px; }
+.exam-page-label { left: -25px; }
+.exam-page-instruction { right: -25px; }
+.exam-text { position: absolute; inset: 0; display: block; box-sizing: border-box; width: 744px; height: 100%; margin: 0; padding: 0 18px; border: 0; background: transparent; font: 20px "Noto Sans Mono CJK TC", "Microsoft JhengHei", monospace; line-height: 36px; tab-size: 4; white-space: pre; letter-spacing: 0; overflow: hidden; }
+.exam-answer { resize: none; outline: none; z-index: 2; white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; }
+.exam-answer::selection { background: #8bcaff80; }
+.exam-dialog-backdrop { position: fixed; inset: 0; z-index: 100; background: #0002; display: flex; align-items: flex-start; justify-content: center; padding: 60px 16px; overflow-y: auto; }
+.exam-dialog { width: 780px; max-width: 100%; background: #eee; border: 2px solid #aaa; border-radius: 16px; padding: 12px; line-height: 1.6; box-shadow: 0 8px 24px #0002; }
+.exam-dialog h3 { margin: 0; font-weight: bold; }
+.exam-dialog pre { background: #fff; border: 1px solid #777; color: #2372a5; padding: 8px 20px; width: fit-content; }
+.exam-dialog strong { color: red; }
+.exam-dialog button { float: right; }
+.exam-dialog::after { content: ''; display: block; clear: both; }

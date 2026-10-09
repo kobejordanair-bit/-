@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>法學文獻打字訓練系統</title>
+  <link rel="stylesheet" href="./exam-practice.css">
   
   <!-- 載入 React 與 Babel -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -16,6 +17,11 @@
     import { buildImportedDocument, normalizeApiBase, DEFAULT_LEGAL_API_BASE } from './legal-import.mjs';
     import { analyzeTyping, calculateCpm, countWritingCharacters } from './typing-metrics.mjs';
     import { buildEssayQuestion, buildEssayRecord } from './essay-tools.mjs';
+    import { ExamPractice } from './exam-practice.mjs';
+    import { decodeSession } from './exam-tools.mjs';
+    window.ExamTools = { decodeSession };
+    window.ExamPractice = ExamPractice;
+    window.dispatchEvent(new Event('exam-practice-ready'));
     window.LegalImport = { buildImportedDocument, normalizeApiBase, DEFAULT_LEGAL_API_BASE };
     window.TypingMetrics = { analyzeTyping, calculateCpm, countWritingCharacters };
     window.EssayTools = { buildEssayQuestion, buildEssayRecord };
@@ -200,6 +206,13 @@
       const [legalError, setLegalError] = useState('');
       const [typingAnalysis, setTypingAnalysis] = useState(null);
       const [workspace, setWorkspace] = useState('copy');
+      const [examReady, setExamReady] = useState(() => !!window.ExamPractice);
+      useEffect(() => {
+        const ready = () => setExamReady(!!window.ExamPractice);
+        ready();
+        window.addEventListener('exam-practice-ready', ready);
+        return () => window.removeEventListener('exam-practice-ready', ready);
+      }, []);
       const [essayQuestions, setEssayQuestions] = useState(() => {
         try { return JSON.parse(localStorage.getItem('legalEssayQuestions')) || []; } catch { return []; }
       });
@@ -537,6 +550,8 @@
 
       const exportData = () => {
         const data = { customTexts, history, essayQuestions, essayHistory };
+        window.dispatchEvent(new Event('exam-save'));
+        try { data.examSession = window.ExamTools?.decodeSession(JSON.parse(localStorage.getItem('legalExamPracticeV1'))); } catch { /* No saved exam. */ }
         const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -555,6 +570,7 @@
         if (data.history !== undefined && !Array.isArray(data.history)) return false;
         if (data.essayQuestions !== undefined && !Array.isArray(data.essayQuestions)) return false;
         if (data.essayHistory !== undefined && !Array.isArray(data.essayHistory)) return false;
+        if (data.examSession != null && !window.ExamTools?.decodeSession(data.examSession)) return false;
         if (Array.isArray(data.customTexts)) {
           if (data.customTexts.some(d => !d.id || !d.title || !d.content)) return false;
         }
@@ -588,6 +604,10 @@
             if (data.essayHistory) {
               setEssayHistory(data.essayHistory);
               localStorage.setItem('legalEssayHistory', JSON.stringify(data.essayHistory));
+            }
+            if (data.examSession) {
+              localStorage.setItem('legalExamPracticeV1', JSON.stringify(data.examSession));
+              window.dispatchEvent(new CustomEvent('exam-restore', { detail: data.examSession }));
             }
             showToast('備份資料匯入成功！');
           } catch (err) {
@@ -1048,6 +1068,9 @@
                 <button onClick={() => setWorkspace('essay')} className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors shadow-sm ${workspace === 'essay' ? 'bg-amber-700 text-white border-amber-700' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
                   <span>✍️</span> 申論作答
                 </button>
+                <button onClick={() => setWorkspace('exam')} className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors shadow-sm ${workspace === 'exam' ? 'bg-lime-700 text-white border-lime-700' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
+                  <span>📝</span> 模擬考試
+                </button>
                 <button onClick={() => {
                   setEditDocId(null);
                   setNewDocForm({ category: '自訂', title: '', content: '' });
@@ -1075,6 +1098,9 @@
               )) : <span className="text-xs text-slate-500">等待建立雲端資料庫設定</span>}
             </div>
 
+            {examReady && <window.ExamPractice questions={essayQuestions} active={workspace === 'exam'} onImport={() => { setEssayForm({ title: '', content: '' }); setShowEssayModal(true); }} />}
+            {workspace === 'exam' && !examReady && <p role="status">正在載入模擬考試作答區…</p>}
+
             {workspace === 'essay' && (
               <div className="space-y-5">
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
@@ -1092,7 +1118,7 @@
               </div>
             )}
 
-            <div className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center gap-4 ${workspace === 'essay' ? 'hidden' : ''}`}>
+            <div className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center gap-4 ${workspace !== 'copy' ? 'hidden' : ''}`}>
               <div className="flex items-center gap-2 w-full md:w-auto flex-1">
                 <select className="w-full md:w-64 bg-slate-50 border border-slate-300 text-slate-700 py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" onChange={handleDocChange} value={selectedDoc.id}>
                   <optgroup label="內建題庫">
@@ -1155,7 +1181,7 @@
               </div>
             </div>
 
-            <div className={`grid grid-cols-2 md:grid-cols-5 gap-4 ${workspace === 'essay' ? 'hidden' : ''}`}>
+            <div className={`grid grid-cols-2 md:grid-cols-5 gap-4 ${workspace !== 'copy' ? 'hidden' : ''}`}>
               <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
                 <div className="p-3 bg-blue-50 text-blue-600 rounded-lg text-xl">⚡</div>
                 <div>
@@ -1200,7 +1226,7 @@
               </button>
             </div>
 
-            <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative group ${workspace === 'essay' ? 'hidden' : ''}`}>
+            <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative group ${workspace !== 'copy' ? 'hidden' : ''}`}>
               {isFinished && (
                 <div className="absolute inset-0 bg-white/95 backdrop-blur-sm flex flex-col z-20 p-6 md:p-8 overflow-y-auto">
                   <div className="flex flex-col items-center">

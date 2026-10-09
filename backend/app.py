@@ -24,7 +24,7 @@ from mcp_server.tools.judicial_search import JudicialSearchClient
 from mcp_server.tools.waf_bypass import JudicialWAFBypass, WAFPermanentBlockError
 
 JID_PATTERN = re.compile(r"^[A-Z]{2,6},\d+,[^,]+,[0-9A-Za-z-]+,\d{8},\d+$")
-DEFAULT_ORIGINS = "https://kobejordanair-bit.github.io,http://localhost:5173,http://127.0.0.1:5173,http://localhost:8012,http://127.0.0.1:8012"
+DEFAULT_ORIGINS = "https://kobejordanair-bit.github.io,https://lawtype.piamamba.com,http://localhost:5173,http://127.0.0.1:5173,http://localhost:8012,http://127.0.0.1:8012"
 _DEFAULT_SSL_CONTEXT_FACTORY = ssl.create_default_context
 
 
