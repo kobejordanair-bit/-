@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>法學文獻打字訓練系統</title>
-  <link rel="stylesheet" href="./exam-practice.css">
+  <link rel="stylesheet" href="./exam-practice.css?v=20261009-exam-save-2">
   
   <!-- 載入 React 與 Babel -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -17,9 +17,9 @@
     import { buildImportedDocument, normalizeApiBase, DEFAULT_LEGAL_API_BASE } from './legal-import.mjs';
     import { analyzeTyping, calculateCpm, countWritingCharacters } from './typing-metrics.mjs';
     import { buildEssayQuestion, buildEssayRecord } from './essay-tools.mjs';
-    import { ExamPractice } from './exam-practice.mjs';
-    import { decodeSession } from './exam-tools.mjs';
-    import * as ExamStorage from './exam-storage.mjs';
+    import { ExamPractice } from './exam-practice.mjs?v=20261009-exam-save-2';
+    import { decodeSession } from './exam-tools.mjs?v=20261009-exam-save-2';
+    import * as ExamStorage from './exam-storage.mjs?v=20261009-exam-save-2';
     window.ExamTools = { decodeSession };
     window.ExamStorage = ExamStorage;
     window.ExamPractice = ExamPractice;

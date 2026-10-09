@@ -1,4 +1,4 @@
-import { decodeSession } from './exam-tools.mjs';
+import { decodeSession } from './exam-tools.mjs?v=20261009-exam-save-2';
 
 export const EXAM_NOTEBOOK_KEY = 'legalExamNotebookV1';
 export const LEGACY_EXAM_KEY = 'legalExamPracticeV1';

@@ -1,5 +1,5 @@
-import { MAX_PAGES, LINES_PER_PAGE, LINE_HEIGHT, changeNumbering, enterParagraph, replaceSelection, layoutAnswer, remainingSeconds, decodeSession } from './exam-tools.mjs';
-import { loadNotebook, persistNotebook, decodeNotebook, mergeNotebooks, createEntryId } from './exam-storage.mjs';
+import { MAX_PAGES, LINES_PER_PAGE, LINE_HEIGHT, changeNumbering, enterParagraph, replaceSelection, layoutAnswer, remainingSeconds, decodeSession } from './exam-tools.mjs?v=20261009-exam-save-2';
+import { loadNotebook, persistNotebook, decodeNotebook, mergeNotebooks, createEntryId } from './exam-storage.mjs?v=20261009-exam-save-2';
 
 const FONT = '20px "Noto Sans Mono CJK TC", "Microsoft JhengHei", monospace';
 const DEFAULT_QUESTIONS = [
